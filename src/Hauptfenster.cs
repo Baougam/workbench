@@ -26,7 +26,7 @@ namespace Workbench
     /// </summary>
     class Hauptfenster : Window
     {
-        public const int Befristet = 0, Dauerhaft = 1, Wolke = 2, Korb = 3, Einst = 4;
+        public const int Befristet = 0, Dauerhaft = 1, Wolke = 2, Korb = 3, Einst = 4, Netzansicht = 5;
         const int Ebenen = 3;
         const double Abstand = 34;
 
@@ -47,7 +47,7 @@ namespace Workbench
         readonly TranslateTransform knopfY = new TranslateTransform();
         FrameworkElement knopf;
         readonly List<Button> stufen = new List<Button>();
-        Button btnKorb, btnEinst;
+        Button btnKorb, btnEinst, btnNetz;
         Ellipse korbPunkt;
         readonly Border leiste = new Border();
         readonly StackPanel leisteInhalt = new StackPanel { Orientation = Orientation.Horizontal };
@@ -140,6 +140,7 @@ namespace Workbench
                 };
                 StateChanged += delegate { wurzel.Margin = WindowState == WindowState.Maximized ? new Thickness(7) : new Thickness(0); };
                 PreviewKeyDown += Tasten;
+                PreviewMouseWheel += Rad;
                 TextInput += Tippen;
                 IsVisibleChanged += delegate { if (IsVisible && veraltet) Neuzeichnen(); };
                 Loaded += delegate { KorbLesen(); };
@@ -231,6 +232,12 @@ namespace Workbench
             suche.TextChanged += delegate { Neuzeichnen(); };
             suche.LostKeyboardFocus += delegate { if (suche.Text.Length == 0) SucheZu(); };
             WindowChrome.SetIsHitTestVisibleInChrome(suchFeld, true);
+            // unscheinbar: die Ansicht von oben (Netz)
+            btnNetz = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 30, Height = 30, Content = UI.Icon(Ikon.Netz, 15, LabelLeise, 1.7), ToolTip = "Von oben (Strg+G)", Margin = new Thickness(0, 0, 2, 0), VerticalAlignment = VerticalAlignment.Center };
+            System.Windows.Automation.AutomationProperties.SetName(btnNetz, "Von oben");
+            WindowChrome.SetIsHitTestVisibleInChrome(btnNetz, true);
+            btnNetz.Click += delegate { Zeige(ansicht == Netzansicht ? letzteEbene : Netzansicht); };
+            rechts.Children.Add(btnNetz);
             rechts.Children.Add(suchFeld);
             rechts.Children.Add(FensterKnopf(Ikon.Minus, "Minimieren", "Fensterknopf", () => WindowState = WindowState.Minimized));
             rechts.Children.Add(FensterKnopf(Ikon.Quadrat, "Maximieren", "Fensterknopf", () => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized));
@@ -288,7 +295,6 @@ namespace Workbench
                 regler.Children.Add(b);
             }
             regler.Children.Add(k);
-            regler.MouseWheel += (s, e) => { Schritt(e.Delta < 0 ? 1 : -1); e.Handled = true; };
             g.Children.Add(regler);
 
             var unten = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 16) };
@@ -339,6 +345,7 @@ namespace Workbench
             }
             btnKorb.Background = neu == Korb ? Schwebe : Brushes.Transparent;
             btnEinst.Background = neu == Einst ? Schwebe : Brushes.Transparent;
+            btnNetz.Background = neu == Netzansicht ? Schwebe : Brushes.Transparent;
             // so viele Blattkanten, wie Ebenen darunter liegen
             int darunter = neu < Ebenen ? Ebenen - 1 - neu : 0;
             for (int i = 0; i < 2; i++)
@@ -386,6 +393,7 @@ namespace Workbench
                 case Dauerhaft: v = FlaecheOrdner(false); break;
                 case Wolke: v = FlaecheOrdner(true); break;
                 case Korb: v = FlaecheKorb(); break;
+                case Netzansicht: v = FlaecheNetz(); break;
                 default: v = FlaecheEinstellungen(); break;
             }
             buehne.Children.Clear();
@@ -398,6 +406,22 @@ namespace Workbench
 
         string Filter { get { return suche == null ? "" : suche.Text.Trim(); } }
         bool Passt(string name) { return Filter.Length == 0 || name.IndexOf(Filter, StringComparison.OrdinalIgnoreCase) >= 0; }
+
+        /// <summary>Die Ansicht von oben – Dauerhaft und Cloud als Netz.</summary>
+        FrameworkElement FlaecheNetz()
+        {
+            OrtSetzen("Netz");
+            var wurzeln = new List<CloudOrt> { new CloudOrt { Name = "Dauerhaft", Pfad = Paths.Dauerhaft } };
+            if (wolke != null) wurzeln.Add(wolke);
+            return new Netz(wurzeln, (pfad, cloud) =>
+            {
+                int ziel = cloud ? Wolke : Dauerhaft;
+                string jetzt = AktOrdner(cloud);
+                if (jetzt != null && !Paths.Gleich(jetzt, pfad)) { zurueckListe[cloud ? 1 : 0].Push(jetzt); vorListe[cloud ? 1 : 0].Clear(); }
+                if (cloud) ordnerWolke = pfad; else ordnerDauerhaft = pfad;
+                Zeige(ziel);
+            });
+        }
 
         void OrtSetzen(string titel)
         {
@@ -516,14 +540,7 @@ namespace Workbench
         /// <summary>Symbole laufen wie auf dem Desktop in Spalten. Mausrad / zwei Finger hoch-runter blättern seitwärts durch.</summary>
         static ScrollViewer Rollen(UIElement inhalt)
         {
-            var sv = new ScrollViewer { Content = inhalt, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Focusable = false, CanContentScroll = false };
-            sv.PreviewMouseWheel += (s, a) =>
-            {
-                if (sv.ScrollableWidth <= 0) return;
-                sv.ScrollToHorizontalOffset(sv.HorizontalOffset - a.Delta);
-                a.Handled = true;
-            };
-            return sv;
+            return new ScrollViewer { Content = inhalt, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Focusable = false, CanContentScroll = false };
         }
 
         static FrameworkElement Leer(string icon)
@@ -657,6 +674,12 @@ namespace Workbench
 
         void Betreten(bool cloud, string ordner)
         {
+            string jetzt = AktOrdner(cloud);
+            if (jetzt != null && !Paths.Gleich(jetzt, ordner))
+            {
+                zurueckListe[cloud ? 1 : 0].Push(jetzt);
+                vorListe[cloud ? 1 : 0].Clear();
+            }
             if (cloud) ordnerWolke = ordner; else ordnerDauerhaft = ordner;
             auswahl = null;
             if (Filter.Length > 0) suche.Text = "";
@@ -688,6 +711,7 @@ namespace Workbench
                 }
                 ort.Children.Add(tb);
             }
+            PfeileSetzen(cloud);
 
             var eintraege = new List<string>();
             try
@@ -1210,13 +1234,17 @@ namespace Workbench
             else if (a.Key == Key.Escape)
             {
                 if (suche.Text.Length > 0) { suche.Text = ""; SucheZu(); Keyboard.ClearFocus(); }
+                else if (ansicht == Netzansicht) Zeige(letzteEbene);
                 else if (auswahl != null) Waehle(null);
                 else Schliessen();
                 a.Handled = true;
             }
             else if (imText) return;
-            else if (a.Key == Key.Right || a.Key == Key.Down || a.Key == Key.PageDown) { Schritt(1); a.Handled = true; }
-            else if (a.Key == Key.Left || a.Key == Key.Up || a.Key == Key.PageUp) { Schritt(-1); a.Handled = true; }
+            else if (strg && a.Key == Key.G) { Zeige(ansicht == Netzansicht ? letzteEbene : Netzansicht); a.Handled = true; }
+            else if (a.Key == Key.Down || a.Key == Key.PageDown) { Schritt(1); a.Handled = true; }
+            else if (a.Key == Key.Up || a.Key == Key.PageUp) { Schritt(-1); a.Handled = true; }
+            else if (a.Key == Key.Left || (a.SystemKey == Key.Left)) { Zurueck(); a.Handled = true; }
+            else if (a.Key == Key.Right || (a.SystemKey == Key.Right)) { Vor(); a.Handled = true; }
             else if (a.Key == Key.Back && (ansicht == Dauerhaft || ansicht == Wolke))
             {
                 bool c = ansicht == Wolke;
@@ -1245,23 +1273,106 @@ namespace Workbench
             }
         }
 
-        // Touchpad: zwei Finger seitlich wischen wechselt die Ebene (WM_MOUSEHWHEEL).
-        int wischSumme;
-        DateTime wischSperre;
+        // ---------- Gesten ----------
+        // Zwei Finger hoch/runter (Mausrad) = Ebene wechseln. Zwei Finger links/rechts = im Ordner zurück/vor.
+        // Jede Wischbewegung zählt einmal: Summe sammeln, dann kurz sperren – sonst rattert es durch.
+        int wischSumme, radSumme;
+        DateTime wischSperre, radSperre;
+
+        void Rad(object s, MouseWheelEventArgs a)
+        {
+            if ((Keyboard.Modifiers & ModifierKeys.Control) != 0) return;    // Strg+Rad / Zusammenziehen: Zoom im Netz
+            if (Keyboard.FocusedElement is TextBox && ((TextBox)Keyboard.FocusedElement).AcceptsReturn) return;
+            a.Handled = true;
+            if (DateTime.UtcNow < radSperre) { radSumme = 0; return; }
+            radSumme += a.Delta;
+            if (Math.Abs(radSumme) >= 120)
+            {
+                Schritt(radSumme < 0 ? 1 : -1);
+                radSumme = 0;
+                radSperre = DateTime.UtcNow.AddMilliseconds(520);
+            }
+        }
+
         IntPtr Wischen(IntPtr hwnd, int msg, IntPtr w, IntPtr l, ref bool handled)
         {
-            if (msg != 0x020E) return IntPtr.Zero;
+            if (msg == 0x020B)   // WM_XBUTTONUP: seitliche Maustasten
+            {
+                int knopf = (int)((w.ToInt64() >> 16) & 0xFFFF);
+                if (knopf == 1) Zurueck(); else if (knopf == 2) Vor();
+                return IntPtr.Zero;
+            }
+            if (msg != 0x020E) return IntPtr.Zero;    // WM_MOUSEHWHEEL
             int delta = (short)((w.ToInt64() >> 16) & 0xFFFF);
             handled = true;
-            if (DateTime.UtcNow < wischSperre) return IntPtr.Zero;
+            if (DateTime.UtcNow < wischSperre) { wischSumme = 0; return IntPtr.Zero; }
             wischSumme += delta;
-            if (Math.Abs(wischSumme) >= 240)
+            if (Math.Abs(wischSumme) >= 160)
             {
-                Schritt(wischSumme > 0 ? 1 : -1);
+                if (wischSumme < 0) Zurueck(); else Vor();     // Finger nach rechts = zurück (wie im Browser)
                 wischSumme = 0;
-                wischSperre = DateTime.UtcNow.AddMilliseconds(450);
+                wischSperre = DateTime.UtcNow.AddMilliseconds(520);
             }
             return IntPtr.Zero;
+        }
+
+        // ---------- Ordner-Verlauf ----------
+        readonly Stack<string>[] zurueckListe = { new Stack<string>(), new Stack<string>() };
+        readonly Stack<string>[] vorListe = { new Stack<string>(), new Stack<string>() };
+        bool ImOrdner { get { return ansicht == Dauerhaft || ansicht == Wolke; } }
+        int VerlaufNr { get { return ansicht == Wolke ? 1 : 0; } }
+
+        void Zurueck()
+        {
+            if (!ImOrdner || zurueckListe[VerlaufNr].Count == 0) return;
+            bool c = ansicht == Wolke;
+            vorListe[VerlaufNr].Push(AktOrdner(c));
+            Gehen(c, zurueckListe[VerlaufNr].Pop(), -1);
+        }
+
+        void Vor()
+        {
+            if (!ImOrdner || vorListe[VerlaufNr].Count == 0) return;
+            bool c = ansicht == Wolke;
+            zurueckListe[VerlaufNr].Push(AktOrdner(c));
+            Gehen(c, vorListe[VerlaufNr].Pop(), 1);
+        }
+
+        void Gehen(bool cloud, string ordner, int richtung)
+        {
+            if (cloud) ordnerWolke = ordner; else ordnerDauerhaft = ordner;
+            auswahl = null;
+            if (Filter.Length > 0) suche.Text = "";
+            Neuzeichnen();
+            if (!bild && buehne.Children.Count > 0)
+            {
+                var el = buehne.Children[0];
+                var tt = new TranslateTransform();
+                el.RenderTransform = tt;
+                tt.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(richtung * 36, 0, TimeSpan.FromMilliseconds(240)) { EasingFunction = UI.Weich });
+                el.BeginAnimation(OpacityProperty, new DoubleAnimation(0.3, 1, TimeSpan.FromMilliseconds(200)));
+            }
+        }
+
+        /// <summary>Graue ‹ › vor dem Ordnernamen – nur sichtbar, sobald man in einem Ordner unterwegs ist.</summary>
+        void PfeileSetzen(bool cloud)
+        {
+            int nr = cloud ? 1 : 0;
+            bool zur = zurueckListe[nr].Count > 0, vor = vorListe[nr].Count > 0;
+            if (!zur && !vor) return;
+            var sp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(-8, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
+            sp.Children.Add(Pfeil(Ikon.Links, "Zurück", zur, Zurueck));
+            sp.Children.Add(Pfeil(Ikon.Rechts, "Vor", vor, Vor));
+            ort.Children.Insert(0, sp);
+        }
+
+        Button Pfeil(string icon, string name, bool an, Action a)
+        {
+            var b = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 26, Height = 26, Content = UI.Icon(icon, 13, Farbe.B(an ? "#8CFFFFFF" : "#2EFFFFFF"), 2), IsEnabled = an, ToolTip = name };
+            System.Windows.Automation.AutomationProperties.SetName(b, name);
+            WindowChrome.SetIsHitTestVisibleInChrome(b, true);
+            b.Click += delegate { a(); };
+            return b;
         }
 
         /// <summary>

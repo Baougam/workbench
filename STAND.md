@@ -54,6 +54,15 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
   Bernstein-Punkt am Zahnrad + „x.y.z ist da“ unter den Einstellungen (Link auf GitHub-Releases). Lädt/installiert nichts.
   **Bei jeder neuen Version `VERSION` und `Program.Version` gleich hochzählen.**
 
+- **Notizen** auf Ebene 2/3: Doppelklick auf leere Stelle = neue Notiz, Doppelklick auf Notiz = schreiben (Esc/Strg+Enter fertig,
+  leer = weg), verschieben, färben, mit Linien verbinden. In `anordnung.json` (Notizen je Ordner, Linien-Schlüssel `§<Id>`).
+- **Netz (Ansicht von oben)**: unscheinbares Symbol oben neben der Lupe oder Strg+G. Dauerhaft (4 Ebenen tief) + Cloud (2 tief),
+  max. 280 Ordner, im Hintergrund gelesen. Kräfte-Layout pendelt sich ein und stoppt (keine Dauerlast). Darüberfahren =
+  Nachbarn hervorheben, Klick = Ordner öffnen, ziehen = verschieben, Strg+Rad/Zusammenziehen = Zoom, Esc = zurück.
+- **Gesten (Wunsch des Nutzers, verbindlich)**: zwei Finger **hoch/runter** (Mausrad) = **Ebene**; zwei Finger **links/rechts**
+  = im Ordner **zurück/vor** (rechts wischen = zurück). Pfeiltasten ↑↓ = Ebene, ←→ = zurück/vor; seitliche Maustasten, Alt+←/→.
+  Graue ‹ › vor dem Ordnernamen erscheinen, sobald es einen Verlauf gibt.
+
 ## Nächste Schritte (Vorschläge)
 
 1. Auf dem echten PC installieren und durchklicken (Seitenleiste in Word-Speichern-Dialog, Autostart nach Neustart).

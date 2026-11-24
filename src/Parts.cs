@@ -72,9 +72,20 @@ namespace Workbench
                 g.Children.Add(o);
                 return g;
             }
-            var platz = UI.DateiPlatzhalter(Path.GetExtension(pfad), breite * 0.82, hoehe);
-            g.Children.Add(platz);
             int px = (int)Math.Ceiling(Math.Max(breite, hoehe) * 2);
+            // schon geladen? Dann sofort zeigen – kein Platzhalter, kein Überblenden, nichts springt.
+            BitmapSource fertigesBild;
+            lock (cache) cache.TryGetValue(Schluessel(pfad, px) + (nurSymbol ? "|s" : ""), out fertigesBild);
+            if (fertigesBild != null)
+            {
+                var sofortBild = new Image { Source = fertigesBild, Stretch = Stretch.Uniform, Width = breite, Height = hoehe };
+                RenderOptions.SetBitmapScalingMode(sofortBild, BitmapScalingMode.HighQuality);
+                g.Children.Add(sofortBild);
+                return g;
+            }
+            // noch nicht: ruhige Fläche in Endgröße, dann blendet das echte Bild weich ein
+            var platz = new Border { Width = breite * 0.72, Height = hoehe * 0.8, CornerRadius = new CornerRadius(8), Background = Farbe.B("#12FFFFFF"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            g.Children.Add(platz);
             Laden(pfad, px, nurSymbol, bs =>
             {
                 if (bs == null) return;

@@ -188,7 +188,7 @@ namespace Workbench
             Ok(dl != null && dl.Any(x => x.Name == "Bordkarte.pdf"), "nach Wiederherstellen wird neu gefragt");
 
             // 11) Oberfläche baut sich ohne Fehler (alle Ebenen + Frage)
-            foreach (int a in new[] { 0, 1, 2, 3, 4 })
+            foreach (int a in new[] { 0, 1, 2, 3, 4, 5 })
             {
                 try
                 {
@@ -271,6 +271,13 @@ namespace Workbench
             an.Linien.Add(new Linie { A = "Projekte", B = "Logo_final.png", Farbe = "#F4B860" });
             an.Linien.Add(new Linie { A = "Projekte", B = "Notizen.txt", Farbe = "#F4B860" });
             an.Linien.Add(new Linie { A = "Rezepte", B = "Haushaltsbuch.xlsx", Farbe = "#7ED39B" });
+            an.Notizen.Add(new Notiz { Id = "n1", X = 430, Y = 160, Text = "Bewerbung bis 15.01. raus –\nLebenslauf noch kürzen" });
+            an.Linien.Add(new Linie { A = Anordnungen.NotizPraefix + "n1", B = "Lebenslauf.pdf", Farbe = "#8FB4FF" });
+            foreach (var u in new[] { @"Projekte\Website", @"Projekte\Website\Entwürfe", @"Projekte\App", @"Projekte\Logo", @"Bewerbung 2027\Anschreiben", @"Bewerbung 2027\Zeugnisse", @"Rezepte\Backen", @"Rezepte\Kochen", @"Uni\Semester 5", @"Uni\Semester 6", @"Uni\Semester 6\Statistik" })
+                Directory.CreateDirectory(Path.Combine(Paths.Dauerhaft, u));
+            var web = Anordnungen.Fuer(Path.Combine(Paths.Dauerhaft, "Projekte"));
+            web.Linien.Add(new Linie { A = "Website", B = "Logo", Farbe = "#F4B860" });
+            web.Plaetze["Website"] = new Platz { X = 40, Y = 40, Farbe = "#F4B860" };
             string drive = Path.Combine(test, "Google Drive", "Meine Ablage");
             foreach (var o in new[] { "Fotos", "Familie", "Arbeit", "Geteilt mit mir" }) Directory.CreateDirectory(Path.Combine(drive, o));
             foreach (var d in new[] { "Reiseplan.docx", "Budget 2027.xlsx", "Vortrag.pptx" }) File.WriteAllBytes(Path.Combine(drive, d), new byte[1000]);
@@ -284,8 +291,8 @@ namespace Workbench
                 new BinEintrag { Name = "Bildschirmaufnahme_Meeting.mp4", Original = "x", Geloescht = DateTime.Now.AddDays(-22), Groesse = 481L << 20, Wb = new Recycelt { Dauer = "1 Monat" } },
             };
 
-            string[] namen = { "1-befristet", "2-dauerhaft", "3-cloud", "4-papierkorb", "5-einstellungen" };
-            for (int a = 0; a < 5; a++)
+            string[] namen = { "1-befristet", "2-dauerhaft", "3-cloud", "4-papierkorb", "5-einstellungen", "9-netz" };
+            for (int a = 0; a < 6; a++)
             {
                 var w = new Hauptfenster(E, a, true);
                 w.KorbFuerBild(korb);

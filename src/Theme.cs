@@ -82,6 +82,7 @@ namespace Workbench
         public const string Oeffnen = "M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5";
         public const string Uhr = "M12 3a9 9 0 1 1 0 18a9 9 0 1 1 0-18zM12 7v5l3 2";
         public const string Minus = "M5 12h14";
+        public const string Netz = "M6 4.5a2 2 0 1 1 0 4a2 2 0 1 1 0-4zM18 3.5a2 2 0 1 1 0 4a2 2 0 1 1 0-4zM13 16a2 2 0 1 1 0 4a2 2 0 1 1 0-4zM7.6 7.9l4.4 8.4M16.9 7.2l-3.2 8.9M8 6.3l8-.9";
         public const string Stift = "M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4";
         public const string Wolke = "M7 18h10.5a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.3 9.1A4.5 4.5 0 0 0 7 18z";
         public const string Quadrat = "M6 6h12v12H6z";
