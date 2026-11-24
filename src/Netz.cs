@@ -31,7 +31,7 @@ namespace Workbench
                     if (File.Exists(Datei))
                     {
                         var d = Store.Json().Deserialize<Dictionary<string, double[]>>(File.ReadAllText(Datei));
-                        if (d != null) foreach (var kv in d) if (kv.Value != null && kv.Value.Length == 2) orte[kv.Key] = kv.Value;
+                        if (d != null) foreach (var kv in d) if (kv.Value != null && kv.Value.Length == 2) orte[Paths.PfadNeu(kv.Key)] = kv.Value;
                     }
                 }
                 catch (Exception ex) { Log.Fehler("Netz laden", ex); }
@@ -154,7 +154,7 @@ namespace Workbench
             foreach (var w in wurzeln)
             {
                 if (w == null || !Directory.Exists(w.Pfad)) continue;
-                bool wolke = w.Name != "Dauerhaft";
+                bool wolke = w.Name != "Permanent";
                 var wk = new Knoten { Name = w.Name, Pfad = w.Pfad.TrimEnd('\\'), Art = 0, Wolke = wolke, R = 9 };
                 wk.Wurzel = wk;
                 r.K.Add(wk); nachPfad[wk.Pfad] = wk;
@@ -327,7 +327,7 @@ namespace Workbench
                 s.Width = s.Height = k.R * 2;
                 s.Fill = fuellung;
                 s.Cursor = Cursors.Hand;
-                s.ToolTip = k.Art == 3 ? "Notiz: " + k.Name : k.Name;
+                s.ToolTip = k.Art == 3 ? "Note: " + k.Name : k.Name;
                 ToolTipService.SetInitialShowDelay(s, 350);
                 k.Form = s;
                 var k2 = k;
@@ -420,8 +420,8 @@ namespace Workbench
             lupe.HorizontalAlignment = HorizontalAlignment.Left;
             lupe.Margin = new Thickness(11, 0, 0, 0);
             g.Children.Add(lupe);
-            suchText = new TextBox { Style = (Style)Application.Current.FindResource("Suchfeld"), Margin = new Thickness(32, 0, 36, 0), ToolTip = "Enter: nächster Treffer · Umschalt+Enter: auch in den Ordnern suchen" };
-            System.Windows.Automation.AutomationProperties.SetName(suchText, "Im Netz suchen");
+            suchText = new TextBox { Style = (Style)Application.Current.FindResource("Suchfeld"), Margin = new Thickness(32, 0, 36, 0), ToolTip = "Enter: next match · Shift+Enter: search inside folders" };
+            System.Windows.Automation.AutomationProperties.SetName(suchText, "Search graph");
             g.Children.Add(suchText);
             suchZahl = new TextBlock { FontSize = 11, Foreground = Farbe.B("#80FFFFFF"), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
             g.Children.Add(suchZahl);

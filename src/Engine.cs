@@ -138,7 +138,7 @@ namespace Workbench
             if (!dl && !desk && zeit == null) { MeldeGeaendert(); return; }   // irgendwo tiefer – nur Ansicht auffrischen
             if (IstHilfsdatei(pfad)) return;
             if (weg.ContainsKey(pfad)) { weg.Remove(pfad); MeldeGeaendert(); return; }   // neu gespeichert (Word & Co.): Frist bleibt
-            if (zeit == "Dauerhaft") { MeldeGeaendert(); return; }
+            if (zeit == "Permanent") { MeldeGeaendert(); return; }
             if (S.Finde(pfad) != null) return;
             if ((dl || desk) && Directory.Exists(pfad)) return;         // Ordner (entpackt, „Neuer Ordner“) nicht nachfragen
             if (desk && IstVerknuepfung(pfad)) return;                   // Verknüpfungen von Installern nicht nachfragen
@@ -215,7 +215,7 @@ namespace Workbench
                 else
                 {
                     string d = Paths.DauerVonOrdner(p);
-                    if (d == null || d == "Dauerhaft") continue;
+                    if (d == null || d == "Permanent") continue;
                     var e = new Eintrag { Pfad = p, Hinzu = Jetzt(), Ablauf = Dauer.Ablauf(d, Jetzt()), Herkunft = "ordner", Gewaehlt = d };
                     S.D.Eintraege.Add(e);
                     S.Speichern();
@@ -249,7 +249,7 @@ namespace Workbench
             string ext = Path.GetExtension(pfad).ToLowerInvariant();
             string v;
             if (ext.Length > 0 && S.D.LetzteWahl.TryGetValue(ext, out v)) return v;
-            if (Dauer.IstInstaller(pfad)) return "1 Tag";
+            if (Dauer.IstInstaller(pfad)) return "1 day";
             return Cfg.Standard;
         }
 

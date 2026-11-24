@@ -28,7 +28,7 @@ namespace Workbench
                 if (modus == "--render") return Render.Run(args.Length > 1 ? args[1] : ".");
                 if (modus == "--uninstall") { Install.Deinstallieren(args.Length > 1 && args[1] == "--still"); return 0; }
 
-                // Aufträge von außen: Rechtsklick › Workbench › 1 Tag (--frist "1 Tag" "C:\…") oder Taskleisten-Sprungliste (--zeige 1)
+                // Aufträge von außen: Rechtsklick › Workbench › 1 Tag (--frist "1 day" "C:\…") oder Taskleisten-Sprungliste (--zeige 1)
                 string auftrag = null;
                 if (modus == "--frist" && args.Length > 2) auftrag = "frist\t" + args[1] + "\t" + System.IO.Path.GetFullPath(args[2]);
                 if (modus == "--zeige" && args.Length > 1) auftrag = "zeige\t" + args[1];
@@ -64,7 +64,7 @@ namespace Workbench
             {
                 Log.Fehler("Main", ex);
                 if (modus != "--background")
-                    MessageBox.Show("Workbench konnte nicht starten:\n\n" + ex.Message, "Workbench", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("Workbench couldn't start:\n\n" + ex.Message, "Workbench", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return 1;
             }
         }

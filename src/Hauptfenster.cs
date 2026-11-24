@@ -224,24 +224,24 @@ namespace Workbench
             lupe.Margin = new Thickness(8, 0, 0, 0);
             sg.Children.Add(lupe);
             suche = new TextBox { Style = (Style)Application.Current.FindResource("Suchfeld"), Margin = new Thickness(30, 0, 10, 0) };
-            System.Windows.Automation.AutomationProperties.SetName(suche, "Suchen");
+            System.Windows.Automation.AutomationProperties.SetName(suche, "Search");
             sg.Children.Add(suche);
             suchFeld.Child = sg;
-            suchFeld.ToolTip = "Suchen (Strg+F)";
+            suchFeld.ToolTip = "Search (Ctrl+F)";
             suchFeld.MouseLeftButtonDown += delegate { SucheAuf(); };
             suche.TextChanged += delegate { Neuzeichnen(); };
             suche.LostKeyboardFocus += delegate { if (suche.Text.Length == 0) SucheZu(); };
             WindowChrome.SetIsHitTestVisibleInChrome(suchFeld, true);
             // unscheinbar: die Ansicht von oben (Netz)
-            btnNetz = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 30, Height = 30, Content = UI.Icon(Ikon.Netz, 15, LabelLeise, 1.7), ToolTip = "Von oben (Strg+G)", Margin = new Thickness(0, 0, 2, 0), VerticalAlignment = VerticalAlignment.Center };
-            System.Windows.Automation.AutomationProperties.SetName(btnNetz, "Von oben");
+            btnNetz = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 30, Height = 30, Content = UI.Icon(Ikon.Netz, 15, LabelLeise, 1.7), ToolTip = "Graph view (Ctrl+G)", Margin = new Thickness(0, 0, 2, 0), VerticalAlignment = VerticalAlignment.Center };
+            System.Windows.Automation.AutomationProperties.SetName(btnNetz, "Graph view");
             WindowChrome.SetIsHitTestVisibleInChrome(btnNetz, true);
             btnNetz.Click += delegate { Zeige(ansicht == Netzansicht ? letzteEbene : Netzansicht); };
             rechts.Children.Add(btnNetz);
             rechts.Children.Add(suchFeld);
-            rechts.Children.Add(FensterKnopf(Ikon.Minus, "Minimieren", "Fensterknopf", () => WindowState = WindowState.Minimized));
-            rechts.Children.Add(FensterKnopf(Ikon.Quadrat, "Maximieren", "Fensterknopf", () => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized));
-            rechts.Children.Add(FensterKnopf(Ikon.X, "Schließen", "FensterknopfX", Schliessen));
+            rechts.Children.Add(FensterKnopf(Ikon.Minus, "Minimize", "Fensterknopf", () => WindowState = WindowState.Minimized));
+            rechts.Children.Add(FensterKnopf(Ikon.Quadrat, "Maximize", "Fensterknopf", () => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized));
+            rechts.Children.Add(FensterKnopf(Ikon.X, "Close", "FensterknopfX", Schliessen));
             g.Children.Add(rechts);
             return g;
         }
@@ -281,7 +281,7 @@ namespace Workbench
             }
             var k = new Ellipse { Width = 14, Height = 14, Fill = Farbe.B("#F2FFFFFF"), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 7, 0, 0), IsHitTestVisible = false, RenderTransform = knopfY, Effect = new DropShadowEffect { Color = Colors.White, BlurRadius = 12, ShadowDepth = 0, Opacity = 0.55 } };
             knopf = k;
-            string[] namen = { "Befristet", "Dauerhaft", wolke != null ? wolke.Name : "Cloud" };
+            string[] namen = { "Expiring", "Permanent", wolke != null ? wolke.Name : "Cloud" };
             for (int i = 0; i < Ebenen; i++)
             {
                 int ebene = i;
@@ -300,13 +300,13 @@ namespace Workbench
             g.Children.Add(regler);
 
             var unten = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 16) };
-            btnKorb = RundKnopf(Ikon.Muell, "Papierkorb", () => Zeige(ansicht == Korb ? letzteEbene : Korb));
+            btnKorb = RundKnopf(Ikon.Muell, "Recycle Bin", () => Zeige(ansicht == Korb ? letzteEbene : Korb));
             var kg = new Grid();
             kg.Children.Add(btnKorb);
             korbPunkt = new Ellipse { Width = 7, Height = 7, Fill = Farbe.Bald, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 7, 7, 0), IsHitTestVisible = false, Visibility = Visibility.Collapsed };
             kg.Children.Add(korbPunkt);
             AblageZielKorb(btnKorb);
-            btnEinst = RundKnopf(Ikon.Regler, "Einstellungen", () => Zeige(ansicht == Einst ? letzteEbene : Einst));
+            btnEinst = RundKnopf(Ikon.Regler, "Settings", () => Zeige(ansicht == Einst ? letzteEbene : Einst));
             var eg = new Grid { Margin = new Thickness(0, 6, 0, 0) };
             eg.Children.Add(btnEinst);
             updatePunkt = new Ellipse { Width = 6, Height = 6, Fill = Farbe.Akzent, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 8, 8, 0), IsHitTestVisible = false, Visibility = Update.Neu(E.Cfg) != null ? Visibility.Visible : Visibility.Collapsed };
@@ -416,8 +416,8 @@ namespace Workbench
         /// <summary>Die Ansicht von oben – Dauerhaft und Cloud als Netz.</summary>
         FrameworkElement FlaecheNetz()
         {
-            OrtSetzen("Netz");
-            var wurzeln = new List<CloudOrt> { new CloudOrt { Name = "Dauerhaft", Pfad = Paths.Dauerhaft } };
+            OrtSetzen("Graph");
+            var wurzeln = new List<CloudOrt> { new CloudOrt { Name = "Permanent", Pfad = Paths.Dauerhaft } };
             if (wolke != null) wurzeln.Add(wolke);
             return netz = new Netz(wurzeln, (pfad, cloud) =>
             {
@@ -562,13 +562,13 @@ namespace Workbench
 
         FrameworkElement FlaecheBefristet()
         {
-            OrtSetzen("Befristet");
+            OrtSetzen("Expiring");
             var jetzt = DateTime.UtcNow;
             var liste = E.S.D.Eintraege.Where(x => x.Ablauf.HasValue && (File.Exists(x.Pfad) || Directory.Exists(x.Pfad)) && Passt(x.Name)).OrderBy(x => x.Ablauf.Value).ToList();
             if (liste.Count == 0) return Leer(Filter.Length > 0 ? Ikon.Suche : Ikon.Haken);
 
             var reihe = new StackPanel { Orientation = Orientation.Horizontal };
-            string[] titel = { "Heute", "Diese Woche", "Später" };
+            string[] titel = { "Today", "This week", "Later" };
             Brush[] ring = { Farbe.Akzent, Farbe.B("#E6FFFFFF"), Farbe.B("#80FFFFFF") };
             for (int s = 0; s < 3; s++)
             {
@@ -585,7 +585,7 @@ namespace Workbench
                     var e2 = e;
                     double gesamt = Math.Max(1, (e.Ablauf.Value - e.Hinzu).TotalSeconds);
                     double rest = (e.Ablauf.Value - jetzt).TotalSeconds / gesamt;
-                    var sym = Symbol(e.Pfad, e.Pfad, e.Name, rest, ring[s], false, e.Name + "\nnoch " + Kurz(e.Ablauf.Value, jetzt) + " · " + Dauer.Wann(e.Ablauf.Value));
+                    var sym = Symbol(e.Pfad, e.Pfad, e.Name, rest, ring[s], false, e.Name + "\n" + Kurz(e.Ablauf.Value, jetzt) + " left · " + Dauer.Wann(e.Ablauf.Value));
                     Bedienbar(sym, e.Pfad, () => Oeffnen(e2.Pfad), el => KontextBefristet(el, e2));
                     wp.Children.Add(sym);
                 }
@@ -599,11 +599,11 @@ namespace Workbench
         static string Kurz(DateTime ablaufUtc, DateTime jetztUtc)
         {
             var r = ablaufUtc - jetztUtc;
-            if (r.TotalMinutes < 60) return Math.Max(1, (int)Math.Ceiling(r.TotalMinutes)) + " min";
-            if (r.TotalHours < 24) return (int)Math.Round(r.TotalHours) + " h";
-            if (r.TotalDays < 14) return (int)Math.Round(r.TotalDays) + " T";
-            if (r.TotalDays < 60) return (int)Math.Round(r.TotalDays / 7) + " W";
-            return ablaufUtc.ToLocalTime().ToString("dd.MM.");
+            if (r.TotalMinutes < 60) return Math.Max(1, (int)Math.Ceiling(r.TotalMinutes)) + "m";
+            if (r.TotalHours < 24) return (int)Math.Round(r.TotalHours) + "h";
+            if (r.TotalDays < 14) return (int)Math.Round(r.TotalDays) + "d";
+            if (r.TotalDays < 60) return (int)Math.Round(r.TotalDays / 7) + "w";
+            return ablaufUtc.ToLocalTime().ToString("d MMM", Dauer.En);
         }
 
         Eintrag Gewaehlt { get { return auswahl == null ? null : E.S.Finde(auswahl); } }
@@ -612,18 +612,18 @@ namespace Workbench
         {
             var m = new List<KeyValuePair<string, Action>>
             {
-                new KeyValuePair<string, Action>("Öffnen", () => Oeffnen(e.Pfad)),
-                new KeyValuePair<string, Action>("Im Ordner zeigen", () => ImOrdnerZeigen(e.Pfad)),
+                new KeyValuePair<string, Action>("Open", () => Oeffnen(e.Pfad)),
+                new KeyValuePair<string, Action>("Show in folder", () => ImOrdnerZeigen(e.Pfad)),
                 new KeyValuePair<string, Action>("-", null),
-                new KeyValuePair<string, Action>("+ 1 Tag", () => Verlaengern(e, "1 Tag")),
-                new KeyValuePair<string, Action>("+ 1 Woche", () => Verlaengern(e, "1 Woche")),
-                new KeyValuePair<string, Action>("+ 1 Monat", () => Verlaengern(e, "1 Monat")),
-                new KeyValuePair<string, Action>("Bis …", () => BisWaehlen(ziel, e)),
+                new KeyValuePair<string, Action>("+1 day", () => Verlaengern(e, "1 day")),
+                new KeyValuePair<string, Action>("+1 week", () => Verlaengern(e, "1 week")),
+                new KeyValuePair<string, Action>("+1 month", () => Verlaengern(e, "1 month")),
+                new KeyValuePair<string, Action>("Until…", () => BisWaehlen(ziel, e)),
                 new KeyValuePair<string, Action>("-", null),
-                new KeyValuePair<string, Action>("Dauerhaft behalten", () => Wegschieben(e, Paths.Dauerhaft)),
+                new KeyValuePair<string, Action>("Keep permanently", () => Wegschieben(e, Paths.Dauerhaft)),
             };
-            if (wolke != null) m.Add(new KeyValuePair<string, Action>("In " + wolke.Name, () => Wegschieben(e, wolke.Pfad)));
-            m.Add(new KeyValuePair<string, Action>("In den Papierkorb", () => Wegwerfen(e)));
+            if (wolke != null) m.Add(new KeyValuePair<string, Action>("Move to " + wolke.Name, () => Wegschieben(e, wolke.Pfad)));
+            m.Add(new KeyValuePair<string, Action>("Move to Recycle Bin", () => Wegwerfen(e)));
             UI.Menue(ziel, m);
         }
 
@@ -638,7 +638,7 @@ namespace Workbench
         {
             var pop = new Popup { PlacementTarget = ziel, Placement = PlacementMode.Top, StaysOpen = false, AllowsTransparency = true, PopupAnimation = PopupAnimation.Fade, VerticalOffset = -8 };
             var k = new Kalender();
-            k.Gewaehlt += tag => { pop.IsOpen = false; E.FristSetzen(e, Dauer.BisTag(tag), "bis " + tag.ToString("dd.MM.")); Neuzeichnen(); };
+            k.Gewaehlt += tag => { pop.IsOpen = false; E.FristSetzen(e, Dauer.BisTag(tag), "until " + tag.ToString("d MMM", Dauer.En)); Neuzeichnen(); };
             pop.Child = new Border { Width = 330, Background = Farbe.B("#FA22252D"), BorderBrush = Farbe.B("#1FFFFFFF"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14), Padding = new Thickness(14), Margin = new Thickness(12), Effect = new DropShadowEffect { BlurRadius = 24, ShadowDepth = 6, Opacity = 0.5 }, Child = k };
             pop.IsOpen = true;
         }
@@ -700,7 +700,7 @@ namespace Workbench
 
             // Brotkrumen klein oben links – nur Namen, klickbar
             ort.Children.Clear();
-            var teile = new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>(cloud ? wolke.Name : "Dauerhaft", w) };
+            var teile = new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>(cloud ? wolke.Name : "Permanent", w) };
             string rel = akt.Length > w.Length ? akt.Substring(w.Length).Trim('\\') : "", lauf = w;
             if (rel.Length > 0) foreach (var t in rel.Split('\\')) { lauf = System.IO.Path.Combine(lauf, t); teile.Add(new KeyValuePair<string, string>(t, lauf)); }
             for (int i = 0; i < teile.Count; i++)
@@ -753,10 +753,10 @@ namespace Workbench
                 if (a.Handled) return;
                 var m = new List<KeyValuePair<string, Action>>
                 {
-                    new KeyValuePair<string, Action>("Neuer Ordner", () => NeuerOrdner(cloud)),
-                    new KeyValuePair<string, Action>("Im Explorer öffnen", () => Oeffnen(AktOrdner(cloud))),
+                    new KeyValuePair<string, Action>("New folder", () => NeuerOrdner(cloud)),
+                    new KeyValuePair<string, Action>("Open in Explorer", () => Oeffnen(AktOrdner(cloud))),
                 };
-                if (tisch != null) m.Add(new KeyValuePair<string, Action>("Ordnen", () => tisch.Aufraeumen()));
+                if (tisch != null) m.Add(new KeyValuePair<string, Action>("Tidy up", () => tisch.Aufraeumen()));
                 UI.Menue(flaeche, m, true);
             };
             return rahmen;
@@ -771,14 +771,14 @@ namespace Workbench
             bool ordner = Directory.Exists(pfad);
             var m = new List<KeyValuePair<string, Action>>
             {
-                new KeyValuePair<string, Action>("Öffnen", () => { if (ordner) Betreten(cloud, pfad); else Oeffnen(pfad); }),
-                new KeyValuePair<string, Action>("Im Explorer zeigen", () => ImOrdnerZeigen(pfad)),
-                new KeyValuePair<string, Action>("Umbenennen", () => { Border b; if (symbole.TryGetValue(pfad, out b)) Umbenennen(b, pfad); }),
+                new KeyValuePair<string, Action>("Open", () => { if (ordner) Betreten(cloud, pfad); else Oeffnen(pfad); }),
+                new KeyValuePair<string, Action>("Show in Explorer", () => ImOrdnerZeigen(pfad)),
+                new KeyValuePair<string, Action>("Rename", () => { Border b; if (symbole.TryGetValue(pfad, out b)) Umbenennen(b, pfad); }),
             };
-            if (!cloud && wolke != null) m.Add(new KeyValuePair<string, Action>("In " + wolke.Name, () => { Verschieben(pfad, wolke.Pfad); Neuzeichnen(); }));
-            if (cloud) m.Add(new KeyValuePair<string, Action>("Nach Dauerhaft", () => { Verschieben(pfad, Paths.Dauerhaft); Neuzeichnen(); }));
+            if (!cloud && wolke != null) m.Add(new KeyValuePair<string, Action>("Move to " + wolke.Name, () => { Verschieben(pfad, wolke.Pfad); Neuzeichnen(); }));
+            if (cloud) m.Add(new KeyValuePair<string, Action>("Move to Permanent", () => { Verschieben(pfad, Paths.Dauerhaft); Neuzeichnen(); }));
             m.Add(new KeyValuePair<string, Action>("-", null));
-            m.Add(new KeyValuePair<string, Action>("In den Papierkorb", () => InKorb(pfad)));
+            m.Add(new KeyValuePair<string, Action>("Move to Recycle Bin", () => InKorb(pfad)));
             return m;
         }
 
@@ -793,10 +793,10 @@ namespace Workbench
             var ic = UI.Icon(Ikon.Wolke, 44, Farbe.B("#59FFFFFF"), 1.4);
             ic.HorizontalAlignment = HorizontalAlignment.Center;
             sp.Children.Add(ic);
-            var b = UI.Knopf("Ordner wählen", null, "Btn");
+            var b = UI.Knopf("Choose folder", null, "Btn");
             b.HorizontalAlignment = HorizontalAlignment.Center;
             b.Margin = new Thickness(0, 16, 0, 0);
-            b.ToolTip = "Google Drive, OneDrive, Dropbox … werden sonst von selbst erkannt";
+            b.ToolTip = "Google Drive, OneDrive and Dropbox are detected automatically";
             b.Click += delegate { WolkeWaehlen(); };
             sp.Children.Add(b);
             return sp;
@@ -804,7 +804,7 @@ namespace Workbench
 
         void WolkeWaehlen()
         {
-            using (var d = new System.Windows.Forms.FolderBrowserDialog { Description = "Ordner für Ebene 3", ShowNewFolderButton = true })
+            using (var d = new System.Windows.Forms.FolderBrowserDialog { Description = "Choose a folder for layer 3", ShowNewFolderButton = true })
             {
                 if (wolke != null) d.SelectedPath = wolke.Pfad;
                 if (d.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
@@ -825,8 +825,8 @@ namespace Workbench
 
         void NeuerOrdner(bool cloud)
         {
-            string p = Paths.FreierName(AktOrdner(cloud), "Neuer Ordner");
-            try { Directory.CreateDirectory(p); } catch (Exception ex) { Log.Fehler("Neuer Ordner", ex); return; }
+            string p = Paths.FreierName(AktOrdner(cloud), "New folder");
+            try { Directory.CreateDirectory(p); } catch (Exception ex) { Log.Fehler("New folder", ex); return; }
             if (Filter.Length > 0) suche.Text = "";
             Neuzeichnen();
             Dispatcher.BeginInvoke(new Action(() => { Border b; if (symbole.TryGetValue(p, out b)) { Waehle(p); Umbenennen(b, p); } }), DispatcherPriority.Loaded);
@@ -850,7 +850,7 @@ namespace Workbench
                     if (Directory.Exists(pfad)) Directory.Move(pfad, z); else File.Move(pfad, z);
                     Anordnungen.Umbenennen(System.IO.Path.GetDirectoryName(pfad), System.IO.Path.GetFileName(pfad), neu);
                 }
-                catch (Exception ex) { Log.Fehler("Umbenennen", ex); }
+                catch (Exception ex) { Log.Fehler("Rename", ex); }
                 Neuzeichnen();
             };
             tb.KeyDown += (s, a) =>
@@ -965,7 +965,7 @@ namespace Workbench
 
         FrameworkElement FlaecheKorb()
         {
-            OrtSetzen("Papierkorb");
+            OrtSetzen("Recycle Bin");
             if (korb == null) { KorbLesen(); return new Grid(); }
             var liste = KorbSichtbar.Take(500).ToList();
             if (liste.Count == 0) return Leer(Filter.Length > 0 ? Ikon.Suche : Ikon.Muell);
@@ -973,13 +973,13 @@ namespace Workbench
             foreach (var x in liste)
             {
                 var x2 = x;
-                string hilfe = x.Name + "\n" + Wann(x.Geloescht) + " · " + (x.IstOrdner ? "Ordner" : Dauer.Groesse(x.Groesse)) + (x.Wb != null ? " · war " + x.Wb.Dauer : "") + "\naus " + System.IO.Path.GetDirectoryName(x.Original);
+                string hilfe = x.Name + "\n" + Wann(x.Geloescht) + " · " + (x.IstOrdner ? "Folder" : Dauer.Groesse(x.Groesse)) + (x.Wb != null ? " · timer: " + x.Wb.Dauer : "") + "\nfrom " + System.IO.Path.GetDirectoryName(x.Original);
                 var sym = Symbol(x.RPfad ?? x.Name, x.RPfad ?? x.Name, x.Name, null, null, false, hilfe);
                 sym.Opacity = 0.85;
                 Bedienbar(sym, x.RPfad ?? x.Name, () => Zurueckholen(x2), el => UI.Menue(el, new List<KeyValuePair<string, Action>>
                 {
-                    new KeyValuePair<string, Action>("Wiederherstellen", () => Zurueckholen(x2)),
-                    new KeyValuePair<string, Action>("Endgültig löschen", () => Loeschen(x2)),
+                    new KeyValuePair<string, Action>("Restore", () => Zurueckholen(x2)),
+                    new KeyValuePair<string, Action>("Delete permanently", () => Loeschen(x2)),
                 }));
                 wp.Children.Add(sym);
             }
@@ -997,7 +997,7 @@ namespace Workbench
                     if (!bild) Papierkorb.Wiederherstellen(x);
                     if (x.Wb != null) { E.S.D.Papierkorb.Remove(x.Wb); E.S.Speichern(); }
                 }
-                catch (Exception ex) { Log.Fehler("Wiederherstellen", ex); }
+                catch (Exception ex) { Log.Fehler("Restore", ex); }
                 if (korb != null) korb.Remove(x);
                 auswahl = null;
                 Neuzeichnen();
@@ -1020,9 +1020,9 @@ namespace Workbench
         static string Wann(DateTime lokal)
         {
             var heute = DateTime.Today;
-            if (lokal.Date == heute) return "heute, " + lokal.ToString("HH:mm");
-            if (lokal.Date == heute.AddDays(-1)) return "gestern, " + lokal.ToString("HH:mm");
-            return lokal.ToString("dd.MM.yyyy");
+            if (lokal.Date == heute) return "today, " + lokal.ToString("HH:mm");
+            if (lokal.Date == heute.AddDays(-1)) return "yesterday, " + lokal.ToString("HH:mm");
+            return lokal.ToString("d MMM yyyy", Dauer.En);
         }
 
         // ================= Schwebende Leiste =================
@@ -1036,22 +1036,22 @@ namespace Workbench
                 var e = Gewaehlt;
                 if (e != null)
                 {
-                    LKnopf(Ikon.Oeffnen, "Öffnen", Farbe.Text, () => Oeffnen(e.Pfad));
-                    LKnopf(Ikon.Uhr, "Verlängern", Farbe.Text, null).Click += (s, a) =>
+                    LKnopf(Ikon.Oeffnen, "Open", Farbe.Text, () => Oeffnen(e.Pfad));
+                    LKnopf(Ikon.Uhr, "Extend", Farbe.Text, null).Click += (s, a) =>
                     {
                         var b = (Button)s;
                         UI.Menue(b, new List<KeyValuePair<string, Action>>
                         {
-                            new KeyValuePair<string, Action>("+ 1 Tag", () => Verlaengern(e, "1 Tag")),
-                            new KeyValuePair<string, Action>("+ 1 Woche", () => Verlaengern(e, "1 Woche")),
-                            new KeyValuePair<string, Action>("+ 1 Monat", () => Verlaengern(e, "1 Monat")),
-                            new KeyValuePair<string, Action>("Bis …", () => BisWaehlen(b, e)),
+                            new KeyValuePair<string, Action>("+1 day", () => Verlaengern(e, "1 day")),
+                            new KeyValuePair<string, Action>("+1 week", () => Verlaengern(e, "1 week")),
+                            new KeyValuePair<string, Action>("+1 month", () => Verlaengern(e, "1 month")),
+                            new KeyValuePair<string, Action>("Until…", () => BisWaehlen(b, e)),
                         }, false, true);
                     };
-                    LKnopf(Ikon.Unendlich, "Dauerhaft behalten", Farbe.Akzent, () => Wegschieben(e, Paths.Dauerhaft));
-                    if (wolke != null) LKnopf(Ikon.Wolke, "In " + wolke.Name, Farbe.Text, () => Wegschieben(e, wolke.Pfad));
+                    LKnopf(Ikon.Unendlich, "Keep permanently", Farbe.Akzent, () => Wegschieben(e, Paths.Dauerhaft));
+                    if (wolke != null) LKnopf(Ikon.Wolke, "Move to " + wolke.Name, Farbe.Text, () => Wegschieben(e, wolke.Pfad));
                     Trenner();
-                    LKnopf(Ikon.Muell, "In den Papierkorb", Farbe.Gefahr, () => Wegwerfen(e));
+                    LKnopf(Ikon.Muell, "Move to Recycle Bin", Farbe.Gefahr, () => Wegwerfen(e));
                 }
             }
             else if (ansicht == Dauerhaft || ansicht == Wolke)
@@ -1060,13 +1060,13 @@ namespace Workbench
                 if (p != null && (File.Exists(p) || Directory.Exists(p)))
                 {
                     bool cloud = ansicht == Wolke, ordner = Directory.Exists(p);
-                    LKnopf(Ikon.Oeffnen, "Öffnen", Farbe.Text, () => { if (ordner) Betreten(cloud, p); else Oeffnen(p); });
+                    LKnopf(Ikon.Oeffnen, "Open", Farbe.Text, () => { if (ordner) Betreten(cloud, p); else Oeffnen(p); });
                     Border sb;
-                    LKnopf(Ikon.Stift, "Umbenennen", Farbe.Text, () => { if (symbole.TryGetValue(p, out sb)) Umbenennen(sb, p); });
-                    if (!cloud && wolke != null) LKnopf(Ikon.Wolke, "In " + wolke.Name, Farbe.Text, () => { Verschieben(p, wolke.Pfad); auswahl = null; Neuzeichnen(); });
-                    if (cloud) LKnopf(Ikon.Unendlich, "Nach Dauerhaft", Farbe.Text, () => { Verschieben(p, Paths.Dauerhaft); auswahl = null; Neuzeichnen(); });
+                    LKnopf(Ikon.Stift, "Rename", Farbe.Text, () => { if (symbole.TryGetValue(p, out sb)) Umbenennen(sb, p); });
+                    if (!cloud && wolke != null) LKnopf(Ikon.Wolke, "Move to " + wolke.Name, Farbe.Text, () => { Verschieben(p, wolke.Pfad); auswahl = null; Neuzeichnen(); });
+                    if (cloud) LKnopf(Ikon.Unendlich, "Move to Permanent", Farbe.Text, () => { Verschieben(p, Paths.Dauerhaft); auswahl = null; Neuzeichnen(); });
                     Trenner();
-                    LKnopf(Ikon.Muell, "In den Papierkorb", Farbe.Gefahr, () => InKorb(p));
+                    LKnopf(Ikon.Muell, "Move to Recycle Bin", Farbe.Gefahr, () => InKorb(p));
                 }
             }
             else if (ansicht == Korb && korb != null)
@@ -1074,13 +1074,13 @@ namespace Workbench
                 var x = KorbGewaehlt;
                 if (x != null)
                 {
-                    LKnopf(Ikon.Zurueck, "Wiederherstellen", Farbe.Akzent, () => Zurueckholen(x));
-                    ZweiKlick(LKnopf(Ikon.X, "Endgültig löschen", Farbe.Gefahr, null), () => Loeschen(x));
+                    LKnopf(Ikon.Zurueck, "Restore", Farbe.Akzent, () => Zurueckholen(x));
+                    ZweiKlick(LKnopf(Ikon.X, "Delete permanently", Farbe.Gefahr, null), () => Loeschen(x));
                 }
                 else if (korb.Count > 0)
                 {
-                    LKnopf(Ikon.Zurueck, "Alles wiederherstellen", Farbe.Text, () => { foreach (var y in KorbSichtbar.ToList()) try { Papierkorb.Wiederherstellen(y); if (y.Wb != null) E.S.D.Papierkorb.Remove(y.Wb); } catch { } E.S.Speichern(); KorbLesen(); });
-                    ZweiKlick(LKnopf(Ikon.Muell, "Papierkorb leeren", Farbe.Gefahr, null), () =>
+                    LKnopf(Ikon.Zurueck, "Restore all", Farbe.Text, () => { foreach (var y in KorbSichtbar.ToList()) try { Papierkorb.Wiederherstellen(y); if (y.Wb != null) E.S.D.Papierkorb.Remove(y.Wb); } catch { } E.S.Speichern(); KorbLesen(); });
+                    ZweiKlick(LKnopf(Ikon.Muell, "Empty Recycle Bin", Farbe.Gefahr, null), () =>
                     {
                         if (Filter.Length > 0) { foreach (var y in KorbSichtbar.ToList()) try { Papierkorb.Loeschen(y); } catch { } }
                         else Native.PapierkorbLeeren();
@@ -1126,7 +1126,7 @@ namespace Workbench
             t.Tick += delegate { t.Stop(); scharf = false; b.Background = Brushes.Transparent; };
             b.Click += delegate
             {
-                if (!scharf) { scharf = true; b.Background = Farbe.B("#40FF6B5E"); b.ToolTip = "Nochmal klicken"; t.Start(); return; }
+                if (!scharf) { scharf = true; b.Background = Farbe.B("#40FF6B5E"); b.ToolTip = "Click again to confirm"; t.Start(); return; }
                 t.Stop(); scharf = false; b.Background = Brushes.Transparent;
                 los();
             };
@@ -1136,11 +1136,11 @@ namespace Workbench
 
         FrameworkElement FlaecheEinstellungen()
         {
-            OrtSetzen("Einstellungen");
+            OrtSetzen("Settings");
             var c = E.Cfg;
             var tafel = new Border { Width = 470, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, CornerRadius = new CornerRadius(16), Background = Farbe.B("#D91A1D24"), BorderBrush = Farbe.B("#1AFFFFFF"), BorderThickness = new Thickness(1), Padding = new Thickness(20, 8, 20, 8), Margin = new Thickness(0, 0, 0, 30) };
             var sp = new StackPanel();
-            sp.Children.Add(Zeile("Nach Downloads fragen", Schalter(c.Fragen, v => c.Fragen = v), true));
+            sp.Children.Add(Zeile("Ask after downloads", Schalter(c.Fragen, v => c.Fragen = v), true));
             var chips = new StackPanel { Orientation = Orientation.Horizontal };
             foreach (var d in Dauer.Auswahl)
             {
@@ -1149,7 +1149,7 @@ namespace Workbench
                 t.Click += delegate { c.Standard = d2; c.Speichern(); Neuzeichnen(); };
                 chips.Children.Add(t);
             }
-            sp.Children.Add(Zeile("Vorschlag", chips, true));
+            sp.Children.Add(Zeile("Default timer", chips, true));
             var wolken = new StackPanel { Orientation = Orientation.Horizontal };
             foreach (var o in Cloud.Finden())
             {
@@ -1158,24 +1158,24 @@ namespace Workbench
                 t.Click += delegate { WolkeSetzen(o2); };
                 wolken.Children.Add(t);
             }
-            var mehr = new Button { Style = (Style)Application.Current.FindResource("Btn"), Content = "…", Width = 34, Height = 28, Padding = new Thickness(0), Margin = new Thickness(4, 0, 0, 0), ToolTip = wolke != null ? wolke.Pfad : "Ordner wählen" };
+            var mehr = new Button { Style = (Style)Application.Current.FindResource("Btn"), Content = "…", Width = 34, Height = 28, Padding = new Thickness(0), Margin = new Thickness(4, 0, 0, 0), ToolTip = wolke != null ? wolke.Pfad : "Choose folder" };
             mehr.Click += delegate { WolkeWaehlen(); };
             wolken.Children.Add(mehr);
             sp.Children.Add(Zeile("Cloud", wolken, true));
-            sp.Children.Add(Zeile("Auch auf dem Desktop", Schalter(c.Desktop, v => { c.Desktop = v; E.DesktopBeobachten(v); }), true));
-            sp.Children.Add(Zeile("Im Rechtsklick-Menü", Schalter(c.Rechtsklick, v => { c.Rechtsklick = v; Install.Rechtsklick(v); }), true));
-            var rund = new Button { Style = (Style)Application.Current.FindResource("Btn"), Content = "Zeigen", Height = 28, Padding = new Thickness(12, 0, 12, 0), FontSize = 12 };
+            sp.Children.Add(Zeile("Ask for new desktop files", Schalter(c.Desktop, v => { c.Desktop = v; E.DesktopBeobachten(v); }), true));
+            sp.Children.Add(Zeile("Right-click menu", Schalter(c.Rechtsklick, v => { c.Rechtsklick = v; Install.Rechtsklick(v); }), true));
+            var rund = new Button { Style = (Style)Application.Current.FindResource("Btn"), Content = "Show", Height = 28, Padding = new Thickness(12, 0, 12, 0), FontSize = 12 };
             rund.Click += delegate { EinfuehrungStarten(); };
-            sp.Children.Add(Zeile("Rundgang", rund, true));
-            sp.Children.Add(Zeile("Hinweis beim Speichern", Schalter(c.HinweisSpeichern, v => c.HinweisSpeichern = v), true));
-            sp.Children.Add(Zeile("Im Explorer zeigen", Schalter(c.Seitenleiste, v => { c.Seitenleiste = v; Install.Seitenleiste(v); }), true));
-            sp.Children.Add(Zeile("Mit Windows starten", Schalter(c.Autostart, v => { c.Autostart = v; Install.Autostart(v); }), true));
-            sp.Children.Add(Zeile("Strg + Alt + W", Schalter(c.Tastenkuerzel, v => { c.Tastenkuerzel = v; var app = Application.Current as WbApp; if (app != null) app.Tastenkuerzel(v); }), true));
-            var weg = new Button { Style = (Style)Application.Current.FindResource("Leer"), Content = new TextBlock { Text = "Entfernen", Foreground = Farbe.Gefahr, FontSize = 13 }, Cursor = Cursors.Hand, ToolTip = "Workbench entfernen – deine Dateien bleiben" };
+            sp.Children.Add(Zeile("Tour", rund, true));
+            sp.Children.Add(Zeile("Confirm saves to Workbench", Schalter(c.HinweisSpeichern, v => c.HinweisSpeichern = v), true));
+            sp.Children.Add(Zeile("Show in Explorer", Schalter(c.Seitenleiste, v => { c.Seitenleiste = v; Install.Seitenleiste(v); }), true));
+            sp.Children.Add(Zeile("Start with Windows", Schalter(c.Autostart, v => { c.Autostart = v; Install.Autostart(v); }), true));
+            sp.Children.Add(Zeile("Ctrl + Alt + W", Schalter(c.Tastenkuerzel, v => { c.Tastenkuerzel = v; var app = Application.Current as WbApp; if (app != null) app.Tastenkuerzel(v); }), true));
+            var weg = new Button { Style = (Style)Application.Current.FindResource("Leer"), Content = new TextBlock { Text = "Remove", Foreground = Farbe.Gefahr, FontSize = 13 }, Cursor = Cursors.Hand, ToolTip = "Removes Workbench — your files stay where they are" };
             bool scharf = false;
             weg.Click += delegate
             {
-                if (!scharf) { scharf = true; ((TextBlock)weg.Content).Text = "Wirklich entfernen?"; return; }
+                if (!scharf) { scharf = true; ((TextBlock)weg.Content).Text = "Remove Workbench?"; return; }
                 Install.Deinstallieren(true);
             };
             // ganz unten, ganz leise: Version – und nur wenn es etwas Neues gibt, ein kleiner Hinweis
@@ -1184,7 +1184,7 @@ namespace Workbench
             string neu = Update.Neu(c);
             if (neu != null)
             {
-                var link = new TextBlock { Text = neu + " ist da", FontSize = 11.5, Foreground = Farbe.Akzent, Margin = new Thickness(10, 0, 0, 0), Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center, ToolTip = Update.Seite };
+                var link = new TextBlock { Text = neu + " available", FontSize = 11.5, Foreground = Farbe.Akzent, Margin = new Thickness(10, 0, 0, 0), Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center, ToolTip = Update.Seite };
                 link.MouseLeftButtonUp += delegate { Oeffnen(Update.Seite); };
                 fuss.Children.Add(link);
             }
@@ -1219,7 +1219,7 @@ namespace Workbench
 
         static void Oeffnen(string p)
         {
-            try { Process.Start(new ProcessStartInfo(p) { UseShellExecute = true }); } catch (Exception ex) { Log.Fehler("Öffnen", ex); }
+            try { Process.Start(new ProcessStartInfo(p) { UseShellExecute = true }); } catch (Exception ex) { Log.Fehler("Open", ex); }
         }
 
         static void ImOrdnerZeigen(string p)
@@ -1378,8 +1378,8 @@ namespace Workbench
             bool zur = zurueckListe[nr].Count > 0, vor = vorListe[nr].Count > 0;
             if (!zur && !vor) return;
             var sp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(-8, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
-            sp.Children.Add(Pfeil(Ikon.Links, "Zurück", zur, Zurueck));
-            sp.Children.Add(Pfeil(Ikon.Rechts, "Vor", vor, Vor));
+            sp.Children.Add(Pfeil(Ikon.Links, "Back", zur, Zurueck));
+            sp.Children.Add(Pfeil(Ikon.Rechts, "Forward", vor, Vor));
             ort.Children.Insert(0, sp);
         }
 
@@ -1440,13 +1440,13 @@ namespace Workbench
             if (einfuehrung != null) return;
             var schritte = new List<Einfuehrung.Schritt>
             {
-                new Einfuehrung.Schritt { Titel = "Willkommen bei Workbench", Text = "Dateien, die sich selbst aufräumen – und ein Desktop, der aufgeräumt bleibt.", Extra = Willkommen },
-                new Einfuehrung.Schritt { Titel = "Drei Ebenen", Text = "Befristet · Dauerhaft · Cloud. Zwei Finger hoch oder runter – oder ↑ ↓.", Ziel = () => reglerEl, Vorher = () => Zeige(Befristet) },
-                new Einfuehrung.Schritt { Titel = "Befristet", Text = "Neue Downloads landen hier. Der Ring am Symbol zeigt, wie viel Zeit bleibt – danach geht es in den Papierkorb.", Ziel = () => blatt, Vorher = () => Zeige(Befristet) },
-                new Einfuehrung.Schritt { Titel = "Dein Desktop", Text = "Ziehen ordnet an. Gedrückt halten öffnet den Kreis: verbinden, färben, Notiz. Doppelklick auf freie Fläche: Notiz.", Ziel = () => blatt, Vorher = () => Zeige(Dauerhaft) },
-                new Einfuehrung.Schritt { Titel = "Von oben", Text = "Alle Ordner als Netz – mit Suche.", Ziel = () => btnNetz, Vorher = () => Zeige(Dauerhaft) },
-                new Einfuehrung.Schritt { Titel = "Nichts ist sofort weg", Text = "Abgelaufenes liegt im Papierkorb und lässt sich zurückholen.", Ziel = () => btnKorb },
-                new Einfuehrung.Schritt { Titel = "Überall in Windows", Text = "Rechtsklick auf jede Datei › Workbench › 1 Tag … – und links in jedem Speichern-Fenster steht Workbench.", Vorher = () => Zeige(Befristet) },
+                new Einfuehrung.Schritt { Titel = "Welcome to Workbench", Text = "Downloads that clean up after themselves, and a desktop that stays tidy.", Extra = Willkommen },
+                new Einfuehrung.Schritt { Titel = "Three layers", Text = "Expiring, Permanent and Cloud. Swipe up or down with two fingers to switch, or use the arrow keys.", Ziel = () => reglerEl, Vorher = () => Zeige(Befristet) },
+                new Einfuehrung.Schritt { Titel = "Expiring", Text = "New downloads show up here. The ring shows how much time is left. When it runs out, the file moves to the Recycle Bin.", Ziel = () => blatt, Vorher = () => Zeige(Befristet) },
+                new Einfuehrung.Schritt { Titel = "Your desktop", Text = "Drag things wherever you like. Press and hold to connect, color or add a note. Double-click empty space to start writing.", Ziel = () => blatt, Vorher = () => Zeige(Dauerhaft) },
+                new Einfuehrung.Schritt { Titel = "See everything at once", Text = "The graph view shows all your folders and how they connect. Start typing to find one.", Ziel = () => btnNetz, Vorher = () => Zeige(Dauerhaft) },
+                new Einfuehrung.Schritt { Titel = "Nothing is gone for good", Text = "Expired files wait in the Recycle Bin until you empty it.", Ziel = () => btnKorb },
+                new Einfuehrung.Schritt { Titel = "Works across Windows", Text = "Right-click any file and choose Workbench to set a timer. You'll also find Workbench in every Save dialog.", Vorher = () => Zeige(Befristet) },
             };
             einfuehrung = new Einfuehrung(wurzel, schritte, nieWieder =>
             {
@@ -1468,21 +1468,21 @@ namespace Workbench
         {
             var sp = new StackPanel();
             var z1 = new Grid { MinHeight = 40 };
-            z1.Children.Add(new TextBlock { Text = "Symbol auf dem Desktop", FontSize = 13, Foreground = Farbe.Text, VerticalAlignment = VerticalAlignment.Center });
+            z1.Children.Add(new TextBlock { Text = "Desktop shortcut", FontSize = 13, Foreground = Farbe.Text, VerticalAlignment = VerticalAlignment.Center });
             var s1 = new CheckBox { Style = (Style)Application.Current.FindResource("Schalter"), IsChecked = bild || Install.HatDesktopSymbol, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
             s1.Click += delegate { Install.DesktopSymbol(s1.IsChecked == true); };
             z1.Children.Add(s1);
             sp.Children.Add(z1);
             var z2 = new Grid { MinHeight = 40 };
-            z2.Children.Add(new TextBlock { Text = "An die Taskleiste", FontSize = 13, Foreground = Farbe.Text, VerticalAlignment = VerticalAlignment.Center });
-            var b = new Button { Style = (Style)Application.Current.FindResource("Btn"), Content = "Anheften", Height = 30, Padding = new Thickness(12, 0, 12, 0), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
+            z2.Children.Add(new TextBlock { Text = "Taskbar", FontSize = 13, Foreground = Farbe.Text, VerticalAlignment = VerticalAlignment.Center });
+            var b = new Button { Style = (Style)Application.Current.FindResource("Btn"), Content = "Pin", Height = 30, Padding = new Thickness(12, 0, 12, 0), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
             z2.Children.Add(b);
             sp.Children.Add(z2);
             var hinweis = new StackPanel { Orientation = Orientation.Horizontal, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 2, 0, 0) };
             var pfeil = UI.Icon("M12 4v15M6 13l6 6 6-6", 16, Farbe.Akzent, 2);
             pfeil.VerticalAlignment = VerticalAlignment.Top;
             hinweis.Children.Add(pfeil);
-            hinweis.Children.Add(new TextBlock { Text = "Unten in der Taskleiste: Rechtsklick auf das Workbench-Symbol › „An Taskleiste anheften“.", FontSize = 12.5, Foreground = Farbe.Text2, TextWrapping = TextWrapping.Wrap, Width = 250, Margin = new Thickness(8, 0, 0, 0) });
+            hinweis.Children.Add(new TextBlock { Text = "Right-click Workbench in the taskbar, then choose Pin to taskbar.", FontSize = 12.5, Foreground = Farbe.Text2, TextWrapping = TextWrapping.Wrap, Width = 250, Margin = new Thickness(8, 0, 0, 0) });
             sp.Children.Add(hinweis);
             b.Click += delegate
             {

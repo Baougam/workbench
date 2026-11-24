@@ -109,7 +109,7 @@ namespace Workbench
             FrameworkElement links;
             if (zurueck)
             {
-                var b = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 32, Height = 32, Content = UI.Icon(Ikon.Links, 15, Farbe.Text2, 2), ToolTip = "Zurück", Margin = new Thickness(-6, 0, 6, 0) };
+                var b = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 32, Height = 32, Content = UI.Icon(Ikon.Links, 15, Farbe.Text2, 2), ToolTip = "Back", Margin = new Thickness(-6, 0, 6, 0) };
                 b.Click += delegate { Wahl(); if (uhr != null && !IsMouseOver) uhr.Controller.Resume(); };
                 links = b;
             }
@@ -139,7 +139,7 @@ namespace Workbench
             Grid.SetColumn(name, 1);
             g.Children.Add(name);
             var x = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 30, Height = 30, Content = UI.Icon(Ikon.X, 12, Farbe.Text3, 2), Margin = new Thickness(0, -4, -6, -4), VerticalAlignment = VerticalAlignment.Top };
-            System.Windows.Automation.AutomationProperties.SetName(x, "Schließen");
+            System.Windows.Automation.AutomationProperties.SetName(x, "Close");
             x.Click += delegate { if (info) Schliessen(); else Anwenden(vorschlag, null, false); };
             Grid.SetColumn(x, 2);
             g.Children.Add(x);
@@ -167,8 +167,8 @@ namespace Workbench
             g.ColumnDefinitions.Add(new ColumnDefinition());
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            string[] stationen = { "1 Std", "1 Tag", "1 Woche", "1 Monat", Dauer.Immer };
-            string[] beschriftung = { "1 Std", "1 Tag", "1 Woche", "1 Monat", "∞" };
+            string[] stationen = { "1 hour", "1 day", "1 week", "1 month", Dauer.Immer };
+            string[] beschriftung = { "1 hour", "1 day", "1 week", "1 month", "∞" };
             var leiste = new Grid { Height = 50 };
             var linie = new Border { Height = 2, CornerRadius = new CornerRadius(1), Background = Farbe.B("#26FFFFFF"), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 12, 0, 0), IsHitTestVisible = false };
             leiste.SizeChanged += delegate { double h = leiste.ActualWidth / stationen.Length / 2; linie.Margin = new Thickness(h, 12, h, 0); };
@@ -193,8 +193,8 @@ namespace Workbench
                 var t = new TextBlock { Text = beschriftung[i], FontSize = i == 4 ? 15 : 11.5, Foreground = an ? Farbe.Text : Farbe.Text2, FontWeight = an ? FontWeights.SemiBold : FontWeights.Normal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, i == 4 ? -1 : 2, 0, 0) };
                 sp.Children.Add(t);
                 b.Content = sp;
-                b.ToolTip = i == 4 ? "Für immer" : null;
-                System.Windows.Automation.AutomationProperties.SetName(b, i == 4 ? "Für immer" : n);
+                b.ToolTip = i == 4 ? "Forever" : null;
+                System.Windows.Automation.AutomationProperties.SetName(b, i == 4 ? "Forever" : n);
                 if (!an)
                 {
                     b.MouseEnter += delegate { punkt.Width = 12; punkt.Height = 12; punkt.Fill = Farbe.B("#F2FFFFFF"); t.Foreground = Farbe.Text; };
@@ -208,7 +208,7 @@ namespace Workbench
 
             var extra = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(6, -2, -4, 0) };
             extra.Children.Add(new Border { Width = 1, Height = 24, Background = Farbe.B("#1FFFFFFF"), Margin = new Thickness(0, 3, 6, 0), VerticalAlignment = VerticalAlignment.Top });
-            var kal = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 32, Height = 32, Content = UI.Icon(Ikon.Kalender, 16, Farbe.Text2, 1.8), ToolTip = "Bis …" };
+            var kal = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 32, Height = 32, Content = UI.Icon(Ikon.Kalender, 16, Farbe.Text2, 1.8), ToolTip = "Until…" };
             ToolTipService.SetPlacement(kal, PlacementMode.Top);
             kal.Click += delegate { Kalender(); };
             extra.Children.Add(kal);
@@ -269,10 +269,10 @@ namespace Workbench
                 var e = E.S.Finde(d.Pfad);
                 if (e == null) continue;
                 if (aktiv) E.Merken(d.Pfad, wahl);
-                E.FristSetzen(e, ablauf, wahl == Dauer.Bis ? "bis " + bis.Value.ToLocalTime().ToString("dd.MM.") : wahl);
+                E.FristSetzen(e, ablauf, wahl == Dauer.Bis ? "until " + bis.Value.ToLocalTime().ToString("d MMM", Dauer.En) : wahl);
             }
             if (aktiv) E.S.Speichern();
-            string text = ablauf == null ? "Dauerhaft" : (wahl == Dauer.Bis ? "bis " + bis.Value.ToLocalTime().ToString("dd.MM.") : wahl);
+            string text = ablauf == null ? "Kept forever" : (wahl == Dauer.Bis ? "Kept until " + bis.Value.ToLocalTime().ToString("d MMM", Dauer.En) : "Kept for " + wahl);
             Bestaetigen(ablauf == null ? Ikon.Unendlich : Ikon.Haken, text, aktiv);
         }
 

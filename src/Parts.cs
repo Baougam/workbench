@@ -109,7 +109,7 @@ namespace Workbench
         DateTime monat;
         readonly UniformGrid tage = new UniformGrid { Columns = 7 };
         readonly TextBlock titel = new TextBlock { FontSize = 14, FontWeight = FontWeights.SemiBold, Foreground = Farbe.Text, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
-        static readonly string[] monate = { "Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember" };
+        static readonly string[] monate = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
 
         public Kalender()
         {
@@ -119,17 +119,17 @@ namespace Workbench
             var schnell = new WrapPanel { Margin = new Thickness(0, 0, 0, 12) };
             int bisSonntag = ((int)DayOfWeek.Sunday - (int)heute.DayOfWeek + 7) % 7;
             if (bisSonntag == 0) bisSonntag = 7;
-            schnell.Children.Add(Schnell("Sonntag", heute.AddDays(bisSonntag)));
-            schnell.Children.Add(Schnell("Monatsende", new DateTime(heute.Year, heute.Month, 1).AddMonths(1).AddDays(-1)));
-            schnell.Children.Add(Schnell("Jahresende", new DateTime(heute.Year, 12, 31)));
+            schnell.Children.Add(Schnell("Sunday", heute.AddDays(bisSonntag)));
+            schnell.Children.Add(Schnell("End of month", new DateTime(heute.Year, heute.Month, 1).AddMonths(1).AddDays(-1)));
+            schnell.Children.Add(Schnell("End of year", new DateTime(heute.Year, 12, 31)));
             Children.Add(schnell);
 
             var kopf = new Grid { Margin = new Thickness(0, 0, 0, 4) };
-            var zur = UI.IconKnopf(Ikon.Links, "Voriger Monat", Farbe.Text2);
+            var zur = UI.IconKnopf(Ikon.Links, "Previous month", Farbe.Text2);
             zur.Style = (Style)Application.Current.FindResource("BtnFlach"); zur.Width = 36; zur.Padding = new Thickness(0);
             zur.HorizontalAlignment = HorizontalAlignment.Left;
             zur.Click += delegate { if (monat > new DateTime(heute.Year, heute.Month, 1)) { monat = monat.AddMonths(-1); Zeichnen(); } };
-            var vor = UI.IconKnopf(Ikon.Rechts, "Nächster Monat", Farbe.Text2);
+            var vor = UI.IconKnopf(Ikon.Rechts, "Next month", Farbe.Text2);
             vor.Style = zur.Style; vor.Width = 36; vor.Padding = new Thickness(0);
             vor.HorizontalAlignment = HorizontalAlignment.Right;
             vor.Click += delegate { monat = monat.AddMonths(1); Zeichnen(); };
@@ -137,7 +137,7 @@ namespace Workbench
             Children.Add(kopf);
 
             var wt = new UniformGrid { Columns = 7, Margin = new Thickness(0, 2, 0, 2) };
-            foreach (var t in new[] { "Mo", "Di", "Mi", "Do", "Fr", "Sa", "So" })
+            foreach (var t in new[] { "Mo", "Tu", "We", "Th", "Fr", "Sa", "Su" })
                 wt.Children.Add(new TextBlock { Text = t, FontSize = 11.5, Foreground = Farbe.Text3, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 4) });
             Children.Add(wt);
             Children.Add(tage);
@@ -147,7 +147,7 @@ namespace Workbench
         Button Schnell(string text, DateTime tag)
         {
             var b = new Button { Style = (Style)Application.Current.FindResource("Btn"), Content = text, Height = 32, Padding = new Thickness(12, 0, 12, 0), Margin = new Thickness(0, 0, 6, 6), FontSize = 12.5 };
-            b.ToolTip = Dauer.Wochentag(tag) + ", " + tag.ToString("dd.MM.yyyy");
+            b.ToolTip = tag.ToString("dddd, d MMMM", Dauer.En);
             b.Click += delegate { if (Gewaehlt != null) Gewaehlt(tag); };
             return b;
         }

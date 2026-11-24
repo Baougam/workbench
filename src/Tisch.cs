@@ -49,7 +49,7 @@ namespace Workbench
                     a.Plaetze = p;
                     if (a.Linien == null) a.Linien = new List<Linie>();
                     if (a.Notizen == null) a.Notizen = new List<Notiz>();
-                    alle[kv.Key] = a;
+                    alle[Paths.PfadNeu(kv.Key)] = a;
                 }
             }
             catch (Exception ex) { Log.Fehler("Anordnung laden", ex); }
@@ -555,7 +555,7 @@ namespace Workbench
         void Menue(FrameworkElement el, string k)
         {
             var m = menueFuer(pfade[k]);
-            m.Insert(0, new KeyValuePair<string, Action>("Verbinden …", () => VerbindenAusMenue(k)));
+            m.Insert(0, new KeyValuePair<string, Action>("Connect…", () => VerbindenAusMenue(k)));
             UI.Menue(el, m, false, false, Farbreihe(FarbeVon(k), f =>
             {
                 PlatzVon(k).Farbe = f;
@@ -570,10 +570,10 @@ namespace Workbench
             string k = Anordnungen.NotizPraefix + n.Id;
             UI.Menue(b, new List<KeyValuePair<string, Action>>
             {
-                new KeyValuePair<string, Action>("Schreiben", () => Schreiben(b, n)),
-                new KeyValuePair<string, Action>("Verbinden …", () => VerbindenAusMenue(k)),
+                new KeyValuePair<string, Action>("Edit", () => Schreiben(b, n)),
+                new KeyValuePair<string, Action>("Connect…", () => VerbindenAusMenue(k)),
                 new KeyValuePair<string, Action>("-", null),
-                new KeyValuePair<string, Action>("Notiz löschen", () => NotizWeg(n)),
+                new KeyValuePair<string, Action>("Delete note", () => NotizWeg(n)),
             }, false, false, Farbreihe(n.Farbe, f => { n.Farbe = f; NotizFarbe(b, n); Anordnungen.Merken(); }));
         }
 
@@ -581,7 +581,7 @@ namespace Workbench
         {
             UI.Menue(ziel, new List<KeyValuePair<string, Action>>
             {
-                new KeyValuePair<string, Action>("Linie löschen", () => { A.Linien.Remove(l); linieGewaehlt = null; Anordnungen.Merken(); LinienZeichnen(); })
+                new KeyValuePair<string, Action>("Delete line", () => { A.Linien.Remove(l); linieGewaehlt = null; Anordnungen.Merken(); LinienZeichnen(); })
             }, true, false, Farbreihe(l.Farbe, f => { l.Farbe = f; Anordnungen.Merken(); LinienZeichnen(); }));
         }
 
@@ -593,7 +593,7 @@ namespace Workbench
             {
                 string f2 = f;
                 bool an = string.Equals(f, aktuell, StringComparison.OrdinalIgnoreCase) || (f == null && string.IsNullOrEmpty(aktuell));
-                var g = new Grid { Width = 26, Height = 26, Cursor = Cursors.Hand, Background = Brushes.Transparent, ToolTip = f == null ? "Keine Farbe" : null };
+                var g = new Grid { Width = 26, Height = 26, Cursor = Cursors.Hand, Background = Brushes.Transparent, ToolTip = f == null ? "No color" : null };
                 if (an) g.Children.Add(new Ellipse { Width = 24, Height = 24, Stroke = Farbe.B("#B3FFFFFF"), StrokeThickness = 1.5 });
                 if (f == null)
                 {
@@ -646,22 +646,22 @@ namespace Workbench
             {
                 var n = NotizVon(k);
                 var b = (Border)dinge[k];
-                l.Add(new KreisPunkt { Icon = Ikon.Stift, Name = "Schreiben", Tun = () => Schreiben(b, n) });
-                l.Add(new KreisPunkt { Icon = Ikon.Netz, Name = "Verbinden", Tun = () => VerbindenAusMenue(k) });
-                l.Add(new KreisPunkt { Icon = IkonTropfen, Name = "Farbe", Bleibt = true, Tun = () => KreisFarben(k) });
-                l.Add(new KreisPunkt { Icon = Ikon.Muell, Name = "Löschen", Farbe = "#FF9C8F", Tun = () => NotizWeg(n) });
+                l.Add(new KreisPunkt { Icon = Ikon.Stift, Name = "Edit", Tun = () => Schreiben(b, n) });
+                l.Add(new KreisPunkt { Icon = Ikon.Netz, Name = "Connect", Tun = () => VerbindenAusMenue(k) });
+                l.Add(new KreisPunkt { Icon = IkonTropfen, Name = "Color", Bleibt = true, Tun = () => KreisFarben(k) });
+                l.Add(new KreisPunkt { Icon = Ikon.Muell, Name = "Delete", Farbe = "#FF9C8F", Tun = () => NotizWeg(n) });
                 return l;
             }
             var menue = menueFuer(pfade[k]);
             Func<string, Action> aus = name => { var e = menue.FirstOrDefault(x => x.Key == name); return e.Value; };
-            l.Add(new KreisPunkt { Icon = Ikon.Oeffnen, Name = "Öffnen", Tun = () => oeffnen(pfade[k]) });
-            l.Add(new KreisPunkt { Icon = Ikon.Netz, Name = "Verbinden", Tun = () => VerbindenAusMenue(k) });
-            l.Add(new KreisPunkt { Icon = IkonTropfen, Name = "Farbe", Bleibt = true, Tun = () => KreisFarben(k) });
-            l.Add(new KreisPunkt { Icon = IkonNotiz, Name = "Notiz", Tun = () => NotizAn(k) });
-            var umb = aus("Umbenennen");
-            if (umb != null) l.Add(new KreisPunkt { Icon = Ikon.Stift, Name = "Umbenennen", Tun = umb });
-            var weg = aus("In den Papierkorb");
-            if (weg != null) l.Add(new KreisPunkt { Icon = Ikon.Muell, Name = "Papierkorb", Farbe = "#FF9C8F", Tun = weg });
+            l.Add(new KreisPunkt { Icon = Ikon.Oeffnen, Name = "Open", Tun = () => oeffnen(pfade[k]) });
+            l.Add(new KreisPunkt { Icon = Ikon.Netz, Name = "Connect", Tun = () => VerbindenAusMenue(k) });
+            l.Add(new KreisPunkt { Icon = IkonTropfen, Name = "Color", Bleibt = true, Tun = () => KreisFarben(k) });
+            l.Add(new KreisPunkt { Icon = IkonNotiz, Name = "Note", Tun = () => NotizAn(k) });
+            var umb = aus("Rename");
+            if (umb != null) l.Add(new KreisPunkt { Icon = Ikon.Stift, Name = "Rename", Tun = umb });
+            var weg = aus("Move to Recycle Bin");
+            if (weg != null) l.Add(new KreisPunkt { Icon = Ikon.Muell, Name = "Recycle Bin", Farbe = "#FF9C8F", Tun = weg });
             return l;
         }
 
@@ -673,7 +673,7 @@ namespace Workbench
                 string f2 = f;
                 l.Add(new KreisPunkt
                 {
-                    Name = f == null ? "Keine Farbe" : "",
+                    Name = f == null ? "No color" : "",
                     Farbe = f,
                     Tun = () =>
                     {

@@ -1,86 +1,90 @@
 # Workbench
 
-Downloads und Dateien, die sich selbst aufräumen – und ein Desktop, der aufgeräumt bleibt. Für Windows 10/11.
+Downloads that clean up after themselves, and a desktop that stays tidy. For Windows 10 and 11.
 
-## Installieren
+## Install
 
-1. **[Workbench.exe herunterladen](https://github.com/Baougam/workbench/releases/latest)** (unter *Assets*).
-2. Doppelklicken.
-   Windows zeigt beim ersten Mal vielleicht *„Der Computer wurde durch Windows geschützt“* – das kommt bei jedem
-   Programm ohne gekaufte Signatur. **Weitere Informationen › Trotzdem ausführen.**
-3. Fertig. Ein kurzer Rundgang erklärt alles (lässt sich überspringen und später unter *Einstellungen › Rundgang* wieder ansehen).
+1. **[Download Workbench.exe](https://github.com/Baougam/workbench/releases/latest)** (under *Assets*).
+2. Double-click it.
+   The first time, Windows may say *“Windows protected your PC”*. That happens with any app that isn’t signed with a
+   paid certificate. Click **More info › Run anyway**.
+3. That’s it. A short tour shows you around. You can skip it and bring it back any time from *Settings › Tour*.
 
-Workbench installiert sich dabei selbst – **ohne Adminrechte** – nach `%LOCALAPPDATA%\Programs\Workbench` und richtet ein:
+Workbench installs itself to `%LOCALAPPDATA%\Programs\Workbench` — **no admin rights needed** — and sets up:
 
 | | |
 |---|---|
-| Desktop-Symbol & Startmenü | im Rundgang abwählbar |
-| Mit Windows starten | damit Fristen auch ablaufen, wenn das Fenster zu ist (im Leerlauf praktisch 0 % CPU) |
-| *Workbench* links im Explorer | und damit in jedem Speichern-Fenster (Word, Photoshop …) |
-| Rechtsklick › *Workbench* | auf jeder Datei und jedem Ordner (Windows 11: unter *Weitere Optionen anzeigen*) |
-| *Einstellungen › Apps* | zum Entfernen |
+| Desktop and Start menu shortcut | the desktop shortcut can be turned off in the tour |
+| Start with Windows | so timers keep running when the window is closed (it uses next to no CPU while idle) |
+| *Workbench* in File Explorer | which also puts it in every Save dialog (Word, Photoshop, …) |
+| Right-click › *Workbench* | on any file or folder (Windows 11: under *Show more options*) |
+| *Settings › Apps* | so you can uninstall it like any other app |
 
-**An die Taskleiste heften:** Rechtsklick auf das Workbench-Symbol unten in der Taskleiste › *An Taskleiste anheften*.
-(Windows erlaubt Programmen nicht, das selbst zu tun – der Rundgang zeigt, wo.)
+**Pin it to the taskbar:** right-click Workbench in the taskbar and choose *Pin to taskbar*.
+Windows doesn’t let apps pin themselves, so the tour shows you where to click.
 
-**Update:** neue `Workbench.exe` herunterladen und doppelklicken – sie ersetzt die alte, Fristen und Anordnungen bleiben.
-Gibt es eine neue Version, erscheint ein kleiner Punkt am Zahnrad.
+**Update:** download the new `Workbench.exe` and double-click it. It replaces the old version and keeps your timers,
+layouts and notes. When an update is out, a small dot appears on the settings icon.
 
-**Entfernen:** *Einstellungen › Apps › Workbench* oder in Workbench *Einstellungen › Entfernen*. Deine Dateien bleiben, wo sie sind.
+**Uninstall:** *Settings › Apps › Workbench*, or *Settings › Remove* inside Workbench. Your files stay where they are.
 
-## Was es kann
+## What it does
 
-- **Nach jedem Download** fragt unten rechts eine kleine Karte, wie lange die Datei bleiben soll: ein Zeit-Schieber
-  *1 Std · 1 Tag · 1 Woche · 1 Monat · ∞*, dazu *Bis …* und *In die Cloud*. Ein Klick genügt; wer nichts tut, bekommt still
-  den Vorschlag (Installer 1 Tag, sonst 1 Woche – und was du für eine Dateiart wählst, wird der neue Vorschlag).
-  Auch neue Dateien auf dem Desktop werden gefragt.
-- **Aus jedem Programm speichern**: links im Speichern-Fenster steht *Workbench* mit `1 Stunde`, `1 Tag`, `1 Woche`,
-  `1 Monat`, `Dauerhaft`. Wer dort speichert, hat die Dauer schon gewählt.
-- **Ist die Zeit um**, wandert die Datei in den normalen Windows-Papierkorb – nichts ist sofort weg.
-- **Drei Ebenen** wie Blätter übereinander: *Befristet* (mit Zeitring am Symbol), *Dauerhaft* (ein aufgeräumter Desktop)
-  und *Cloud* (Google Drive, OneDrive, Dropbox – wird erkannt).
-  Auf Dauerhaft und Cloud: frei anordnen, **gedrückt halten** für den Kreis (verbinden, färben, Notiz …), Notizen per Doppelklick.
-- **Von oben**: alle Ordner als Netz – mit Suche (Enter = nächster Treffer, Umschalt+Enter = tief in den Ordnern).
+- **After every download**, a small card asks how long you need the file: *1 hour · 1 day · 1 week · 1 month · ∞*,
+  plus *Until…* and *Move to cloud*. One click is enough. If you ignore it, Workbench quietly uses a sensible default
+  (1 day for installers, 1 week for everything else — and it learns what you pick for each file type).
+  New files on your desktop get the same question.
+- **Save from any app** into the *Workbench* folders in the sidebar — `1 Hour`, `1 Day`, `1 Week`, `1 Month`,
+  `Permanent` — and the timer is already set.
+- **When time runs out**, the file moves to the regular Windows Recycle Bin. Nothing is deleted outright.
+- **Three layers**, stacked like sheets: *Expiring* (with a ring showing the time left), *Permanent* (a desktop that
+  stays tidy) and *Cloud* (Google Drive, OneDrive or Dropbox — detected automatically).
+  On Permanent and Cloud you can arrange things freely, **press and hold** for more options (connect, color, add a note)
+  and double-click empty space to write a note.
+- **Graph view** shows all your folders and how they connect, with search
+  (Enter jumps to the next match, Shift+Enter searches inside folders too).
 
-| Bedienung | |
+| Shortcut | |
 |---|---|
-| Zwei Finger hoch/runter · Mausrad · ↑ ↓ | Ebene wechseln |
-| Zwei Finger links/rechts · ← → · Maus-Seitentasten | im Ordner zurück/vor |
-| `Strg+Alt+W` | Workbench öffnen (von überall) |
-| `Strg+G` | Netz von oben |
-| Rechtsklick auf das Taskleisten-Symbol | direkt zu Befristet, Dauerhaft, Cloud, Netz |
+| Two-finger swipe up/down · mouse wheel · ↑ ↓ | switch layers |
+| Two-finger swipe left/right · ← → · mouse back/forward | go back/forward in folders |
+| `Ctrl+Alt+W` | open Workbench from anywhere |
+| `Ctrl+G` | graph view |
+| Right-click the taskbar icon | jump to Expiring, Permanent, Cloud or Graph |
 
-## Selbst bauen
+## Build it yourself
 
-Kein Visual Studio, kein SDK – nur der in Windows eingebaute C#-Compiler (.NET Framework 4.8):
+No Visual Studio, no SDK — just the C# compiler that ships with Windows (.NET Framework 4.8):
 
 ```powershell
 git clone https://github.com/Baougam/workbench.git
 cd workbench
 .\build.ps1           # bin\Workbench.exe
-.\build.ps1 -Test     # + Selbsttest (in einem Testordner, fasst nichts Echtes an)
-.\build.ps1 -Bilder   # + alle Ansichten als PNG nach bin\bilder
+.\build.ps1 -Test     # + self-test (runs in a scratch folder, touches nothing real)
+.\build.ps1 -Bilder   # + renders every screen to bin\bilder as PNG
 ```
 
-Gefahrlos ausprobieren, ohne zu installieren: `$env:WORKBENCH_TESTROOT = "$env:TEMP\wb"; .\bin\Workbench.exe --portable`
+Try it without installing: `$env:WORKBENCH_TESTROOT = "$env:TEMP\wb"; .\bin\Workbench.exe --portable`
 
-**Neue Version veröffentlichen:** Nummer in `VERSION` und `Program.Version` gleich hochzählen, bauen, auf GitHub
-*Releases › Draft a new release* (Tag z. B. `v0.2.0`) und `bin\Workbench.exe` anhängen.
+**Releasing a new version:** bump the number in `VERSION` and `Program.Version`, build, then on GitHub go to
+*Releases › Draft a new release* (tag e.g. `v0.2.0`) and attach `bin\Workbench.exe`.
 
-## Aufbau
+## Code layout
 
-| Datei | Inhalt |
+The code and comments are in German; the app itself is in English.
+
+| File | What’s in it |
 |---|---|
-| `src/Engine.cs` | Beobachter (Downloads, Desktop, Workbench-Ordner), Download-fertig-Erkennung, Fristen, Ablauf → Papierkorb |
-| `src/Model.cs` | Pfade, Dauern, Fristen-Liste (`%LOCALAPPDATA%\Workbench\fristen.json`), Einstellungen |
-| `src/Frage.cs` | Die Karte nach dem Download / beim Speichern (Zeit-Schieber) |
-| `src/Hauptfenster.cs` | Fenster: Ebenen, Befristet, Papierkorb, Einstellungen, Gesten, Verlauf |
-| `src/Tisch.cs` | Freie Fläche: anordnen, Linien, Farben, Notizen, Kreismenü |
-| `src/Netz.cs` | Ansicht von oben (Netz) mit Suche |
-| `src/Einfuehrung.cs` | Rundgang beim ersten Start |
-| `src/Papierkorb.cs` | Liest den echten Papierkorb (`$Recycle.Bin`) – Wiederherstellen/Löschen ohne Dialoge |
-| `src/Cloud.cs` | Findet Google Drive, OneDrive, Dropbox, iCloud |
-| `src/Install.cs` | Selbst-Installation, Autostart, Explorer-Seitenleiste, Rechtsklick-Menü, Entfernen |
-| `src/Update.cs` | Stiller Update-Hinweis (liest `VERSION`) |
-| `src/Theme.cs`, `src/Parts.cs` | Aussehen, Symbole, Vorschaubilder, Kalender |
-| `src/SelfTest.cs` | `--selftest` und `--render` |
+| `src/Engine.cs` | Watchers (Downloads, Desktop, Workbench folders), download detection, timers, expiry → Recycle Bin |
+| `src/Model.cs` | Paths, durations, the timer list (`%LOCALAPPDATA%\Workbench\fristen.json`), settings |
+| `src/Frage.cs` | The card after a download or save (time slider) |
+| `src/Hauptfenster.cs` | Main window: layers, Expiring, Recycle Bin, Settings, gestures, history |
+| `src/Tisch.cs` | Free-form surface: arranging, lines, colors, notes, press-and-hold menu |
+| `src/Netz.cs` | Graph view with search |
+| `src/Einfuehrung.cs` | First-run tour |
+| `src/Papierkorb.cs` | Reads the real Recycle Bin (`$Recycle.Bin`) — restore and delete without dialogs |
+| `src/Cloud.cs` | Finds Google Drive, OneDrive, Dropbox, iCloud |
+| `src/Install.cs` | Self-install, autostart, Explorer sidebar, right-click menu, uninstall |
+| `src/Update.cs` | Quiet update check (reads `VERSION`) |
+| `src/Theme.cs`, `src/Parts.cs` | Look and feel, icons, thumbnails, calendar |
+| `src/SelfTest.cs` | `--selftest` and `--render` |

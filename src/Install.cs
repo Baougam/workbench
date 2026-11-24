@@ -78,7 +78,7 @@ namespace Workbench
                 s.TargetPath = Ziel;
                 s.WorkingDirectory = Paths.Programm;
                 s.IconLocation = Ziel + ",0";
-                s.Description = "Workbench – Downloads und Dateien, die sich selbst aufräumen";
+                s.Description = "Workbench — downloads and files that clean up after themselves";
                 s.Save();
             }
             catch (Exception ex) { Log.Fehler("Verknüpfung " + lnk, ex); }
@@ -152,7 +152,7 @@ namespace Workbench
             {
                 string ini = Path.Combine(Paths.Wurzel, "desktop.ini");
                 if (File.Exists(ini)) File.SetAttributes(ini, FileAttributes.Normal);
-                File.WriteAllText(ini, "[.ShellClassInfo]\r\nIconResource=" + Ziel + ",0\r\nInfoTip=Dateien, die sich selbst aufräumen\r\n");
+                File.WriteAllText(ini, "[.ShellClassInfo]\r\nIconResource=" + Ziel + ",0\r\nInfoTip=Files that clean up after themselves\r\n");
                 File.SetAttributes(ini, FileAttributes.Hidden | FileAttributes.System);
                 var d = new DirectoryInfo(Paths.Wurzel);
                 d.Attributes |= FileAttributes.ReadOnly;
@@ -208,7 +208,7 @@ namespace Workbench
                         k.SetValue("MUIVerb", "Workbench");
                         k.SetValue("Icon", Ziel + ",0");
                         k.SetValue("SubCommands", "");
-                        string[][] eintraege = { new[] { "a1", "1 Stunde", "1 Std" }, new[] { "a2", "1 Tag", "1 Tag" }, new[] { "a3", "1 Woche", "1 Woche" }, new[] { "a4", "1 Monat", "1 Monat" }, new[] { "a5", "Für immer", Dauer.Immer } };
+                        string[][] eintraege = { new[] { "a1", "1 Hour", "1 hour" }, new[] { "a2", "1 day", "1 day" }, new[] { "a3", "1 week", "1 week" }, new[] { "a4", "1 month", "1 month" }, new[] { "a5", "Forever", Dauer.Immer } };
                         foreach (var e in eintraege)
                             using (var s = k.CreateSubKey(@"shell\" + e[0]))
                             {
@@ -237,7 +237,7 @@ namespace Workbench
 
         public static void Deinstallieren(bool still)
         {
-            if (!still && MessageBox.Show("Workbench entfernen?\n\nDeine Dateien bleiben, wo sie sind (auch im Ordner „Workbench“).", "Workbench", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            if (!still && MessageBox.Show("Remove Workbench?\n\nYour files stay where they are, including everything in the Workbench folder.", "Workbench", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                 return;
             if (!Paths.Test)
             {

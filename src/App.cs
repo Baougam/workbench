@@ -120,7 +120,7 @@ namespace Workbench
             {
                 string exe = Install.IstInstallierteKopie() ? Install.Ziel : System.Reflection.Assembly.GetExecutingAssembly().Location;
                 var jl = new System.Windows.Shell.JumpList { ShowFrequentCategory = false, ShowRecentCategory = false };
-                string[] namen = { "Befristet", "Dauerhaft", "Cloud", "Netz" };
+                string[] namen = { "Expiring", "Permanent", "Cloud", "Graph" };
                 int[] ziele = { Hauptfenster.Befristet, Hauptfenster.Dauerhaft, Hauptfenster.Wolke, Hauptfenster.Netzansicht };
                 for (int i = 0; i < namen.Length; i++)
                     jl.JumpItems.Add(new System.Windows.Shell.JumpTask { Title = namen[i], Arguments = "--zeige " + ziele[i], ApplicationPath = exe, IconResourcePath = exe, IconResourceIndex = 0 });

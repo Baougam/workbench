@@ -16,15 +16,60 @@ namespace Workbench
         public static readonly string Programm;    // %LOCALAPPDATA%\Programs\Workbench
         public static readonly bool Test;
 
-        public const string DauerhaftName = "Dauerhaft";
+        public const string DauerhaftName = "Permanent";
         // Ordnername → Dauer. Wer etwas in einen dieser Ordner speichert, hat die Dauer damit schon gewählt.
         public static readonly string[][] ZeitOrdner =
         {
-            new[] { "1 Stunde", "1 Std" },
-            new[] { "1 Tag", "1 Tag" },
-            new[] { "1 Woche", "1 Woche" },
-            new[] { "1 Monat", "1 Monat" },
+            new[] { "1 Hour", "1 hour" },
+            new[] { "1 Day", "1 day" },
+            new[] { "1 Week", "1 week" },
+            new[] { "1 Month", "1 month" },
         };
+
+        // ---------- Umzug von der deutschen Version (0.1.0) ----------
+        static readonly string[][] alteOrdner =
+        {
+            new[] { "1 Stunde", "1 Hour" }, new[] { "1 Tag", "1 Day" }, new[] { "1 Woche", "1 Week" }, new[] { "1 Monat", "1 Month" }, new[] { "Dauerhaft", "Permanent" },
+        };
+
+        /// <summary>Alte deutsche Ordner umbenennen (einmalig, bevor irgendetwas geladen wird).</summary>
+        public static void OrdnerUmziehen()
+        {
+            foreach (var o in alteOrdner)
+            {
+                string alt = Path.Combine(Wurzel, o[0]), neu = Path.Combine(Wurzel, o[1]);
+                try
+                {
+                    if (!Directory.Exists(alt)) continue;
+                    if (!Directory.Exists(neu)) Directory.Move(alt, neu);
+                    else
+                    {
+                        // beide da: Inhalt hinüber, alten leeren Ordner weg
+                        foreach (var e in Directory.EnumerateFileSystemEntries(alt).ToList())
+                        {
+                            string ziel = FreierName(neu, Path.GetFileName(e));
+                            if (Directory.Exists(e)) Directory.Move(e, ziel); else File.Move(e, ziel);
+                        }
+                        Directory.Delete(alt);
+                    }
+                    Log.Info("Ordner umbenannt: " + o[0] + " → " + o[1]);
+                }
+                catch (Exception ex) { Log.Fehler("Ordner umziehen " + o[0], ex); }
+            }
+        }
+
+        /// <summary>Pfad aus der deutschen Version auf den neuen Ordnernamen umschreiben.</summary>
+        public static string PfadNeu(string p)
+        {
+            if (string.IsNullOrEmpty(p)) return p;
+            foreach (var o in alteOrdner)
+            {
+                string alt = Path.Combine(Wurzel, o[0]);
+                if (p.Equals(alt, StringComparison.OrdinalIgnoreCase) || p.StartsWith(alt + "\\", StringComparison.OrdinalIgnoreCase))
+                    return Path.Combine(Wurzel, o[1]) + p.Substring(alt.Length);
+            }
+            return p;
+        }
 
         static Paths()
         {
@@ -51,6 +96,7 @@ namespace Workbench
 
         public static void OrdnerAnlegen()
         {
+            OrdnerUmziehen();
             Directory.CreateDirectory(Wurzel);
             Directory.CreateDirectory(Dauerhaft);
             foreach (var z in ZeitOrdner) Directory.CreateDirectory(Path.Combine(Wurzel, z[0]));
@@ -59,12 +105,12 @@ namespace Workbench
             if (Test) Directory.CreateDirectory(Desktop);
         }
 
-        /// <summary>Liegt der Pfad direkt in einem Zeit-Ordner? Dann die Dauer, sonst null. "Dauerhaft" für den Dauerhaft-Ordner.</summary>
+        /// <summary>Liegt der Pfad direkt in einem Zeit-Ordner? Dann die Dauer, sonst null. "Permanent" für den Dauerhaft-Ordner.</summary>
         public static string DauerVonOrdner(string pfad)
         {
             string eltern = Path.GetDirectoryName(pfad);
             if (eltern == null) return null;
-            if (Gleich(eltern, Dauerhaft)) return "Dauerhaft";
+            if (Gleich(eltern, Dauerhaft)) return "Permanent";
             foreach (var z in ZeitOrdner)
                 if (Gleich(eltern, Path.Combine(Wurzel, z[0]))) return z[1];
             return null;
@@ -90,18 +136,18 @@ namespace Workbench
 
     static class Dauer
     {
-        public static readonly string[] Auswahl = { "1 Std", "1 Tag", "1 Woche", "1 Monat" };
-        public const string Bis = "Bis …";
-        public const string Immer = "Für immer";
+        public static readonly string[] Auswahl = { "1 hour", "1 day", "1 week", "1 month" };
+        public const string Bis = "Until…";
+        public const string Immer = "Forever";
 
         public static DateTime? Ablauf(string name, DateTime vonUtc)
         {
             switch (name)
             {
-                case "1 Std": return vonUtc.AddHours(1);
-                case "1 Tag": return vonUtc.AddDays(1);
-                case "1 Woche": return vonUtc.AddDays(7);
-                case "1 Monat": return vonUtc.AddMonths(1);
+                case "1 hour": return vonUtc.AddHours(1);
+                case "1 day": return vonUtc.AddDays(1);
+                case "1 week": return vonUtc.AddDays(7);
+                case "1 month": return vonUtc.AddMonths(1);
                 case Immer: return null;
             }
             return vonUtc.AddDays(7);
@@ -120,16 +166,34 @@ namespace Workbench
             return installer.Contains(Path.GetExtension(pfad).ToLowerInvariant());
         }
 
-        /// <summary>„noch 42 Min“, „noch 3 Tage“, „bis 15.01.“</summary>
+        public static readonly System.Globalization.CultureInfo En = new System.Globalization.CultureInfo("en-GB");
+
+        /// <summary>Alte deutsche Dauer-Namen (0.1.0) auf die englischen abbilden.</summary>
+        public static string Neu(string d)
+        {
+            switch (d)
+            {
+                case "1 Std": return "1 hour";
+                case "1 Tag": return "1 day";
+                case "1 Woche": return "1 week";
+                case "1 Monat": return "1 month";
+                case "Für immer": return Immer;
+                case "Bis …": return Bis;
+            }
+            if (d != null && d.StartsWith("bis ")) return "until " + d.Substring(4);
+            return d;
+        }
+
+        /// <summary>„42 min“, „3 days“, „until 15 Jan“</summary>
         public static string Rest(DateTime ablaufUtc, DateTime jetztUtc)
         {
             var r = ablaufUtc - jetztUtc;
-            if (r.TotalMinutes < 1) return "gleich";
-            if (r.TotalMinutes < 60) return (int)Math.Ceiling(r.TotalMinutes) + " Min";
-            if (r.TotalHours < 24) return Math.Max(1, (int)Math.Round(r.TotalHours)) + " Std";
-            if (r.TotalDays < 14) { int d = (int)Math.Round(r.TotalDays); return d + (d == 1 ? " Tag" : " Tage"); }
-            if (r.TotalDays < 60) { int w = (int)Math.Round(r.TotalDays / 7); return w + (w == 1 ? " Woche" : " Wochen"); }
-            return "bis " + ablaufUtc.ToLocalTime().ToString("dd.MM.yy");
+            if (r.TotalMinutes < 1) return "now";
+            if (r.TotalMinutes < 60) return (int)Math.Ceiling(r.TotalMinutes) + " min";
+            if (r.TotalHours < 24) { int h = Math.Max(1, (int)Math.Round(r.TotalHours)); return h + (h == 1 ? " hour" : " hours"); }
+            if (r.TotalDays < 14) { int d = (int)Math.Round(r.TotalDays); return d + (d == 1 ? " day" : " days"); }
+            if (r.TotalDays < 60) { int w = (int)Math.Round(r.TotalDays / 7); return w + (w == 1 ? " week" : " weeks"); }
+            return "until " + ablaufUtc.ToLocalTime().ToString("d MMM", En);
         }
 
         /// <summary>0 = heute (&lt; 24 Std), 1 = diese Woche, 2 = später</summary>
@@ -146,15 +210,9 @@ namespace Workbench
             var l = ablaufUtc.ToLocalTime();
             var heute = DateTime.Now.Date;
             string zeit = l.ToString("HH:mm");
-            if (l.Date == heute) return "heute um " + zeit;
-            if (l.Date == heute.AddDays(1)) return "morgen um " + zeit;
-            return Wochentag(l) + ", " + l.ToString("dd.MM.yyyy") + " um " + zeit;
-        }
-
-        public static string Wochentag(DateTime d)
-        {
-            string[] t = { "So", "Mo", "Di", "Mi", "Do", "Fr", "Sa" };
-            return t[(int)d.DayOfWeek];
+            if (l.Date == heute) return "today at " + zeit;
+            if (l.Date == heute.AddDays(1)) return "tomorrow at " + zeit;
+            return l.ToString(l.Year == heute.Year ? "ddd d MMM" : "ddd d MMM yyyy", En) + " at " + zeit;
         }
 
         public static string Groesse(long b)
@@ -221,7 +279,9 @@ namespace Workbench
                         e.Hinzu = Utc(e.Hinzu);
                         if (e.Ablauf.HasValue) e.Ablauf = Utc(e.Ablauf.Value);
                     }
-                    foreach (var r in D.Papierkorb) r.Am = Utc(r.Am);
+                    foreach (var r in D.Papierkorb) { r.Am = Utc(r.Am); r.Pfad = Paths.PfadNeu(r.Pfad); r.Dauer = Dauer.Neu(r.Dauer); }
+                    foreach (var e in D.Eintraege) { e.Pfad = Paths.PfadNeu(e.Pfad); e.Gewaehlt = Dauer.Neu(e.Gewaehlt); }
+                    foreach (var k in D.LetzteWahl.Keys.ToList()) D.LetzteWahl[k] = Dauer.Neu(D.LetzteWahl[k]);
                 }
             }
             catch (Exception ex) { Log.Fehler("Store.Laden", ex); D = new StoreDaten(); }
@@ -261,7 +321,7 @@ namespace Workbench
     public class Einstellungen
     {
         public bool Fragen = true;                 // nach Downloads fragen
-        public string Standard = "1 Woche";        // wenn nicht gewählt wird
+        public string Standard = "1 week";        // wenn nicht gewählt wird
         public int Sekunden = 8;                   // so lange bleibt die Frage stehen
         public bool HinweisSpeichern = true;       // kurzer Hinweis beim Speichern in Workbench-Ordner
         public bool Autostart = true;
@@ -282,7 +342,7 @@ namespace Workbench
         {
             try
             {
-                if (File.Exists(Datei)) return Store.Json().Deserialize<Einstellungen>(File.ReadAllText(Datei)) ?? new Einstellungen();
+                if (File.Exists(Datei)) { var c = Store.Json().Deserialize<Einstellungen>(File.ReadAllText(Datei)) ?? new Einstellungen(); c.Standard = Dauer.Neu(c.Standard); return c; }
             }
             catch (Exception ex) { Log.Fehler("Einstellungen.Laden", ex); }
             return new Einstellungen();

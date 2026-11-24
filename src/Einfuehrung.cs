@@ -80,8 +80,8 @@ namespace Workbench
             var sp = new StackPanel();
             var kopf = new Grid();
             kopf.Children.Add(new TextBlock { Text = s.Titel, FontSize = 15.5, FontWeight = FontWeights.SemiBold, Foreground = Farbe.Text, Margin = new Thickness(0, 0, 30, 0), TextWrapping = TextWrapping.Wrap });
-            var x = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 28, Height = 28, Content = UI.Icon(Ikon.X, 12, Farbe.Text3, 2), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, -6, -6, 0), ToolTip = "Später" };
-            System.Windows.Automation.AutomationProperties.SetName(x, "Später");
+            var x = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 28, Height = 28, Content = UI.Icon(Ikon.X, 12, Farbe.Text3, 2), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, -6, -6, 0), ToolTip = "Later" };
+            System.Windows.Automation.AutomationProperties.SetName(x, "Later");
             x.Click += delegate { Ende(false); };
             kopf.Children.Add(x);
             sp.Children.Add(kopf);
@@ -90,7 +90,7 @@ namespace Workbench
             if (s.Extra != null) { var e = s.Extra(); e.Margin = new Thickness(0, 12, 0, 0); sp.Children.Add(e); }
 
             var fuss = new Grid { Margin = new Thickness(0, 16, 0, 0) };
-            var nie = new TextBlock { Text = "Nicht mehr zeigen", FontSize = 12, Foreground = Farbe.Text3, Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center };
+            var nie = new TextBlock { Text = "Don't show again", FontSize = 12, Foreground = Farbe.Text3, Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center };
             nie.MouseEnter += delegate { nie.Foreground = Farbe.Text2; };
             nie.MouseLeave += delegate { nie.Foreground = Farbe.Text3; };
             nie.MouseLeftButtonUp += delegate { Ende(true); };
@@ -105,7 +105,7 @@ namespace Workbench
             punkte.Children.Insert(nr, new Border { Width = 14, Height = 5, CornerRadius = new CornerRadius(3), Background = Farbe.Akzent, Margin = new Thickness(2, 0, 2, 0) });
             rechts.Children.Add(punkte);
             bool letzter = nr == schritte.Count - 1;
-            var weiter = new Button { Style = (Style)Application.Current.FindResource("BtnPri"), Content = letzter ? "Los geht’s" : "Weiter", Height = 32, Padding = new Thickness(16, 0, 16, 0) };
+            var weiter = new Button { Style = (Style)Application.Current.FindResource("BtnPri"), Content = letzter ? "Get started" : "Next", Height = 32, Padding = new Thickness(16, 0, 16, 0) };
             weiter.Click += delegate { Weiter(); };
             rechts.Children.Add(weiter);
             fuss.Children.Add(rechts);
