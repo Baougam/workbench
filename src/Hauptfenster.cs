@@ -1436,6 +1436,7 @@ namespace Workbench
             {
                 new Einfuehrung.Schritt { Titel = "Welcome to Workbench", Text = "Downloads that clean up after themselves, and a desktop that stays tidy.", Extra = Willkommen },
                 new Einfuehrung.Schritt { Titel = "Three layers", Text = "Expiring, Permanent and Cloud. Swipe up or down with two fingers to switch, or use the arrow keys.", Ziel = () => reglerEl, Vorher = () => Zeige(Befristet) },
+                new Einfuehrung.Schritt { Titel = "After every download", Text = "A small card like this one asks how long you need the file. Pick a time with one click — or ignore it, and Workbench picks a sensible default.", Vorher = Beispielkarte },
                 new Einfuehrung.Schritt { Titel = "Expiring", Text = "New downloads show up here. The ring shows how much time is left. When it runs out, the file moves to the Recycle Bin.", Ziel = () => blatt, Vorher = () => Zeige(Befristet) },
                 new Einfuehrung.Schritt { Titel = "Your desktop", Text = "Drag things wherever you like. Press and hold to connect, color or add a note. Double-click empty space to start writing.", Ziel = () => blatt, Vorher = () => Zeige(Dauerhaft) },
                 new Einfuehrung.Schritt { Titel = "See everything at once", Text = "The graph view shows all your folders and how they connect. Start typing to find one.", Ziel = () => btnNetz, Vorher = () => Zeige(Dauerhaft) },
@@ -1450,6 +1451,28 @@ namespace Workbench
             });
             wurzel.Children.Add(einfuehrung);
             einfuehrung.Starten();
+        }
+
+        Frage beispiel;
+
+        /// <summary>
+        /// Im Rundgang einmal die echte Download-Karte zeigen – mit einer Beispieldatei, die Workbench nicht kennt:
+        /// ein Klick darauf ändert nichts an echten Dateien.
+        /// </summary>
+        void Beispielkarte()
+        {
+            if (bild || (beispiel != null && beispiel.Offen)) return;
+            try
+            {
+                string ordner = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Workbench tour");
+                Directory.CreateDirectory(ordner);
+                string datei = System.IO.Path.Combine(ordner, "Example.pdf");
+                if (!File.Exists(datei)) File.WriteAllBytes(datei, new byte[0]);
+                var e = new Eintrag { Pfad = datei, Gewaehlt = E.Cfg.Standard, Hinzu = DateTime.UtcNow };
+                beispiel = new Frage(E, new List<Eintrag> { e }, false);
+                beispiel.Show();
+            }
+            catch (Exception ex) { Log.Fehler("Beispielkarte", ex); }
         }
 
         /// <summary>Selbst ausprobieren zählt: wer im Ebenen-Schritt selbst die Ebene wechselt, kommt weiter.</summary>
