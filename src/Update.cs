@@ -11,7 +11,7 @@ namespace Workbench
     /// </summary>
     static class Update
     {
-        public const string Seite = "https://github.com/Baougam/workbench/releases";
+        public const string Seite = "https://github.com/Baougam/workbench/raw/main/download/Workbench.exe";   // ein Klick lädt die neue Version
         const string VersionUrl = "https://raw.githubusercontent.com/Baougam/workbench/main/VERSION";
 
         public static event Action Gefunden;

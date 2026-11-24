@@ -28,7 +28,7 @@ namespace Workbench
     {
         public const int Befristet = 0, Dauerhaft = 1, Wolke = 2, Korb = 3, Einst = 4, Netzansicht = 5;
         const int Ebenen = 3;
-        const double Abstand = 34;
+        const double Abstand = 23;
 
         readonly Engine E;
         readonly bool bild;
@@ -44,8 +44,28 @@ namespace Workbench
         readonly StackPanel ort = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         TextBox suche;
         Border suchFeld;
-        readonly TranslateTransform knopfY = new TranslateTransform();
-        FrameworkElement knopf;
+        readonly Border[] blaetter = new Border[3];
+        readonly TranslateTransform[] blattX = new TranslateTransform[3];
+        int aktivesBlatt = -1;
+        static readonly DropShadowEffect blattSchein = new DropShadowEffect { Color = Color.FromRgb(0xF4, 0xB8, 0x60), BlurRadius = 12, ShadowDepth = 0, Opacity = 0.55 };
+
+        /// <summary>Aktives Blatt heraus und hell, die anderen zurück und ruhig. Nicht auf einer Ebene (Papierkorb …): gedämpft.</summary>
+        void BlaetterSetzen(int aktiv, bool aufEbene)
+        {
+            aktivesBlatt = aktiv;
+            for (int i = 0; i < Ebenen; i++)
+            {
+                bool an = i == aktiv;
+                var bl = blaetter[i];
+                bl.Background = an ? Farbe.B("#FFF6EAD4") : Farbe.B("#FF1C2028");
+                bl.BorderBrush = an ? Farbe.Akzent : Farbe.B("#3DFFFFFF");
+                bl.Effect = an && aufEbene ? blattSchein : null;
+                double x = an ? 9 : 0, o = an && !aufEbene ? 0.5 : 1;
+                if (bild) { blattX[i].X = x; bl.Opacity = o; continue; }
+                blattX[i].BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(x, TimeSpan.FromMilliseconds(an ? 320 : 220)) { EasingFunction = an ? (IEasingFunction)new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.5 } : UI.Weich });
+                bl.BeginAnimation(OpacityProperty, new DoubleAnimation(o, TimeSpan.FromMilliseconds(180)));
+            }
+        }
         readonly List<Button> stufen = new List<Button>();
         Button btnKorb, btnEinst, btnNetz;
         Ellipse korbPunkt;
@@ -127,6 +147,7 @@ namespace Workbench
             leiste.Visibility = Visibility.Collapsed;
             leiste.RenderTransform = new TranslateTransform();
             wurzel.Children.Add(leiste);
+            wurzel.Children.Add(VersionLeise());
 
             if (!bild)
             {
@@ -269,33 +290,34 @@ namespace Workbench
             return b;
         }
 
-        /// <summary>Schmale Punktleiste: drei Ebenen. Namen nur beim Darüberfahren.</summary>
+        /// <summary>Ebenen-Leiste als kleiner Blattstapel. Namen nur beim Darüberfahren.</summary>
         FrameworkElement Schiene()
         {
             var g = new Grid();
-            var regler = new Grid { Width = 40, Height = 28 + (Ebenen - 1) * Abstand, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, Background = Brushes.Transparent, Margin = new Thickness(0, -60, 0, 0) };
-            regler.Children.Add(new Border { Width = 2, Height = (Ebenen - 1) * Abstand, Background = Farbe.B("#33FFFFFF"), CornerRadius = new CornerRadius(1), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 14, 0, 0), IsHitTestVisible = false });
+            var regler = new Grid { Width = 44, Height = 24 + (Ebenen - 1) * Abstand, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, Background = Brushes.Transparent, Margin = new Thickness(0, -60, 0, 0) };
+            // Blattstapel: drei kleine Blätter – das aktive rutscht nach rechts heraus und leuchtet
             for (int i = 0; i < Ebenen; i++)
             {
-                regler.Children.Add(new Ellipse { Width = 7, Height = 7, Fill = Farbe.B("#80FFFFFF"), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 14 - 3.5 + i * Abstand, 0, 0), IsHitTestVisible = false });
+                blattX[i] = new TranslateTransform();
+                blaetter[i] = new Border { Width = 26, Height = 18, CornerRadius = new CornerRadius(5), BorderThickness = new Thickness(1), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(3, i * Abstand + 3, 0, 0), IsHitTestVisible = false, RenderTransform = blattX[i] };
+                regler.Children.Add(blaetter[i]);
             }
-            var k = new Ellipse { Width = 14, Height = 14, Fill = Farbe.B("#F2FFFFFF"), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 7, 0, 0), IsHitTestVisible = false, RenderTransform = knopfY, Effect = new DropShadowEffect { Color = Colors.White, BlurRadius = 12, ShadowDepth = 0, Opacity = 0.55 } };
-            knopf = k;
             string[] namen = { "Expiring", "Permanent", wolke != null ? wolke.Name : "Cloud" };
             for (int i = 0; i < Ebenen; i++)
             {
                 int ebene = i;
-                var b = new Button { Style = (Style)Application.Current.FindResource("Leer"), Width = 40, Height = 28, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, i * Abstand, 0, 0), ToolTip = namen[i] };
+                var b = new Button { Style = (Style)Application.Current.FindResource("Leer"), Width = 40, Height = 23, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, i * Abstand, 0, 0), ToolTip = namen[i] };
                 ToolTipService.SetPlacement(b, PlacementMode.Right);
                 ToolTipService.SetInitialShowDelay(b, 150);
                 System.Windows.Automation.AutomationProperties.SetName(b, namen[i]);
                 b.Click += delegate { Zeige(ebene); RundgangMitgehen(); };
                 if (i == 1) AblageZiel(b, null, () => Paths.Dauerhaft);
                 if (i == 2) AblageZiel(b, null, () => wolke != null ? wolke.Pfad : null);
+                b.MouseEnter += delegate { if (ebene != aktivesBlatt) blattX[ebene].BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(3, TimeSpan.FromMilliseconds(120))); };
+                b.MouseLeave += delegate { if (ebene != aktivesBlatt) blattX[ebene].BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(160))); };
                 stufen.Add(b);
                 regler.Children.Add(b);
             }
-            regler.Children.Add(k);
             reglerEl = regler;
             g.Children.Add(regler);
 
@@ -319,7 +341,27 @@ namespace Workbench
         }
 
         Ellipse updatePunkt;
-        void UpdateDa() { updatePunkt.Visibility = Visibility.Visible; if (ansicht == Einst) Neuzeichnen(); }
+        TextBlock updateLink;
+        void UpdateDa()
+        {
+            updatePunkt.Visibility = Visibility.Visible;
+            if (updateLink != null) { updateLink.Text = "update " + Update.Neu(E.Cfg); updateLink.Visibility = Visibility.Visible; }
+            if (ansicht == Einst) Neuzeichnen();
+        }
+
+        /// <summary>Ganz unten rechts, kaum sichtbar: Version – und nur bei einem Update ein leiser Link (lädt die neue Version).</summary>
+        FrameworkElement VersionLeise()
+        {
+            var sp = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 26, 2) };
+            sp.Children.Add(new TextBlock { Text = "v" + Program.Version, FontSize = 10.5, Foreground = Farbe.B("#40FFFFFF") });
+            string neu = Update.Neu(E.Cfg);
+            updateLink = new TextBlock { Text = "update " + neu, FontSize = 10.5, Foreground = Farbe.B("#99F4B860"), Margin = new Thickness(8, 0, 0, 0), Cursor = Cursors.Hand, ToolTip = "Download the new version", Visibility = neu != null ? Visibility.Visible : Visibility.Collapsed };
+            updateLink.MouseEnter += delegate { updateLink.Foreground = Farbe.Akzent; updateLink.TextDecorations = TextDecorations.Underline; };
+            updateLink.MouseLeave += delegate { updateLink.Foreground = Farbe.B("#99F4B860"); updateLink.TextDecorations = null; };
+            updateLink.MouseLeftButtonUp += delegate { Oeffnen(Update.Seite); };
+            sp.Children.Add(updateLink);
+            return sp;
+        }
 
         Button RundKnopf(string icon, string name, Action a)
         {
@@ -338,13 +380,7 @@ namespace Workbench
             int richtung = neu < Ebenen && ansicht >= 0 && ansicht < Ebenen ? Math.Sign(neu - ansicht) : 0;
             ansicht = neu;
             if (neu < Ebenen) letzteEbene = neu;
-            double ziel = letzteEbene * Abstand;
-            if (bild) { knopfY.Y = ziel; knopf.Opacity = neu < Ebenen ? 1 : 0.35; }
-            else
-            {
-                knopfY.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(ziel, TimeSpan.FromMilliseconds(300)) { EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.4 } });
-                knopf.BeginAnimation(OpacityProperty, new DoubleAnimation(neu < Ebenen ? 1 : 0.35, TimeSpan.FromMilliseconds(180)));
-            }
+            BlaetterSetzen(letzteEbene, neu < Ebenen);
             btnKorb.Background = neu == Korb ? Schwebe : Brushes.Transparent;
             btnEinst.Background = neu == Einst ? Schwebe : Brushes.Transparent;
             btnNetz.Background = neu == Netzansicht ? Schwebe : Brushes.Transparent;
