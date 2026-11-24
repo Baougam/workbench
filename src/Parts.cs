@@ -62,11 +62,19 @@ namespace Workbench
         /// <summary>Bild einer Datei: erst ein Platzhalter in Endform, dann blendet das echte Vorschaubild weich ein.</summary>
         public static FrameworkElement Bild(string pfad, double breite, double hoehe) { return Bild(pfad, breite, hoehe, false); }
 
-        public static FrameworkElement Bild(string pfad, double breite, double hoehe, bool nurSymbol)
+        public static FrameworkElement Bild(string pfad, double breite, double hoehe, bool nurSymbol) { return Bild(pfad, breite, hoehe, nurSymbol, null, false); }
+
+        /// <summary>
+        /// anteil = wie viel Zeit noch übrig ist (0…1): das Symbol „leert“ sich von oben. Oben liegt das unveränderte Original,
+        /// nur unten herum abgeschnitten; darunter eine graue Kopie desselben Symbols. Funktioniert für jeden Dateityp.
+        /// </summary>
+        public static FrameworkElement Bild(string pfad, double breite, double hoehe, bool nurSymbol, double? anteil, bool bald)
         {
             var g = new Grid { Width = breite, Height = hoehe };
             if (Directory.Exists(pfad))
             {
+                // Ordner: unser Ordnerbild als Bitmap behandeln, damit auch er sich leeren kann
+                if (anteil.HasValue) { g.Children.Add(Fuellstand(OrdnerBitmap((int)(breite * 2)), breite, hoehe, anteil.Value, bald)); return g; }
                 var o = UI.OrdnerBild(breite);
                 o.VerticalAlignment = VerticalAlignment.Center;
                 g.Children.Add(o);
@@ -78,9 +86,7 @@ namespace Workbench
             lock (cache) cache.TryGetValue(Schluessel(pfad, px) + (nurSymbol ? "|s" : ""), out fertigesBild);
             if (fertigesBild != null)
             {
-                var sofortBild = new Image { Source = fertigesBild, Stretch = Stretch.Uniform, Width = breite, Height = hoehe };
-                RenderOptions.SetBitmapScalingMode(sofortBild, BitmapScalingMode.HighQuality);
-                g.Children.Add(sofortBild);
+                g.Children.Add(anteil.HasValue ? Fuellstand(fertigesBild, breite, hoehe, anteil.Value, bald) : Einfach(fertigesBild, breite, hoehe));
                 return g;
             }
             // noch nicht: ruhige Fläche in Endgröße, dann blendet das echte Bild weich ein
@@ -89,8 +95,7 @@ namespace Workbench
             Laden(pfad, px, nurSymbol, bs =>
             {
                 if (bs == null) return;
-                var img = new Image { Source = bs, Stretch = Stretch.Uniform, Width = breite, Height = hoehe };
-                RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
+                var img = anteil.HasValue ? Fuellstand(bs, breite, hoehe, anteil.Value, bald) : Einfach(bs, breite, hoehe);
                 g.Children.Add(img);
                 if (Sofort) { g.Children.Remove(platz); return; }
                 img.Opacity = 0;
@@ -99,6 +104,89 @@ namespace Workbench
                 img.BeginAnimation(UIElement.OpacityProperty, a);
             });
             return g;
+        }
+
+        static Image Einfach(BitmapSource bs, double b, double h)
+        {
+            var img = new Image { Source = bs, Stretch = Stretch.Uniform, Width = b, Height = h };
+            RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
+            return img;
+        }
+
+        class Grauwert { public BitmapSource Bild; public double Oben, Unten; }   // Oben/Unten: sichtbarer Teil (0…1 der Höhe)
+        static readonly Dictionary<string, Grauwert> grau = new Dictionary<string, Grauwert>();
+
+        /// <summary>Graue Kopie (Transparenz bleibt) und wo das Symbol wirklich anfängt/aufhört – einmal je Bild, gemerkt.</summary>
+        static Grauwert Grau(BitmapSource bs, bool bald)
+        {
+            string k = bs.GetHashCode() + (bald ? "|b" : "");
+            Grauwert gw;
+            lock (grau) if (grau.TryGetValue(k, out gw)) return gw;
+            var src = bs.Format == PixelFormats.Pbgra32 ? bs : new FormatConvertedBitmap(bs, PixelFormats.Pbgra32, null, 0);
+            int w = src.PixelWidth, h = src.PixelHeight, stride = w * 4;
+            var px = new byte[stride * h];
+            src.CopyPixels(px, stride, 0);
+            int oben = h, unten = -1;
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    int i = y * stride + x * 4;
+                    byte a = px[i + 3];
+                    if (a > 24) { if (y < oben) oben = y; if (y > unten) unten = y; }
+                    double l = px[i + 2] * 0.3 + px[i + 1] * 0.59 + px[i] * 0.11;   // vormultipliziert – bleibt stimmig
+                    l = l * 0.55;                                                    // geleert = gedämpft
+                    double r = l, gg = l, bb = l;
+                    if (bald)
+                    {
+                        // letzter Tag: geleerter Teil bekommt einen Hauch Bernstein
+                        double fa = a / 255.0;
+                        r = l * 0.62 + 244 * fa * 0.38; gg = l * 0.62 + 184 * fa * 0.38; bb = l * 0.62 + 96 * fa * 0.38;
+                    }
+                    px[i + 2] = (byte)Math.Max(0, Math.Min(a, r));
+                    px[i + 1] = (byte)Math.Max(0, Math.Min(a, gg));
+                    px[i] = (byte)Math.Max(0, Math.Min(a, bb));
+                }
+            }
+            var neu = BitmapSource.Create(w, h, 96, 96, PixelFormats.Pbgra32, null, px, stride);
+            neu.Freeze();
+            gw = new Grauwert { Bild = neu, Oben = unten < 0 ? 0 : oben / (double)h, Unten = unten < 0 ? 1 : (unten + 1) / (double)h };
+            lock (grau) { if (grau.Count > 300) grau.Clear(); grau[k] = gw; }
+            return gw;
+        }
+
+        /// <summary>Graue Kopie unten, Original oben – das Original nur unterhalb des Füllstands sichtbar.</summary>
+        static FrameworkElement Fuellstand(BitmapSource bs, double b, double h, double anteil, bool bald)
+        {
+            var gw = Grau(bs, bald);
+            var g = new Grid { Width = b, Height = h };
+            g.Children.Add(Einfach(gw.Bild, b, h));
+            var farbig = Einfach(bs, b, h);
+            // tatsächliche Bildfläche bei Stretch=Uniform
+            double s = Math.Min(b / bs.PixelWidth, h / bs.PixelHeight), bh = bs.PixelHeight * s, top = (h - bh) / 2;
+            double y0 = top + bh * gw.Oben, y1 = top + bh * gw.Unten;
+            double a = Math.Max(0.05, Math.Min(1, anteil));
+            double grenze = y1 - (y1 - y0) * a;
+            farbig.Clip = new RectangleGeometry(new Rect(0, grenze, b, h - grenze));
+            g.Children.Add(farbig);
+            return g;
+        }
+
+        static BitmapSource ordnerBmp;
+        static BitmapSource OrdnerBitmap(int px)
+        {
+            if (ordnerBmp != null) return ordnerBmp;
+            var o = UI.OrdnerBild(px);
+            o.Measure(new Size(px, px)); o.Arrange(new Rect(0, 0, px, px));
+            var rtb = new RenderTargetBitmap(px, px, 96, 96, PixelFormats.Pbgra32);
+            var rahmen = new Grid { Width = px, Height = px };
+            rahmen.Children.Add(o);
+            o.VerticalAlignment = VerticalAlignment.Center;
+            rahmen.Measure(new Size(px, px)); rahmen.Arrange(new Rect(0, 0, px, px));
+            rtb.Render(rahmen);
+            rtb.Freeze();
+            ordnerBmp = rtb;
+            return rtb;
         }
     }
 

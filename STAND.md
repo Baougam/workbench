@@ -28,7 +28,10 @@ und einen kurzen Live-Start im Testordner (Download-Karte unten rechts, Vorschla
 - **Eigener Stil**: Akzent *Bernstein* `#F4B860` (= „läuft ab“), sonst Weiß in Abstufungen auf Tinte `#0E1015`.
   Motiv **Schieber**: Ebenen-Punktleiste im Fenster und Zeit-Schieber (1 Std · 1 Tag · 1 Woche · 1 Monat · ∞) in der Nachfrage.
   Motiv **Blattstapel**: die aktuelle Ebene ist ein Blatt, die Kanten der darunterliegenden schauen oben hervor; Wechsel = Blatt gleitet.
-  **Zeitring** am Symbol statt Zahl (Rest der gewählten Zeit), genaue Angabe im Tooltip.
+  **Füllstand statt Ring** (Wunsch des Nutzers): das Symbol selbst leert sich von oben. Oben das unveränderte Original
+  (nur per Clip unten sichtbar), darunter eine einmal berechnete graue Kopie desselben Bildes (`Vorschau.Fuellstand`);
+  Füllhöhe bezieht sich auf den sichtbaren (nicht transparenten) Teil. Letzter Tag: geleerter Teil leicht bernstein.
+  Funktioniert für jeden Dateityp (Shell-Symbole, Vorschaubilder, Ordner). Genaue Angabe im Tooltip.
 - **Leistung**: Hintergrundbild nur 48 px breit laden und weich hochskalieren (keine BlurEffect), keine Schatten-Effekte je Beschriftung.
 
 **Noch nicht auf dem echten System installiert/getestet** (Registry-Seitenleiste, Autostart, Desktop-Symbol, echter

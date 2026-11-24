@@ -444,18 +444,12 @@ namespace Workbench
             ToolTipService.SetInitialShowDelay(b, 700);
             var sp = new StackPanel();
             var kopf = new Grid { Width = 56, Height = 50, HorizontalAlignment = HorizontalAlignment.Center };
-            var bild2 = Vorschau.Bild(bildPfad, 48, 48, nurSymbol);
+            // Restzeit: das Symbol selbst leert sich (Original bleibt unverändert, nur von oben ausgeblendet)
+            bool bald = anteil.HasValue && ringFarbe == Farbe.Akzent;
+            var bild2 = Vorschau.Bild(bildPfad, 48, 48, nurSymbol, anteil, bald);
             bild2.HorizontalAlignment = HorizontalAlignment.Center;
             bild2.VerticalAlignment = VerticalAlignment.Center;
             kopf.Children.Add(bild2);
-            if (anteil.HasValue)
-            {
-                var r = Zeitring(anteil.Value, ringFarbe, 18);
-                r.HorizontalAlignment = HorizontalAlignment.Right;
-                r.VerticalAlignment = VerticalAlignment.Top;
-                r.Margin = new Thickness(0, -5, -7, 0);
-                kopf.Children.Add(r);
-            }
             sp.Children.Add(kopf);
             var t = new TextBlock
             {
