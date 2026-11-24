@@ -7,6 +7,16 @@
 Erste lauffähige Version. Selbsttest: 34/34 OK (`.\build.ps1 -Test`). Aussehen geprüft über `.\build.ps1 -Bilder`
 und einen kurzen Live-Start im Testordner (Download-Karte unten rechts, Vorschlag greift nach Zeitablauf).
 
+## Sprache (vom Nutzer, verbindlich)
+
+- **Die App, Windows-Einträge und die README sind komplett auf Englisch.** Texte im Ton guter englischer Onboardings
+  (Linear, Arc, Notion): kurz, aktiv, natürlich – nicht übersetzt klingend. Code und Kommentare bleiben deutsch; diese
+  STAND.md bleibt deutsch (Übergabe).
+- Begriffe: Ebenen *Expiring · Permanent · Cloud*, *Graph view*, *Recycle Bin*. Ordner `1 Hour`, `1 Day`, `1 Week`, `1 Month`,
+  `Permanent`. Dauer-Schlüssel `1 hour`, `1 day`, `1 week`, `1 month`, `Until…`, `Forever`.
+- Umzug von 0.1.0 (deutsch): `Paths.OrdnerUmziehen()` benennt alte Ordner um, `Paths.PfadNeu()` / `Dauer.Neu()` übersetzen
+  gespeicherte Pfade und Dauern beim Laden (fristen.json, anordnung.json, netz.json, einstellungen.json). Selbsttest prüft das.
+
 ## Design-Regeln (vom Nutzer, verbindlich)
 
 - **Desktop-Gefühl**: Hintergrund = das eigene Windows-Hintergrundbild (weich, abgedunkelt), Dateien als Desktop-Symbole
