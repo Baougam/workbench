@@ -24,12 +24,12 @@ namespace Workbench
         public Action<string> Recycler = Native.InPapierkorb;
         public Func<DateTime> Jetzt = () => DateTime.UtcNow;
 
-        FileSystemWatcher wDl, wRoot;
+        FileSystemWatcher wDl, wRoot, wDesk;
         readonly Dictionary<string, Warte> warten = new Dictionary<string, Warte>(StringComparer.OrdinalIgnoreCase);
         readonly Dictionary<string, DateTime> weg = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
         readonly DispatcherTimer tWarte, tAblauf, tGeaendert;
 
-        class Warte { public long Groesse = -1; public int Stabil; public DateTime Seit; public bool Download; }
+        class Warte { public long Groesse = -1; public int Stabil; public DateTime Seit; public string Herkunft; }
 
         public Engine(Dispatcher d, Einstellungen cfg)
         {
@@ -51,6 +51,7 @@ namespace Workbench
 
             wDl = Beobachter(Paths.Downloads, false);
             wRoot = Beobachter(Paths.Wurzel, true);
+            DesktopBeobachten(Cfg.Desktop);
 
             SystemEvents.PowerModeChanged += (s, e) => { if (e.Mode == PowerModes.Resume) ui.BeginInvoke(new Action(() => { Aufraeumen(); Planen(); })); };
             SystemEvents.TimeChanged += (s, e) => ui.BeginInvoke(new Action(() => { Aufraeumen(); Planen(); }));
@@ -63,6 +64,27 @@ namespace Workbench
         {
             if (wDl != null) wDl.Dispose();
             if (wRoot != null) wRoot.Dispose();
+            if (wDesk != null) wDesk.Dispose();
+        }
+
+        /// <summary>Neue Dateien auf dem echten Desktop (z. B. „Bild speichern unter … › Desktop“) bekommen dieselbe Frage.</summary>
+        public void DesktopBeobachten(bool an)
+        {
+            if (wDesk != null) { wDesk.Dispose(); wDesk = null; }
+            if (!an || string.IsNullOrEmpty(Paths.Desktop) || !Directory.Exists(Paths.Desktop)) return;
+            try { wDesk = Beobachter(Paths.Desktop, false); } catch (Exception ex) { Log.Fehler("Desktop beobachten", ex); }
+        }
+
+        bool AufDemDesktop(string pfad)
+        {
+            string el = Path.GetDirectoryName(pfad);
+            return wDesk != null && el != null && Paths.Gleich(el, Paths.Desktop);
+        }
+
+        static bool IstVerknuepfung(string pfad)
+        {
+            string e = Path.GetExtension(pfad).ToLowerInvariant();
+            return e == ".lnk" || e == ".url" || e == ".website" || e == ".appref-ms" || e == ".ini";
         }
 
         FileSystemWatcher Beobachter(string ordner, bool unterordner)
@@ -111,14 +133,16 @@ namespace Workbench
         void Neu(string pfad)
         {
             bool dl = ImDownloadOrdner(pfad);
-            string zeit = dl ? null : Paths.DauerVonOrdner(pfad);
-            if (!dl && zeit == null) { MeldeGeaendert(); return; }       // irgendwo tiefer – nur Ansicht auffrischen
+            bool desk = !dl && AufDemDesktop(pfad);
+            string zeit = dl || desk ? null : Paths.DauerVonOrdner(pfad);
+            if (!dl && !desk && zeit == null) { MeldeGeaendert(); return; }   // irgendwo tiefer – nur Ansicht auffrischen
             if (IstHilfsdatei(pfad)) return;
             if (weg.ContainsKey(pfad)) { weg.Remove(pfad); MeldeGeaendert(); return; }   // neu gespeichert (Word & Co.): Frist bleibt
             if (zeit == "Dauerhaft") { MeldeGeaendert(); return; }
             if (S.Finde(pfad) != null) return;
-            if (dl && Directory.Exists(pfad)) return;                   // entpackte Ordner im Download-Ordner nicht nachfragen
-            warten[pfad] = new Warte { Seit = DateTime.UtcNow, Download = dl };
+            if ((dl || desk) && Directory.Exists(pfad)) return;         // Ordner (entpackt, „Neuer Ordner“) nicht nachfragen
+            if (desk && IstVerknuepfung(pfad)) return;                   // Verknüpfungen von Installern nicht nachfragen
+            warten[pfad] = new Warte { Seit = DateTime.UtcNow, Herkunft = dl ? "download" : desk ? "desktop" : "ordner" };
             if (!tWarte.IsEnabled) tWarte.Start();
         }
 
@@ -181,10 +205,10 @@ namespace Workbench
                 if (!bereit) continue;
                 warten.Remove(p);
                 if (S.Finde(p) != null) continue;
-                if (w.Download)
+                if (w.Herkunft != "ordner")
                 {
                     string vorschlag = Vorschlag(p);
-                    var e = new Eintrag { Pfad = p, Hinzu = Jetzt(), Ablauf = Dauer.Ablauf(vorschlag, Jetzt()), Herkunft = "download", Gewaehlt = vorschlag };
+                    var e = new Eintrag { Pfad = p, Hinzu = Jetzt(), Ablauf = Dauer.Ablauf(vorschlag, Jetzt()), Herkunft = w.Herkunft, Gewaehlt = vorschlag };
                     S.D.Eintraege.Add(e);
                     fertigDl.Add(e);
                 }
@@ -239,7 +263,12 @@ namespace Workbench
         public string FristSetzen(Eintrag e, DateTime? ablaufUtc, string gewaehlt)
         {
             string neuerPfad = e.Pfad;
-            if (ablaufUtc == null)
+            if (ablaufUtc == null && e.Herkunft == "desktop")
+            {
+                S.Entfernen(e.Pfad);                     // vom Desktop: „für immer“ heißt einfach liegen lassen
+                S.Speichern();
+            }
+            else if (ablaufUtc == null)
             {
                 neuerPfad = Behalten(e);
             }

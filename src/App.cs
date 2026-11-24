@@ -50,6 +50,34 @@ namespace Workbench
 
             Log.Info("Gestartet " + Program.Version + (hintergrund ? " (Hintergrund)" : ""));
             if (!hintergrund) Zeigen(Hauptfenster.Befristet);
+            else
+            {
+                // Fenster schon still vorbereiten, wenn der PC zur Ruhe gekommen ist – dann öffnet es später sofort.
+                var vor = new DispatcherTimer(DispatcherPriority.ApplicationIdle) { Interval = TimeSpan.FromSeconds(20) };
+                vor.Tick += delegate { vor.Stop(); if (fenster == null) Bauen(Hauptfenster.Befristet); Sparen(); };
+                vor.Start();
+            }
+            // Update: höchstens einmal am Tag still nachsehen
+            var upd = new DispatcherTimer(DispatcherPriority.ApplicationIdle) { Interval = TimeSpan.FromSeconds(45) };
+            upd.Tick += delegate { upd.Interval = TimeSpan.FromHours(6); Update.Pruefen(E.Cfg); };
+            upd.Start();
+        }
+
+        void Bauen(int ansicht)
+        {
+            fenster = new Hauptfenster(E, ansicht, false);
+            fenster.Versteckt += Sparen;
+        }
+
+        /// <summary>Nach dem Verstecken: Speicher an Windows zurückgeben (holt ihn beim Öffnen blitzschnell wieder).</summary>
+        void Sparen()
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                SetProcessWorkingSetSize(System.Diagnostics.Process.GetCurrentProcess().Handle, (IntPtr)(-1), (IntPtr)(-1));
+            }), DispatcherPriority.ApplicationIdle);
         }
 
         void Warten(string name, Action a)
@@ -84,22 +112,10 @@ namespace Workbench
 
         public void Zeigen(int ansicht)
         {
-            if (fenster == null)
-            {
-                fenster = new Hauptfenster(E, ansicht < 0 ? Hauptfenster.Befristet : ansicht, false);
-                fenster.Closed += delegate
-                {
-                    fenster = null;
-                    Dispatcher.BeginInvoke(new Action(() => { GC.Collect(); GC.WaitForPendingFinalizers(); SetProcessWorkingSetSize(System.Diagnostics.Process.GetCurrentProcess().Handle, (IntPtr)(-1), (IntPtr)(-1)); }), DispatcherPriority.ApplicationIdle);
-                };
-                fenster.Show();
-            }
-            else
-            {
-                if (fenster.WindowState == WindowState.Minimized) fenster.WindowState = WindowState.Normal;
-                if (ansicht >= 0) fenster.Zeige(ansicht);
-                fenster.Show();
-            }
+            if (fenster == null) Bauen(ansicht < 0 ? Hauptfenster.Befristet : ansicht);
+            else if (ansicht >= 0) fenster.Zeige(ansicht);
+            if (fenster.WindowState == WindowState.Minimized) fenster.WindowState = WindowState.Normal;
+            fenster.Hereinholen();
             fenster.Activate();
             fenster.Topmost = true; fenster.Topmost = false;   // sicher nach vorn
             Native.SetForegroundWindow(new WindowInteropHelper(fenster).Handle);
@@ -124,6 +140,7 @@ namespace Workbench
         void Beenden()
         {
             Log.Info("Beendet");
+            if (fenster != null) { fenster.Endgueltig = true; fenster.Close(); }
             if (E != null) E.Stop();
             Shutdown();
         }

@@ -116,6 +116,18 @@ namespace Workbench
             Pumpen(8000, () => gespeichert != null);
             Ok(gespeichert != null && gespeichert.Gewaehlt == "1 Tag" && Math.Abs((gespeichert.Ablauf.Value - DateTime.UtcNow).TotalHours - 24) < 0.1, "Speichern in „1 Tag“ setzt 1 Tag");
 
+            // 4b) Desktop: „Bild speichern unter › Desktop“ wird gefragt, Verknüpfungen nicht; „für immer“ lässt es liegen
+            dl = null;
+            File.WriteAllBytes(Path.Combine(Paths.Desktop, "Neue Verknüpfung.lnk"), new byte[300]);
+            Pumpen(2500, () => dl != null);
+            Ok(dl == null, "Verknüpfung auf dem Desktop wird nicht gefragt");
+            string deskBild = Path.Combine(Paths.Desktop, "katze.jpg");
+            File.WriteAllBytes(deskBild, new byte[4000]);
+            Pumpen(8000, () => dl != null);
+            Ok(dl != null && dl[0].Herkunft == "desktop", "Bild auf dem Desktop wird gefragt");
+            E.FristSetzen(E.S.Finde(deskBild), null, Dauer.Immer);
+            Ok(File.Exists(deskBild) && E.S.Finde(deskBild) == null, "„Für immer“ vom Desktop: bleibt auf dem Desktop");
+
             // 5) Word speichert neu: umbenennen in Temp, neu schreiben, Temp löschen → Frist bleibt
             var vorher = E.S.Finde(tag).Ablauf;
             string tmp = Path.Combine(Paths.Wurzel, "1 Tag", "~WRL0001.tmp");
@@ -244,6 +256,21 @@ namespace Workbench
             foreach (var o in new[] { "Projekte", "Bewerbung 2027", "Rezepte", "Uni" }) Directory.CreateDirectory(Path.Combine(Paths.Dauerhaft, o));
             foreach (var d in new[] { "Lebenslauf.pdf", "Notizen.txt", "Haushaltsbuch.xlsx", "Steuer_Belege.zip" }) File.WriteAllBytes(Path.Combine(Paths.Dauerhaft, d), new byte[1000]);
             Bild(Path.Combine(Paths.Dauerhaft, "Logo_final.png"), 7);
+            // Beispiel-Anordnung: frei gelegt, eingefärbt, mit Linien
+            var an = Anordnungen.Fuer(Paths.Dauerhaft);
+            an.Plaetze["Bewerbung 2027"] = new Platz { X = 40, Y = 40, Farbe = "#8FB4FF" };
+            an.Plaetze["Lebenslauf.pdf"] = new Platz { X = 230, Y = 40 };
+            an.Plaetze["Projekte"] = new Platz { X = 40, Y = 250, Farbe = "#F4B860" };
+            an.Plaetze["Logo_final.png"] = new Platz { X = 230, Y = 200 };
+            an.Plaetze["Notizen.txt"] = new Platz { X = 230, Y = 320 };
+            an.Plaetze["Rezepte"] = new Platz { X = 520, Y = 40, Farbe = "#7ED39B" };
+            an.Plaetze["Haushaltsbuch.xlsx"] = new Platz { X = 700, Y = 40 };
+            an.Plaetze["Uni"] = new Platz { X = 520, Y = 250 };
+            an.Plaetze["Steuer_Belege.zip"] = new Platz { X = 700, Y = 250 };
+            an.Linien.Add(new Linie { A = "Bewerbung 2027", B = "Lebenslauf.pdf", Farbe = "#8FB4FF" });
+            an.Linien.Add(new Linie { A = "Projekte", B = "Logo_final.png", Farbe = "#F4B860" });
+            an.Linien.Add(new Linie { A = "Projekte", B = "Notizen.txt", Farbe = "#F4B860" });
+            an.Linien.Add(new Linie { A = "Rezepte", B = "Haushaltsbuch.xlsx", Farbe = "#7ED39B" });
             string drive = Path.Combine(test, "Google Drive", "Meine Ablage");
             foreach (var o in new[] { "Fotos", "Familie", "Arbeit", "Geteilt mit mir" }) Directory.CreateDirectory(Path.Combine(drive, o));
             foreach (var d in new[] { "Reiseplan.docx", "Budget 2027.xlsx", "Vortrag.pptx" }) File.WriteAllBytes(Path.Combine(drive, d), new byte[1000]);

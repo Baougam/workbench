@@ -231,10 +231,17 @@ namespace Workbench
         public static Popup Menue(UIElement ziel, IList<KeyValuePair<string, Action>> eintraege) { return Menue(ziel, eintraege, false, false); }
         public static Popup Menue(UIElement ziel, IList<KeyValuePair<string, Action>> eintraege, bool amMauszeiger) { return Menue(ziel, eintraege, amMauszeiger, false); }
 
-        public static Popup Menue(UIElement ziel, IList<KeyValuePair<string, Action>> eintraege, bool amMauszeiger, bool oben)
+        public static Popup Menue(UIElement ziel, IList<KeyValuePair<string, Action>> eintraege, bool amMauszeiger, bool oben) { return Menue(ziel, eintraege, amMauszeiger, oben, null); }
+
+        public static Popup Menue(UIElement ziel, IList<KeyValuePair<string, Action>> eintraege, bool amMauszeiger, bool oben, FrameworkElement kopf)
         {
             var pop = new Popup { PlacementTarget = ziel, Placement = amMauszeiger ? PlacementMode.MousePoint : (oben ? PlacementMode.Top : PlacementMode.Bottom), StaysOpen = false, AllowsTransparency = true, PopupAnimation = PopupAnimation.Fade, VerticalOffset = amMauszeiger ? 0 : (oben ? -8 : 6) };
             var sp = new StackPanel();
+            if (kopf != null)
+            {
+                sp.Children.Add(kopf);
+                sp.Children.Add(new Border { Height = 1, Background = Farbe.Linie, Margin = new Thickness(6, 0, 6, 4) });
+            }
             foreach (var kv in eintraege)
             {
                 if (kv.Key == "-") { sp.Children.Add(new Border { Height = 1, Background = Farbe.Linie, Margin = new Thickness(6, 4, 6, 4) }); continue; }

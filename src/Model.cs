@@ -12,6 +12,7 @@ namespace Workbench
         public static readonly string Wurzel;      // %USERPROFILE%\Workbench – sichtbarer Ordner (Explorer, Speichern-Dialoge)
         public static readonly string Daten;       // %LOCALAPPDATA%\Workbench – Liste der Fristen, Einstellungen, Log
         public static readonly string Downloads;
+        public static readonly string Desktop;
         public static readonly string Programm;    // %LOCALAPPDATA%\Programs\Workbench
         public static readonly bool Test;
 
@@ -34,9 +35,11 @@ namespace Workbench
                 Wurzel = Path.Combine(test, "Workbench");
                 Daten = Path.Combine(test, "Daten");
                 Downloads = Path.Combine(test, "Downloads");
+                Desktop = Path.Combine(test, "Desktop");
                 Programm = Path.Combine(test, "Programm");
                 return;
             }
+            Desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
             Wurzel = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Workbench");
             string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             Daten = Path.Combine(local, "Workbench");
@@ -53,6 +56,7 @@ namespace Workbench
             foreach (var z in ZeitOrdner) Directory.CreateDirectory(Path.Combine(Wurzel, z[0]));
             Directory.CreateDirectory(Daten);
             Directory.CreateDirectory(Downloads);
+            if (Test) Directory.CreateDirectory(Desktop);
         }
 
         /// <summary>Liegt der Pfad direkt in einem Zeit-Ordner? Dann die Dauer, sonst null. "Dauerhaft" für den Dauerhaft-Ordner.</summary>
@@ -261,7 +265,10 @@ namespace Workbench
         public int Sekunden = 8;                   // so lange bleibt die Frage stehen
         public bool HinweisSpeichern = true;       // kurzer Hinweis beim Speichern in Workbench-Ordner
         public bool Autostart = true;
-        public bool Tastenkuerzel = false;         // Strg + Alt + W
+        public bool Tastenkuerzel = true;          // Strg + Alt + W
+        public bool Desktop = true;                // auch neue Dateien auf dem echten Desktop fragen
+        public DateTime LetztePruefung;            // Update-Prüfung höchstens einmal am Tag
+        public string NeueVersion = "";
         public bool Seitenleiste = true;           // Explorer-Navigationsbereich / Speichern-Dialoge
         public bool TippTaskleiste = true;         // einmaliger Tipp zum Anheften
         public string CloudPfad = "";              // Ebene 3; leer = automatisch (Google Drive, OneDrive, Dropbox …)

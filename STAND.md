@@ -39,6 +39,21 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 - **Ebene 3 = Cloud** (Wunsch des Nutzers): Google Drive für Desktop (Laufwerk „Google Drive“ › „Meine Ablage“), OneDrive,
   Dropbox, iCloud oder beliebiger Ordner. Vorschaubilder dort nur als Symbol, damit nichts aus dem Netz geladen wird.
 
+## Seit 0.1.0 dazugekommen
+
+- **Freie Fläche (Ebene 2 + 3)**: Symbole ziehen = anordnen (bleibt liegen), Umschalt+ziehen oder Rechtsklick › „Verbinden …“ = Linie,
+  Rechtsklick › Farbpunkte = Farbe, Linie anklicken + Entf = löschen, Rechtsklick auf leere Fläche › „Ordnen“. Aus dem Fenster
+  gezogen = echte Datei mitnehmen. Gespeichert in `%LOCALAPPDATA%\Workbench\anordnung.json` (je Ordner, nach Namen).
+- **Desktop beobachten** (Standard an): neue Dateien auf dem echten Desktop werden gefragt; .lnk/.url und Ordner nicht;
+  „Für immer“ lässt sie dort liegen.
+- **Schneller**: Fenster wird im Leerlauf vorbereitet, Schließen = verstecken + Speicher zurückgeben; versteckt wird nicht neu
+  gezeichnet; Multicore-JIT-Startprofil (`start.profil`).
+- **Touchpad**: zwei Finger seitlich = Ebene wechseln, hoch/runter = durch Symbole blättern.
+- **Strg+Alt+W** jetzt standardmäßig an.
+- **Update-Hinweis**: höchstens 1×/Tag liest Workbench `VERSION` aus dem Repo (raw.githubusercontent.com). Neuer → kleiner
+  Bernstein-Punkt am Zahnrad + „x.y.z ist da“ unter den Einstellungen (Link auf GitHub-Releases). Lädt/installiert nichts.
+  **Bei jeder neuen Version `VERSION` und `Program.Version` gleich hochzählen.**
+
 ## Nächste Schritte (Vorschläge)
 
 1. Auf dem echten PC installieren und durchklicken (Seitenleiste in Word-Speichern-Dialog, Autostart nach Neustart).

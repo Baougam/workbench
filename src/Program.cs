@@ -41,6 +41,8 @@ namespace Workbench
                     using (var zeigen = new EventWaitHandle(false, EventResetMode.AutoReset, ZeigenName)) zeigen.Set();
                     return 0;
                 }
+                // Schnellerer Start: .NET merkt sich, was beim Start übersetzt wird, und macht es beim nächsten Mal parallel vorab.
+                try { Directory.CreateDirectory(Paths.Daten); System.Runtime.ProfileOptimization.SetProfileRoot(Paths.Daten); System.Runtime.ProfileOptimization.StartProfile("start.profil"); } catch { }
                 var app = new WbApp(modus == "--background");
                 app.Run();
                 GC.KeepAlive(mutex);
