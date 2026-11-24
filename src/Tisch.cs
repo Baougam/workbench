@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 
@@ -153,6 +154,33 @@ namespace Workbench
 
             sv = new ScrollViewer { Content = flaeche, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Focusable = false };
             Children.Add(sv);
+            Children.Add(kreis);
+            kreis.MouseMove += (s, a) => KreisZeigerAuf(a.GetPosition(kreis));
+            kreis.MouseLeftButtonUp += (s, a) =>
+            {
+                a.Handled = true;
+                if (!kreisGehalten) return;
+                kreisGehalten = false;
+                kreis.ReleaseMouseCapture();
+                if (kreisAn != null) Ausfuehren(kreisAn);      // gedrückt gehalten, auf ein Symbol geglitten, losgelassen
+            };
+            kreis.MouseLeftButtonDown += (s, a) =>
+            {
+                a.Handled = true;
+                KreisZeigerAuf(a.GetPosition(kreis));
+                if (kreisAn != null) Ausfuehren(kreisAn); else KreisZu();
+            };
+            kreis.MouseRightButtonDown += (s, a) => { a.Handled = true; KreisZu(); };
+            halte.Tick += delegate
+            {
+                halte.Stop();
+                if (halteBei == null) return;
+                var k = halteBei; halteBei = null;
+                FrameworkElement el;
+                if (!dinge.TryGetValue(k, out el)) return;
+                el.ReleaseMouseCapture();
+                KreisOeffnen(k, true);
+            };
 
             SizeChanged += delegate { Verteilen(false); };
             Loaded += delegate { fenster = Window.GetWindow(this); if (fenster != null) fenster.PreviewKeyDown += Taste; };
@@ -408,14 +436,18 @@ namespace Workbench
                 schiebt = false;
                 if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0) ZugBeginnen(k);
                 el.CaptureMouse();
+                // gedrückt halten (ohne zu ziehen) = Kreismenü
+                if (zug == null) { halteBei = k; halte.Stop(); halte.Start(); }
             };
             el.MouseMove += (s, a) =>
             {
                 if (!gedrueckt) return;
+                if (kreis.Visibility == Visibility.Visible) { gedrueckt = false; return; }
                 var p = a.GetPosition(flaeche);
                 if (zug != null) { zug.X2 = p.X; zug.Y2 = p.Y; return; }
                 if (!schiebt && Math.Abs(p.X - start.X) < 5 && Math.Abs(p.Y - start.Y) < 5) return;
                 schiebt = true;
+                halte.Stop(); halteBei = null;
                 var imTisch = a.GetPosition(this);
                 if (!notiz && (imTisch.X < -4 || imTisch.Y < -4 || imTisch.X > ActualWidth + 4 || imTisch.Y > ActualHeight + 4))
                 {
@@ -435,6 +467,7 @@ namespace Workbench
             };
             el.MouseLeftButtonUp += (s, a) =>
             {
+                halte.Stop(); halteBei = null;
                 if (!gedrueckt) return;
                 gedrueckt = false;
                 el.ReleaseMouseCapture();
@@ -591,9 +624,206 @@ namespace Workbench
             return null;
         }
 
+        // ---------- Kreismenü: gedrückt halten ----------
+
+        class KreisPunkt { public string Icon, Name, Farbe; public Action Tun; public bool Bleibt; public Grid El; }
+        readonly Canvas kreis = new Canvas { Visibility = Visibility.Collapsed, Background = Brushes.Transparent };
+        readonly DispatcherTimer halte = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(420) };
+        string halteBei;
+        List<KreisPunkt> kreisPunkte;
+        KreisPunkt kreisAn;
+        bool kreisGehalten;
+        TextBlock kreisName;
+        string kreisFuer;
+
+        const string IkonTropfen = "M12 3.5c3 4 5.5 7 5.5 10a5.5 5.5 0 0 1-11 0c0-3 2.5-6 5.5-10z";
+        const string IkonNotiz = "M6 4h9l3 3v13H6zM9 11h6M9 15h4";
+
+        List<KreisPunkt> PunkteFuer(string k)
+        {
+            var l = new List<KreisPunkt>();
+            if (IstNotiz(k))
+            {
+                var n = NotizVon(k);
+                var b = (Border)dinge[k];
+                l.Add(new KreisPunkt { Icon = Ikon.Stift, Name = "Schreiben", Tun = () => Schreiben(b, n) });
+                l.Add(new KreisPunkt { Icon = Ikon.Netz, Name = "Verbinden", Tun = () => VerbindenAusMenue(k) });
+                l.Add(new KreisPunkt { Icon = IkonTropfen, Name = "Farbe", Bleibt = true, Tun = () => KreisFarben(k) });
+                l.Add(new KreisPunkt { Icon = Ikon.Muell, Name = "Löschen", Farbe = "#FF9C8F", Tun = () => NotizWeg(n) });
+                return l;
+            }
+            var menue = menueFuer(pfade[k]);
+            Func<string, Action> aus = name => { var e = menue.FirstOrDefault(x => x.Key == name); return e.Value; };
+            l.Add(new KreisPunkt { Icon = Ikon.Oeffnen, Name = "Öffnen", Tun = () => oeffnen(pfade[k]) });
+            l.Add(new KreisPunkt { Icon = Ikon.Netz, Name = "Verbinden", Tun = () => VerbindenAusMenue(k) });
+            l.Add(new KreisPunkt { Icon = IkonTropfen, Name = "Farbe", Bleibt = true, Tun = () => KreisFarben(k) });
+            l.Add(new KreisPunkt { Icon = IkonNotiz, Name = "Notiz", Tun = () => NotizAn(k) });
+            var umb = aus("Umbenennen");
+            if (umb != null) l.Add(new KreisPunkt { Icon = Ikon.Stift, Name = "Umbenennen", Tun = umb });
+            var weg = aus("In den Papierkorb");
+            if (weg != null) l.Add(new KreisPunkt { Icon = Ikon.Muell, Name = "Papierkorb", Farbe = "#FF9C8F", Tun = weg });
+            return l;
+        }
+
+        void KreisFarben(string k)
+        {
+            var l = new List<KreisPunkt>();
+            foreach (var f in new[] { (string)null }.Concat(Farben))
+            {
+                string f2 = f;
+                l.Add(new KreisPunkt
+                {
+                    Name = f == null ? "Keine Farbe" : "",
+                    Farbe = f,
+                    Tun = () =>
+                    {
+                        if (IstNotiz(k)) { var n = NotizVon(k); n.Farbe = f2; NotizFarbe((Border)dinge[k], n); }
+                        else { PlatzVon(k).Farbe = f2; FarbeZeigen(k); }
+                        Anordnungen.Merken();
+                        LinienZeichnen();
+                    }
+                });
+            }
+            KreisBauen(k, l, true);
+        }
+
+        /// <summary>Neue Notiz neben dem Symbol – gleich verbunden und bereit zum Schreiben.</summary>
+        void NotizAn(string k)
+        {
+            var el = dinge[k];
+            var n = new Notiz { Id = Guid.NewGuid().ToString("N").Substring(0, 10), X = Canvas.GetLeft(el) + ZB + 24, Y = Canvas.GetTop(el) + 10, Text = "" };
+            A.Notizen.Add(n);
+            NotizBauen(n, true);
+            string nk = Anordnungen.NotizPraefix + n.Id;
+            A.Linien.Add(new Linie { A = k, B = nk, Farbe = FarbeVon(k) });
+            if (!IstNotiz(k)) PlatzVon(k);
+            Anordnungen.Merken();
+            Ausdehnen();
+            LinienZeichnen();
+        }
+
+        /// <summary>Nur für Bilder im Render-Modus.</summary>
+        public void KreisFuerBild(string name, bool farben)
+        {
+            if (!dinge.ContainsKey(name)) return;
+            if (farben) KreisFarben(name); else KreisOeffnen(name, false);
+            if (kreisPunkte != null && kreisPunkte.Count > 1) { kreisAn = kreisPunkte[1]; kreisName.Text = kreisAn.Name; }
+        }
+
+        void KreisOeffnen(string k, bool gehalten)
+        {
+            KreisBauen(k, PunkteFuer(k), false);
+            if (gehalten) { kreisGehalten = true; kreis.CaptureMouse(); }
+        }
+
+        /// <summary>Symbole fächern sich im Kreis um das Ding auf – ohne Text, der Name erscheint nur fürs angepeilte.</summary>
+        void KreisBauen(string k, List<KreisPunkt> punkte, bool farben)
+        {
+            kreisFuer = k;
+            kreis.Children.Clear();
+            kreis.Width = ActualWidth; kreis.Height = ActualHeight;
+            kreis.Visibility = Visibility.Visible;
+            kreisPunkte = punkte;
+            kreisAn = null;
+            var m = flaeche.TranslatePoint(Mitte(k), this);
+            double r = farben ? 62 : 76;
+            var hof = new Ellipse { Width = r * 2 + 70, Height = r * 2 + 70, IsHitTestVisible = false, Fill = new RadialGradientBrush(Color.FromArgb(200, 14, 16, 21), Color.FromArgb(0, 14, 16, 21)) };
+            Canvas.SetLeft(hof, m.X - hof.Width / 2); Canvas.SetTop(hof, m.Y - hof.Height / 2);
+            kreis.Children.Add(hof);
+            if (!Vorschau.Sofort) hof.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160)));
+
+            int n = punkte.Count;
+            for (int i = 0; i < n; i++)
+            {
+                var p = punkte[i];
+                double w = -Math.PI / 2 + i * 2 * Math.PI / n;
+                double x = m.X + Math.Cos(w) * r, y = m.Y + Math.Sin(w) * r;
+                var g = new Grid { Width = 40, Height = 40, IsHitTestVisible = false };
+                if (farben)
+                {
+                    if (p.Farbe == null)
+                    {
+                        g.Children.Add(new Ellipse { Width = 26, Height = 26, Fill = Farbe.B("#F21F2229"), Stroke = Farbe.B("#80FFFFFF"), StrokeThickness = 1.5 });
+                        g.Children.Add(new Line { X1 = 14, Y1 = 26, X2 = 26, Y2 = 14, Stroke = Farbe.B("#80FFFFFF"), StrokeThickness = 1.5 });
+                    }
+                    else g.Children.Add(new Ellipse { Width = 26, Height = 26, Fill = Farbe.B(p.Farbe), Stroke = Farbe.B("#33000000"), StrokeThickness = 1 });
+                }
+                else
+                {
+                    g.Children.Add(new Ellipse { Fill = Farbe.B("#F21F2229"), Stroke = Farbe.B("#2EFFFFFF"), StrokeThickness = 1 });
+                    var ic = UI.Icon(p.Icon, 17, Farbe.B(p.Farbe ?? "#E6FFFFFF"), 1.8);
+                    ic.HorizontalAlignment = HorizontalAlignment.Center; ic.VerticalAlignment = VerticalAlignment.Center;
+                    g.Children.Add(ic);
+                }
+                Canvas.SetLeft(g, x - 20); Canvas.SetTop(g, y - 20);
+                var sk = new ScaleTransform(0.4, 0.4, 20, 20);
+                var tr = new TranslateTransform(m.X - x, m.Y - y);
+                var tg = new TransformGroup(); tg.Children.Add(sk); tg.Children.Add(tr);
+                g.RenderTransform = tg;
+                p.El = g;
+                g.Tag = sk;
+                kreis.Children.Add(g);
+                if (Vorschau.Sofort) { sk.ScaleX = sk.ScaleY = 1; tr.X = tr.Y = 0; continue; }
+                g.Opacity = 0;
+                var beginn = TimeSpan.FromMilliseconds(i * 16);
+                var d = new Duration(TimeSpan.FromMilliseconds(200));
+                var ease = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.3 };
+                sk.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(0.4, 1, d) { BeginTime = beginn, EasingFunction = ease });
+                sk.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(0.4, 1, d) { BeginTime = beginn, EasingFunction = ease });
+                tr.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(m.X - x, 0, d) { BeginTime = beginn, EasingFunction = ease });
+                tr.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(m.Y - y, 0, d) { BeginTime = beginn, EasingFunction = ease });
+                g.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(140)) { BeginTime = beginn });
+            }
+            kreisName = new TextBlock { FontSize = 11.5, Foreground = Farbe.B("#CCFFFFFF"), IsHitTestVisible = false, TextAlignment = TextAlignment.Center, Width = 140 };
+            Canvas.SetLeft(kreisName, m.X - 70); Canvas.SetTop(kreisName, m.Y + r + 26);
+            kreis.Children.Add(kreisName);
+        }
+
+        void KreisZeigerAuf(Point p)
+        {
+            if (kreisPunkte == null) return;
+            KreisPunkt naechster = null;
+            double best = 26 * 26;
+            foreach (var k in kreisPunkte)
+            {
+                double x = Canvas.GetLeft(k.El) + 20, y = Canvas.GetTop(k.El) + 20, d = (x - p.X) * (x - p.X) + (y - p.Y) * (y - p.Y);
+                if (d < best) { best = d; naechster = k; }
+            }
+            if (naechster == kreisAn) return;
+            if (kreisAn != null) Wachsen(kreisAn, 1);
+            kreisAn = naechster;
+            if (kreisAn != null) Wachsen(kreisAn, 1.16);
+            kreisName.Text = kreisAn == null ? "" : kreisAn.Name;
+        }
+
+        static void Wachsen(KreisPunkt p, double f)
+        {
+            var sk = (ScaleTransform)p.El.Tag;
+            var a = new DoubleAnimation(f, TimeSpan.FromMilliseconds(110));
+            sk.BeginAnimation(ScaleTransform.ScaleXProperty, a);
+            sk.BeginAnimation(ScaleTransform.ScaleYProperty, a);
+        }
+
+        void Ausfuehren(KreisPunkt p)
+        {
+            var tun = p.Tun;
+            if (!p.Bleibt) KreisZu();
+            tun();
+        }
+
+        void KreisZu()
+        {
+            kreisGehalten = false;
+            kreis.ReleaseMouseCapture();
+            kreisPunkte = null; kreisAn = null;
+            kreis.Visibility = Visibility.Collapsed;
+            kreis.Children.Clear();
+        }
+
         void Taste(object s, KeyEventArgs a)
         {
             if (Keyboard.FocusedElement is TextBox) return;
+            if (a.Key == Key.Escape && kreis.Visibility == Visibility.Visible) { KreisZu(); a.Handled = true; return; }
             if (a.Key == Key.Escape && zug != null) { ZugEnde(); a.Handled = true; }
             else if (a.Key == Key.Delete && linieGewaehlt != null)
             {

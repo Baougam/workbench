@@ -248,6 +248,7 @@ namespace Workbench
 
         void SucheAuf()
         {
+            if (ansicht == Netzansicht && netz != null) { netz.SucheFokus(null); return; }   // im Netz: die Suche oben links
             suchFeld.Background = Farbe.B("#26FFFFFF");
             suchFeld.BeginAnimation(WidthProperty, new DoubleAnimation(220, TimeSpan.FromMilliseconds(180)) { EasingFunction = UI.Weich });
             suche.Focus();
@@ -407,13 +408,17 @@ namespace Workbench
         string Filter { get { return suche == null ? "" : suche.Text.Trim(); } }
         bool Passt(string name) { return Filter.Length == 0 || name.IndexOf(Filter, StringComparison.OrdinalIgnoreCase) >= 0; }
 
+        Netz netz;
+        /// <summary>Nur für Bilder im Render-Modus.</summary>
+        public void NetzSuche(string t) { if (netz != null) netz.SucheFokus(t); }
+
         /// <summary>Die Ansicht von oben – Dauerhaft und Cloud als Netz.</summary>
         FrameworkElement FlaecheNetz()
         {
             OrtSetzen("Netz");
             var wurzeln = new List<CloudOrt> { new CloudOrt { Name = "Dauerhaft", Pfad = Paths.Dauerhaft } };
             if (wolke != null) wurzeln.Add(wolke);
-            return new Netz(wurzeln, (pfad, cloud) =>
+            return netz = new Netz(wurzeln, (pfad, cloud) =>
             {
                 int ziel = cloud ? Wolke : Dauerhaft;
                 string jetzt = AktOrdner(cloud);
@@ -739,6 +744,7 @@ namespace Workbench
                     p => KontextOrdner(p, cloud));
                 flaeche.Children.Add(tisch);
             }
+            aktuellerTisch = tisch;
             var rahmen = new Border { CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1.5), BorderBrush = Brushes.Transparent, Child = flaeche };
             AblageZiel(flaeche, rahmen, () => AktOrdner(cloud));
             flaeche.MouseRightButtonUp += (s, a) =>
@@ -754,6 +760,10 @@ namespace Workbench
             };
             return rahmen;
         }
+
+        Tisch aktuellerTisch;
+        /// <summary>Nur für Bilder im Render-Modus.</summary>
+        public void KreisFuerBild(string name) { if (aktuellerTisch != null) aktuellerTisch.KreisFuerBild(name, false); }
 
         List<KeyValuePair<string, Action>> KontextOrdner(string pfad, bool cloud)
         {
@@ -1217,6 +1227,7 @@ namespace Workbench
             // Einfach lostippen = suchen (wie im Startmenü)
             if (suche.IsKeyboardFocused || string.IsNullOrEmpty(a.Text) || char.IsControl(a.Text[0]) || Keyboard.FocusedElement is TextBox) return;
             if (ansicht == Einst) return;
+            if (ansicht == Netzansicht && netz != null) { netz.SucheFokus(a.Text); a.Handled = true; return; }
             SucheAuf();
             suche.Text += a.Text;
             suche.CaretIndex = suche.Text.Length;
@@ -1233,7 +1244,8 @@ namespace Workbench
             else if (strg && a.Key == Key.F) { SucheAuf(); suche.SelectAll(); a.Handled = true; }
             else if (a.Key == Key.Escape)
             {
-                if (suche.Text.Length > 0) { suche.Text = ""; SucheZu(); Keyboard.ClearFocus(); }
+                if (ansicht == Netzansicht && netz != null && netz.SucheAktiv) netz.SucheLeeren();
+                else if (suche.Text.Length > 0) { suche.Text = ""; SucheZu(); Keyboard.ClearFocus(); }
                 else if (ansicht == Netzansicht) Zeige(letzteEbene);
                 else if (auswahl != null) Waehle(null);
                 else Schliessen();

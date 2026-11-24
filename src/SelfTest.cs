@@ -298,6 +298,16 @@ namespace Workbench
                 w.KorbFuerBild(korb);
                 w.Zeige(a);
                 Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, namen[a] + ".png"));
+                if (a == 1)
+                {
+                    w.KreisFuerBild("Projekte");                  // Kreismenü (gedrückt halten)
+                    Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "2b-kreis.png"));
+                }
+                if (a == 5)
+                {
+                    w.NetzSuche("Seme");                          // Suche im Netz hebt Treffer + Weg hervor
+                    Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "9b-netzsuche.png"));
+                }
             }
             var f = new Frage(E, new List<Eintrag> { E.S.D.Eintraege[3] }, false);
             var k = f.Karte; f.Content = null;
