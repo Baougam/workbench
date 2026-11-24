@@ -4,7 +4,7 @@ Downloads that clean up after themselves, and a desktop that stays tidy. For Win
 
 ## Install
 
-1. **[Download Workbench.exe](https://github.com/Baougam/workbench/releases/latest)** (under *Assets*).
+1. **[Download Workbench.exe](https://github.com/Baougam/workbench/raw/main/download/Workbench.exe)**
 2. Double-click it.
    The first time, Windows may say *“Windows protected your PC”*. That happens with any app that isn’t signed with a
    paid certificate. Click **More info › Run anyway**.
