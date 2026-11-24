@@ -63,6 +63,18 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
   = im Ordner **zurück/vor** (rechts wischen = zurück). Pfeiltasten ↑↓ = Ebene, ←→ = zurück/vor; seitliche Maustasten, Alt+←/→.
   Graue ‹ › vor dem Ordnernamen erscheinen, sobald es einen Verlauf gibt.
 
+- **Kreismenü**: gedrückt halten (420 ms, ohne zu ziehen) auf Symbol/Notiz → Kreis (Öffnen, Verbinden, Farbe, Notiz,
+  Umbenennen, Papierkorb); hingleiten + loslassen oder antippen.
+- **Netz**: Layout vorab im Hintergrund, Positionen in `netz.json` gemerkt, weiches Einblenden, Federn nur beim Ziehen.
+  Suche oben links (Enter = nächster Treffer, Umschalt+Enter = tief suchen).
+- **Rundgang** beim ersten Start (`Einfuehrung.cs`, 7 Schritte, Spotlight + Blase). „Nicht mehr zeigen“ = `EinfuehrungFertig`,
+  ✕ = nur für diese Sitzung. Schritt 1 fragt Desktop-Symbol (Schalter) und Taskleiste (zeigt nur, wo – Windows erlaubt kein
+  Anheften per Programm). Wieder starten: Einstellungen › Rundgang.
+- **Tiefer in Windows**: Rechtsklick › Workbench › Dauer auf jeder Datei/jedem Ordner (`HKCU\Software\Classes\*\shell\Workbench`,
+  Win11 unter „Weitere Optionen“), Aufruf `Workbench.exe --frist "1 Tag" "<Pfad>"` → Warteschlange `auftraege.txt` + Event an
+  die laufende Instanz. Taskleisten-Sprungliste (`--zeige <n>`).
+- README hat jetzt eine Installationsanleitung für andere (Releases, SmartScreen, Update, Entfernen, Selbst bauen).
+
 ## Nächste Schritte (Vorschläge)
 
 1. Auf dem echten PC installieren und durchklicken (Seitenleiste in Word-Speichern-Dialog, Autostart nach Neustart).

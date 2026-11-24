@@ -263,7 +263,7 @@ namespace Workbench
         public string FristSetzen(Eintrag e, DateTime? ablaufUtc, string gewaehlt)
         {
             string neuerPfad = e.Pfad;
-            if (ablaufUtc == null && e.Herkunft == "desktop")
+            if (ablaufUtc == null && (e.Herkunft == "desktop" || e.Herkunft == "hand"))
             {
                 S.Entfernen(e.Pfad);                     // vom Desktop: „für immer“ heißt einfach liegen lassen
                 S.Speichern();
@@ -284,6 +284,26 @@ namespace Workbench
         }
 
         public string Behalten(Eintrag e) { return Verschieben(e, Paths.Dauerhaft); }
+
+        /// <summary>Rechtsklick › Workbench › Dauer – für jede Datei, egal wo. „Für immer“ nimmt die Frist wieder weg (Datei bleibt, wo sie ist).</summary>
+        public Eintrag FristVonHand(string pfad, string dauer)
+        {
+            if (!File.Exists(pfad) && !Directory.Exists(pfad)) return null;
+            var e = S.Finde(pfad);
+            if (dauer == Dauer.Immer)
+            {
+                if (e != null) { S.Entfernen(pfad); S.Speichern(); Planen(); MeldeGeaendert(); }
+                return null;
+            }
+            if (e == null) { e = new Eintrag { Pfad = pfad, Hinzu = Jetzt(), Herkunft = "hand" }; S.D.Eintraege.Add(e); }
+            e.Hinzu = Jetzt();
+            e.Ablauf = Dauer.Ablauf(dauer, Jetzt());
+            e.Gewaehlt = dauer;
+            S.Speichern();
+            Planen();
+            MeldeGeaendert();
+            return e;
+        }
 
         /// <summary>Befristete Datei woanders hin (Dauerhaft, Cloud …) – damit gilt sie als behalten.</summary>
         public string Verschieben(Eintrag e, string ordner)

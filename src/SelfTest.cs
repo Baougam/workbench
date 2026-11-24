@@ -309,6 +309,14 @@ namespace Workbench
                     Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "9b-netzsuche.png"));
                 }
             }
+            foreach (var s in new[] { 0, 1, 3 })
+            {
+                var w = new Hauptfenster(E, 0, true);
+                w.KorbFuerBild(korb);
+                Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "r" + s + "-rundgang.png"));   // einmal ausmessen
+                w.RundgangFuerBild(s);
+                Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "r" + s + "-rundgang.png"));
+            }
             var f = new Frage(E, new List<Eintrag> { E.S.D.Eintraege[3] }, false);
             var k = f.Karte; f.Content = null;
             var r1 = (System.Windows.Controls.Border)Rahmen(k);

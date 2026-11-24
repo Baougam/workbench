@@ -47,6 +47,9 @@ namespace Workbench
 
             Warten(Program.ZeigenName, () => Zeigen(-1));
             Warten(Program.BeendenName, Beenden);
+            Warten(Program.AuftragName, Abarbeiten);
+            Abarbeiten();
+            Sprungliste();
 
             Log.Info("Gestartet " + Program.Version + (hintergrund ? " (Hintergrund)" : ""));
             if (!hintergrund) Zeigen(Hauptfenster.Befristet);
@@ -86,6 +89,45 @@ namespace Workbench
             var t = new Thread(() => { while (true) { ev.WaitOne(); Dispatcher.BeginInvoke(a); } });
             t.IsBackground = true;
             t.Start();
+        }
+
+        /// <summary>Aufträge von außen: Rechtsklick › Workbench › Dauer, Sprungliste der Taskleiste.</summary>
+        void Abarbeiten()
+        {
+            var bestaetigen = new List<Eintrag>();
+            foreach (var z in Auftraege.Holen())
+            {
+                var t = z.Split('\t');
+                if (t.Length >= 3 && t[0] == "frist")
+                {
+                    var e = E.FristVonHand(t[2], t[1]);
+                    if (e != null) bestaetigen.Add(e);
+                }
+                else if (t.Length >= 2 && t[0] == "zeige")
+                {
+                    int n;
+                    if (int.TryParse(t[1], out n)) Zeigen(n);
+                }
+            }
+            // eine ruhige Bestätigung für alles auf einmal (lässt sich dort auch gleich ändern)
+            if (bestaetigen.Count > 0) NeueFrage(bestaetigen, true);
+        }
+
+        /// <summary>Rechtsklick auf das Taskleisten-Symbol: direkt zu einer Ebene.</summary>
+        void Sprungliste()
+        {
+            try
+            {
+                string exe = Install.IstInstallierteKopie() ? Install.Ziel : System.Reflection.Assembly.GetExecutingAssembly().Location;
+                var jl = new System.Windows.Shell.JumpList { ShowFrequentCategory = false, ShowRecentCategory = false };
+                string[] namen = { "Befristet", "Dauerhaft", "Cloud", "Netz" };
+                int[] ziele = { Hauptfenster.Befristet, Hauptfenster.Dauerhaft, Hauptfenster.Wolke, Hauptfenster.Netzansicht };
+                for (int i = 0; i < namen.Length; i++)
+                    jl.JumpItems.Add(new System.Windows.Shell.JumpTask { Title = namen[i], Arguments = "--zeige " + ziele[i], ApplicationPath = exe, IconResourcePath = exe, IconResourceIndex = 0 });
+                System.Windows.Shell.JumpList.SetJumpList(this, jl);
+                jl.Apply();
+            }
+            catch (Exception ex) { Log.Fehler("Sprungliste", ex); }
         }
 
         void NeueDownloads(List<Eintrag> neu)

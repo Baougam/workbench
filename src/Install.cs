@@ -46,6 +46,7 @@ namespace Workbench
                 Verknuepfungen();
                 Autostart(cfg.Autostart);
                 Seitenleiste(cfg.Seitenleiste);
+                Rechtsklick(cfg.Rechtsklick);
                 Eintragen();
                 Log.Info("Installiert: " + Ziel);
                 Process.Start(Ziel);
@@ -186,6 +187,52 @@ namespace Workbench
             if (Paths.Test || !IstInstallierteKopie()) return;
             Autostart(cfg.Autostart);
             Seitenleiste(cfg.Seitenleiste);
+            Rechtsklick(cfg.Rechtsklick);
+        }
+
+        /// <summary>
+        /// Rechtsklick auf jede Datei / jeden Ordner › Workbench › 1 Stunde … Für immer. (Windows 11: unter „Weitere Optionen anzeigen“.)
+        /// </summary>
+        public static void Rechtsklick(bool an)
+        {
+            if (Paths.Test) return;
+            foreach (var art in new[] { "*", "Directory" })
+            {
+                string basis = @"Software\Classes\" + art + @"\shell\Workbench";
+                try
+                {
+                    Registry.CurrentUser.DeleteSubKeyTree(basis, false);
+                    if (!an) continue;
+                    using (var k = Registry.CurrentUser.CreateSubKey(basis))
+                    {
+                        k.SetValue("MUIVerb", "Workbench");
+                        k.SetValue("Icon", Ziel + ",0");
+                        k.SetValue("SubCommands", "");
+                        string[][] eintraege = { new[] { "a1", "1 Stunde", "1 Std" }, new[] { "a2", "1 Tag", "1 Tag" }, new[] { "a3", "1 Woche", "1 Woche" }, new[] { "a4", "1 Monat", "1 Monat" }, new[] { "a5", "Für immer", Dauer.Immer } };
+                        foreach (var e in eintraege)
+                            using (var s = k.CreateSubKey(@"shell\" + e[0]))
+                            {
+                                s.SetValue("MUIVerb", e[1]);
+                                if (e[0] == "a5") s.SetValue("CommandFlags", 0x20, RegistryValueKind.DWord);   // Trennlinie davor
+                                using (var c = s.CreateSubKey("command")) c.SetValue("", "\"" + Ziel + "\" --frist \"" + e[2] + "\" \"%1\"");
+                            }
+                    }
+                }
+                catch (Exception ex) { Log.Fehler("Rechtsklick", ex); }
+            }
+        }
+
+        public static void DesktopSymbol(bool an)
+        {
+            if (Paths.Test) return;
+            string lnk = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Workbench.lnk");
+            try { if (an) { if (!File.Exists(lnk)) Verknuepfung(lnk); } else if (File.Exists(lnk)) File.Delete(lnk); }
+            catch (Exception ex) { Log.Fehler("Desktop-Symbol", ex); }
+        }
+
+        public static bool HatDesktopSymbol
+        {
+            get { return File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Workbench.lnk")); }
         }
 
         public static void Deinstallieren(bool still)
@@ -196,6 +243,7 @@ namespace Workbench
             {
                 Autostart(false);
                 Seitenleiste(false);
+                Rechtsklick(false);
                 try { Registry.CurrentUser.DeleteSubKeyTree(UninstallKey, false); } catch { }
                 foreach (var lnk in new[]
                 {

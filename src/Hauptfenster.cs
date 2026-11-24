@@ -289,13 +289,14 @@ namespace Workbench
                 ToolTipService.SetPlacement(b, PlacementMode.Right);
                 ToolTipService.SetInitialShowDelay(b, 150);
                 System.Windows.Automation.AutomationProperties.SetName(b, namen[i]);
-                b.Click += delegate { Zeige(ebene); };
+                b.Click += delegate { Zeige(ebene); RundgangMitgehen(); };
                 if (i == 1) AblageZiel(b, null, () => Paths.Dauerhaft);
                 if (i == 2) AblageZiel(b, null, () => wolke != null ? wolke.Pfad : null);
                 stufen.Add(b);
                 regler.Children.Add(b);
             }
             regler.Children.Add(k);
+            reglerEl = regler;
             g.Children.Add(regler);
 
             var unten = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 16) };
@@ -370,7 +371,7 @@ namespace Workbench
         {
             int von = ansicht < Ebenen ? ansicht : letzteEbene;
             int neu = Math.Max(0, Math.Min(Ebenen - 1, von + d));
-            if (neu != ansicht) Zeige(neu);
+            if (neu != ansicht) { Zeige(neu); RundgangMitgehen(); }
         }
 
         bool veraltet;
@@ -1162,6 +1163,10 @@ namespace Workbench
             wolken.Children.Add(mehr);
             sp.Children.Add(Zeile("Cloud", wolken, true));
             sp.Children.Add(Zeile("Auch auf dem Desktop", Schalter(c.Desktop, v => { c.Desktop = v; E.DesktopBeobachten(v); }), true));
+            sp.Children.Add(Zeile("Im Rechtsklick-Menü", Schalter(c.Rechtsklick, v => { c.Rechtsklick = v; Install.Rechtsklick(v); }), true));
+            var rund = new Button { Style = (Style)Application.Current.FindResource("Btn"), Content = "Zeigen", Height = 28, Padding = new Thickness(12, 0, 12, 0), FontSize = 12 };
+            rund.Click += delegate { EinfuehrungStarten(); };
+            sp.Children.Add(Zeile("Rundgang", rund, true));
             sp.Children.Add(Zeile("Hinweis beim Speichern", Schalter(c.HinweisSpeichern, v => c.HinweisSpeichern = v), true));
             sp.Children.Add(Zeile("Im Explorer zeigen", Schalter(c.Seitenleiste, v => { c.Seitenleiste = v; Install.Seitenleiste(v); }), true));
             sp.Children.Add(Zeile("Mit Windows starten", Schalter(c.Autostart, v => { c.Autostart = v; Install.Autostart(v); }), true));
@@ -1194,7 +1199,7 @@ namespace Workbench
 
         FrameworkElement Zeile(string text, FrameworkElement rechts, bool linie)
         {
-            var g = new Grid { MinHeight = 50 };
+            var g = new Grid { MinHeight = 44 };
             var t = new TextBlock { Text = text, FontSize = 13.5, Foreground = linie ? Farbe.Text : Farbe.Text3, VerticalAlignment = VerticalAlignment.Center };
             g.Children.Add(t);
             rechts.HorizontalAlignment = HorizontalAlignment.Right;
@@ -1405,7 +1410,7 @@ namespace Workbench
             wurzel.BeginAnimation(OpacityProperty, a);
         }
 
-        /// <summary>Weich zeigen – auch nach dem Verstecken.</summary>
+        /// <summary>Weich zeigen – auch nach dem Verstecken. Beim ersten Mal startet der Rundgang.</summary>
         public void Hereinholen()
         {
             if (!IsVisible)
@@ -1415,6 +1420,87 @@ namespace Workbench
                 Show();
                 wurzel.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(140)));
             }
+            if (!E.Cfg.EinfuehrungFertig && einfuehrung == null && !rundgangDieseSitzung)
+            {
+                rundgangDieseSitzung = true;
+                var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+                t.Tick += delegate { t.Stop(); EinfuehrungStarten(); };
+                t.Start();
+            }
+        }
+
+        // ================= Rundgang =================
+
+        FrameworkElement reglerEl;
+        Einfuehrung einfuehrung;
+        bool rundgangDieseSitzung;
+
+        public void EinfuehrungStarten()
+        {
+            if (einfuehrung != null) return;
+            var schritte = new List<Einfuehrung.Schritt>
+            {
+                new Einfuehrung.Schritt { Titel = "Willkommen bei Workbench", Text = "Dateien, die sich selbst aufräumen – und ein Desktop, der aufgeräumt bleibt.", Extra = Willkommen },
+                new Einfuehrung.Schritt { Titel = "Drei Ebenen", Text = "Befristet · Dauerhaft · Cloud. Zwei Finger hoch oder runter – oder ↑ ↓.", Ziel = () => reglerEl, Vorher = () => Zeige(Befristet) },
+                new Einfuehrung.Schritt { Titel = "Befristet", Text = "Neue Downloads landen hier. Der Ring am Symbol zeigt, wie viel Zeit bleibt – danach geht es in den Papierkorb.", Ziel = () => blatt, Vorher = () => Zeige(Befristet) },
+                new Einfuehrung.Schritt { Titel = "Dein Desktop", Text = "Ziehen ordnet an. Gedrückt halten öffnet den Kreis: verbinden, färben, Notiz. Doppelklick auf freie Fläche: Notiz.", Ziel = () => blatt, Vorher = () => Zeige(Dauerhaft) },
+                new Einfuehrung.Schritt { Titel = "Von oben", Text = "Alle Ordner als Netz – mit Suche.", Ziel = () => btnNetz, Vorher = () => Zeige(Dauerhaft) },
+                new Einfuehrung.Schritt { Titel = "Nichts ist sofort weg", Text = "Abgelaufenes liegt im Papierkorb und lässt sich zurückholen.", Ziel = () => btnKorb },
+                new Einfuehrung.Schritt { Titel = "Überall in Windows", Text = "Rechtsklick auf jede Datei › Workbench › 1 Tag … – und links in jedem Speichern-Fenster steht Workbench.", Vorher = () => Zeige(Befristet) },
+            };
+            einfuehrung = new Einfuehrung(wurzel, schritte, nieWieder =>
+            {
+                if (nieWieder) { E.Cfg.EinfuehrungFertig = true; E.Cfg.Speichern(); }
+                wurzel.Children.Remove(einfuehrung);
+                einfuehrung = null;
+            });
+            wurzel.Children.Add(einfuehrung);
+            einfuehrung.Starten();
+        }
+
+        /// <summary>Selbst ausprobieren zählt: wer im Ebenen-Schritt selbst die Ebene wechselt, kommt weiter.</summary>
+        void RundgangMitgehen()
+        {
+            if (einfuehrung != null && einfuehrung.Nr == 1) einfuehrung.Weiter();
+        }
+
+        FrameworkElement Willkommen()
+        {
+            var sp = new StackPanel();
+            var z1 = new Grid { MinHeight = 40 };
+            z1.Children.Add(new TextBlock { Text = "Symbol auf dem Desktop", FontSize = 13, Foreground = Farbe.Text, VerticalAlignment = VerticalAlignment.Center });
+            var s1 = new CheckBox { Style = (Style)Application.Current.FindResource("Schalter"), IsChecked = bild || Install.HatDesktopSymbol, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
+            s1.Click += delegate { Install.DesktopSymbol(s1.IsChecked == true); };
+            z1.Children.Add(s1);
+            sp.Children.Add(z1);
+            var z2 = new Grid { MinHeight = 40 };
+            z2.Children.Add(new TextBlock { Text = "An die Taskleiste", FontSize = 13, Foreground = Farbe.Text, VerticalAlignment = VerticalAlignment.Center });
+            var b = new Button { Style = (Style)Application.Current.FindResource("Btn"), Content = "Anheften", Height = 30, Padding = new Thickness(12, 0, 12, 0), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
+            z2.Children.Add(b);
+            sp.Children.Add(z2);
+            var hinweis = new StackPanel { Orientation = Orientation.Horizontal, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 2, 0, 0) };
+            var pfeil = UI.Icon("M12 4v15M6 13l6 6 6-6", 16, Farbe.Akzent, 2);
+            pfeil.VerticalAlignment = VerticalAlignment.Top;
+            hinweis.Children.Add(pfeil);
+            hinweis.Children.Add(new TextBlock { Text = "Unten in der Taskleiste: Rechtsklick auf das Workbench-Symbol › „An Taskleiste anheften“.", FontSize = 12.5, Foreground = Farbe.Text2, TextWrapping = TextWrapping.Wrap, Width = 250, Margin = new Thickness(8, 0, 0, 0) });
+            sp.Children.Add(hinweis);
+            b.Click += delegate
+            {
+                // Windows erlaubt Programmen das Anheften nicht selbst – wir zeigen, wo es geht, und lassen den Pfeil nicken
+                hinweis.Visibility = Visibility.Visible;
+                b.Visibility = Visibility.Collapsed;
+                var tt = new TranslateTransform();
+                pfeil.RenderTransform = tt;
+                tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, 5, TimeSpan.FromMilliseconds(420)) { AutoReverse = true, RepeatBehavior = new RepeatBehavior(4), EasingFunction = UI.Weich });
+            };
+            return sp;
+        }
+
+        /// <summary>Nur für Bilder im Render-Modus.</summary>
+        public void RundgangFuerBild(int schritt)
+        {
+            EinfuehrungStarten();
+            for (int i = 0; i < schritt; i++) einfuehrung.Weiter();
         }
 
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
