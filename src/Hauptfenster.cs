@@ -609,9 +609,9 @@ namespace Workbench
                 new KeyValuePair<string, Action>("Open", () => Oeffnen(e.Pfad)),
                 new KeyValuePair<string, Action>("Show in folder", () => ImOrdnerZeigen(e.Pfad)),
                 new KeyValuePair<string, Action>("-", null),
-                new KeyValuePair<string, Action>("+1 day", () => Verlaengern(e, "1 day")),
-                new KeyValuePair<string, Action>("+1 week", () => Verlaengern(e, "1 week")),
-                new KeyValuePair<string, Action>("+1 month", () => Verlaengern(e, "1 month")),
+                new KeyValuePair<string, Action>("Another day", () => Verlaengern(e, "1 day")),
+                new KeyValuePair<string, Action>("Another week", () => Verlaengern(e, "1 week")),
+                new KeyValuePair<string, Action>("Another month", () => Verlaengern(e, "1 month")),
                 new KeyValuePair<string, Action>("Until…", () => BisWaehlen(ziel, e)),
                 new KeyValuePair<string, Action>("-", null),
                 new KeyValuePair<string, Action>("Keep permanently", () => Wegschieben(e, Paths.Dauerhaft)),
@@ -967,7 +967,7 @@ namespace Workbench
             foreach (var x in liste)
             {
                 var x2 = x;
-                string hilfe = x.Name + "\n" + Wann(x.Geloescht) + " · " + (x.IstOrdner ? "Folder" : Dauer.Groesse(x.Groesse)) + (x.Wb != null ? " · timer: " + x.Wb.Dauer : "") + "\nfrom " + System.IO.Path.GetDirectoryName(x.Original);
+                string hilfe = x.Name + "\n" + Wann(x.Geloescht) + " · " + (x.IstOrdner ? "Folder" : Dauer.Groesse(x.Groesse)) + (x.Wb != null ? " · kept for " + Dauer.Lang(x.Wb.Dauer) : "") + "\nfrom " + System.IO.Path.GetDirectoryName(x.Original);
                 var sym = Symbol(x.RPfad ?? x.Name, x.RPfad ?? x.Name, x.Name, null, null, false, hilfe);
                 sym.Opacity = 0.85;
                 Bedienbar(sym, x.RPfad ?? x.Name, () => Zurueckholen(x2), el => UI.Menue(el, new List<KeyValuePair<string, Action>>
@@ -1036,9 +1036,9 @@ namespace Workbench
                         var b = (Button)s;
                         UI.Menue(b, new List<KeyValuePair<string, Action>>
                         {
-                            new KeyValuePair<string, Action>("+1 day", () => Verlaengern(e, "1 day")),
-                            new KeyValuePair<string, Action>("+1 week", () => Verlaengern(e, "1 week")),
-                            new KeyValuePair<string, Action>("+1 month", () => Verlaengern(e, "1 month")),
+                            new KeyValuePair<string, Action>("Another day", () => Verlaengern(e, "1 day")),
+                            new KeyValuePair<string, Action>("Another week", () => Verlaengern(e, "1 week")),
+                            new KeyValuePair<string, Action>("Another month", () => Verlaengern(e, "1 month")),
                             new KeyValuePair<string, Action>("Until…", () => BisWaehlen(b, e)),
                         }, false, true);
                     };
@@ -1139,7 +1139,7 @@ namespace Workbench
             foreach (var d in Dauer.Auswahl)
             {
                 string d2 = d;
-                var t = new ToggleButton { Style = (Style)Application.Current.FindResource("Chip"), Content = d, IsChecked = c.Standard == d, Margin = new Thickness(4, 0, 0, 0), Height = 28, Padding = new Thickness(9, 0, 9, 0), FontSize = 12 };
+                var t = new ToggleButton { Style = (Style)Application.Current.FindResource("Chip"), Content = Dauer.Kurz(d), IsChecked = c.Standard == d, Margin = new Thickness(4, 0, 0, 0), Height = 28, Padding = new Thickness(9, 0, 9, 0), FontSize = 12 };
                 t.Click += delegate { c.Standard = d2; c.Speichern(); Neuzeichnen(); };
                 chips.Children.Add(t);
             }

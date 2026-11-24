@@ -25,6 +25,7 @@ namespace Workbench
         bool fertig;
 
         readonly Border karte;
+        readonly Grid huelle;
         readonly TranslateTransform schiebe = new TranslateTransform(0, 24);
         readonly ContentControl inhalt = new ContentControl();
         readonly ScaleTransform balken = new ScaleTransform(1, 1);
@@ -53,26 +54,30 @@ namespace Workbench
             FontFamily = UI.Schrift;
             Title = "Workbench";
 
-            bahn = new Border { Height = 2, CornerRadius = new CornerRadius(1), Background = Farbe.B("#0FFFFFFF"), Margin = new Thickness(2, 6, 2, 0) };
-            bahn.Child = new Border { CornerRadius = new CornerRadius(1), Background = Farbe.B("#80F4B860"), RenderTransform = balken, RenderTransformOrigin = new Point(0, 0.5) };
+            // Ablauf: feine Bernstein-Linie an der Unterkante
+            bahn = new Border { Height = 2, CornerRadius = new CornerRadius(1), Background = Farbe.B("#0AFFFFFF"), Margin = new Thickness(4, 12, 4, -4) };
+            bahn.Child = new Border { CornerRadius = new CornerRadius(1), Background = Farbe.B("#B3F4B860"), RenderTransform = balken, RenderTransformOrigin = new Point(0, 0.5) };
 
             karte = new Border
             {
-                Background = Farbe.B("#F21E2128"),
-                BorderBrush = Farbe.B("#1AFFFFFF"),
+                Background = Farbe.B("#F5191C23"),
+                BorderBrush = Farbe.B("#1FFFFFFF"),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(16),
-                Padding = new Thickness(14, 14, 14, 12),
-                Margin = new Thickness(20),
-                Effect = new DropShadowEffect { BlurRadius = 30, ShadowDepth = 8, Opacity = 0.5, Direction = 270 },
-                RenderTransform = schiebe,
-                Opacity = 0
+                CornerRadius = new CornerRadius(18),
+                Padding = new Thickness(16, 16, 16, 12),
+                Margin = new Thickness(0, 10, 0, 0),
+                Effect = new DropShadowEffect { BlurRadius = 30, ShadowDepth = 8, Opacity = 0.5, Direction = 270 }
             };
             var sp = new StackPanel();
             sp.Children.Add(inhalt);
             sp.Children.Add(bahn);
             karte.Child = sp;
-            Content = karte;
+            // Blattstapel wie im Hauptfenster: zwei Kanten schauen über der Karte hervor
+            huelle = new Grid { Margin = new Thickness(20), RenderTransform = schiebe, Opacity = 0 };
+            huelle.Children.Add(new Border { Height = 10, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(36, 0, 36, 0), CornerRadius = new CornerRadius(14, 14, 0, 0), Background = Farbe.B("#C02A2E38"), BorderBrush = Farbe.B("#24FFFFFF"), BorderThickness = new Thickness(1, 1, 1, 0) });
+            huelle.Children.Add(new Border { Height = 10, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(18, 5, 18, 0), CornerRadius = new CornerRadius(16, 16, 0, 0), Background = Farbe.B("#E0242833"), BorderBrush = Farbe.B("#2EFFFFFF"), BorderThickness = new Thickness(1, 1, 1, 0) });
+            huelle.Children.Add(karte);
+            Content = huelle;
 
             karte.MouseEnter += delegate { if (uhr != null && !fertig) uhr.Controller.Pause(); };
             karte.MouseLeave += delegate { if (uhr != null && !fertig && inhalt.Tag as string != "kalender") uhr.Controller.Resume(); };
@@ -81,7 +86,7 @@ namespace Workbench
             Loaded += delegate
             {
                 Platzieren();
-                karte.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(200)) { EasingFunction = UI.Weich });
+                huelle.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(200)) { EasingFunction = UI.Weich });
                 schiebe.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(24, 0, TimeSpan.FromMilliseconds(280)) { EasingFunction = UI.Weich });
             };
 
@@ -115,29 +120,41 @@ namespace Workbench
             }
             else
             {
-                var bilder = new Grid { Width = 40, Height = 42, Margin = new Thickness(0, 0, 12, 0) };
+                // eigenes Workbench-Zeichen; mehrere Dateien als kleiner Stapel
+                var bilder = new Grid { Width = 46, Height = 50, Margin = new Thickness(0, 0, 14, 0) };
                 int n = Math.Min(3, dateien.Count);
                 for (int i = n - 1; i >= 0; i--)
                 {
-                    var b = Vorschau.Bild(dateien[i].Pfad, 34, 40);
+                    var b = Vorschau.Glyphe(dateien[i].Pfad, 38, 46);
                     b.HorizontalAlignment = HorizontalAlignment.Left;
-                    b.Margin = new Thickness(i * 3, 0, 0, 0);
-                    if (i > 0) b.Opacity = 0.5;
+                    b.VerticalAlignment = VerticalAlignment.Bottom;
+                    b.Margin = new Thickness(i * 4, 0, 0, i * 3);
+                    if (i > 0) b.Opacity = 0.45;
                     bilder.Children.Add(b);
                 }
                 links = bilder;
             }
             g.Children.Add(links);
-            var name = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            var t = UI.T(dateien[0].Name, 13.5, Farbe.Text, FontWeights.SemiBold);
+            var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            var name = new StackPanel { Orientation = Orientation.Horizontal };
+            var t = UI.T(dateien[0].Name, 14, Farbe.Text, FontWeights.SemiBold);
             t.MaxWidth = dateien.Count > 1 ? 210 : 250;
             name.Children.Add(t);
             if (dateien.Count > 1)
-            {
                 name.Children.Add(new Border { CornerRadius = new CornerRadius(9), Background = Farbe.B("#1FFFFFFF"), Padding = new Thickness(6, 1, 6, 1), Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, Child = UI.T("+" + (dateien.Count - 1), 11, Farbe.Text2, FontWeights.SemiBold) });
+            text.Children.Add(name);
+            if (!zurueck)
+            {
+                string ext = System.IO.Path.GetExtension(dateien[0].Pfad).TrimStart('.').ToUpperInvariant();
+                long groesse = 0;
+                foreach (var d in dateien) try { if (System.IO.File.Exists(d.Pfad)) groesse += new System.IO.FileInfo(d.Pfad).Length; } catch { }
+                string meta = (dateien.Count > 1 ? dateien.Count + " files" : (ext.Length > 0 ? ext : "File")) + (groesse > 0 ? " · " + Dauer.Groesse(groesse) : "");
+                var m = UI.T(meta, 12, Farbe.Text3);
+                m.Margin = new Thickness(0, 3, 0, 0);
+                text.Children.Add(m);
             }
-            Grid.SetColumn(name, 1);
-            g.Children.Add(name);
+            Grid.SetColumn(text, 1);
+            g.Children.Add(text);
             var x = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 30, Height = 30, Content = UI.Icon(Ikon.X, 12, Farbe.Text3, 2), Margin = new Thickness(0, -4, -6, -4), VerticalAlignment = VerticalAlignment.Top };
             System.Windows.Automation.AutomationProperties.SetName(x, "Close");
             x.Click += delegate { if (info) Schliessen(); else Anwenden(vorschlag, null, false); };
@@ -168,7 +185,7 @@ namespace Workbench
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             string[] stationen = { "1 hour", "1 day", "1 week", "1 month", Dauer.Immer };
-            string[] beschriftung = { "1 hour", "1 day", "1 week", "1 month", "∞" };
+            string[] beschriftung = { "Hour", "Day", "Week", "Month", "∞" };
             var leiste = new Grid { Height = 50 };
             var linie = new Border { Height = 2, CornerRadius = new CornerRadius(1), Background = Farbe.B("#26FFFFFF"), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 12, 0, 0), IsHitTestVisible = false };
             leiste.SizeChanged += delegate { double h = leiste.ActualWidth / stationen.Length / 2; linie.Margin = new Thickness(h, 12, h, 0); };
@@ -190,7 +207,7 @@ namespace Workbench
                 else punkt = new Ellipse { Width = 8, Height = 8, Fill = Farbe.B("#8CFFFFFF") };
                 punktFlaeche.Children.Add(punkt);
                 sp.Children.Add(punktFlaeche);
-                var t = new TextBlock { Text = beschriftung[i], FontSize = i == 4 ? 15 : 11.5, Foreground = an ? Farbe.Text : Farbe.Text2, FontWeight = an ? FontWeights.SemiBold : FontWeights.Normal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, i == 4 ? -1 : 2, 0, 0) };
+                var t = new TextBlock { Text = beschriftung[i], FontSize = i == 4 ? 15 : 12, Foreground = an ? Farbe.Text : Farbe.Text2, FontWeight = an ? FontWeights.SemiBold : FontWeights.Normal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, i == 4 ? -1 : 2, 0, 0) };
                 sp.Children.Add(t);
                 b.Content = sp;
                 b.ToolTip = i == 4 ? "Forever" : null;
@@ -272,7 +289,7 @@ namespace Workbench
                 E.FristSetzen(e, ablauf, wahl == Dauer.Bis ? "until " + bis.Value.ToLocalTime().ToString("d MMM", Dauer.En) : wahl);
             }
             if (aktiv) E.S.Speichern();
-            string text = ablauf == null ? "Kept forever" : (wahl == Dauer.Bis ? "Kept until " + bis.Value.ToLocalTime().ToString("d MMM", Dauer.En) : "Kept for " + wahl);
+            string text = ablauf == null ? "Kept forever" : "Stays until " + Dauer.Wann(ablauf.Value);
             Bestaetigen(ablauf == null ? Ikon.Unendlich : Ikon.Haken, text, aktiv);
         }
 
@@ -318,14 +335,14 @@ namespace Workbench
 
         void Wegfahren()
         {
-            var a = new DoubleAnimation(karte.Opacity, 0, TimeSpan.FromMilliseconds(200));
+            var a = new DoubleAnimation(huelle.Opacity, 0, TimeSpan.FromMilliseconds(200));
             a.Completed += delegate { Close(); };
-            karte.BeginAnimation(OpacityProperty, a);
+            huelle.BeginAnimation(OpacityProperty, a);
             schiebe.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, 16, TimeSpan.FromMilliseconds(220)) { EasingFunction = UI.Weich });
         }
 
         /// <summary>Nur für Bilder im Render-Modus.</summary>
-        public FrameworkElement Karte { get { karte.Opacity = 1; schiebe.Y = 0; if (uhr != null) uhr.Controller.Pause(); return karte; } }
+        public FrameworkElement Karte { get { huelle.Opacity = 1; schiebe.Y = 0; if (uhr != null) uhr.Controller.Pause(); var h = huelle; Content = null; return h; } }
         public void KalenderFuerBild() { Kalender(); }
     }
 }

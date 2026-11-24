@@ -166,6 +166,20 @@ namespace Workbench
             return installer.Contains(Path.GetExtension(pfad).ToLowerInvariant());
         }
 
+        /// <summary>Kurz und modern für Schieber und Chips: Hour · Day · Week · Month · ∞</summary>
+        public static string Kurz(string d)
+        {
+            switch (d) { case "1 hour": return "Hour"; case "1 day": return "Day"; case "1 week": return "Week"; case "1 month": return "Month"; case Immer: return "∞"; }
+            return d;
+        }
+
+        /// <summary>Im Satz: „kept for a day“</summary>
+        public static string Lang(string d)
+        {
+            switch (d) { case "1 hour": return "an hour"; case "1 day": return "a day"; case "1 week": return "a week"; case "1 month": return "a month"; case Immer: return "forever"; }
+            return d;
+        }
+
         public static readonly System.Globalization.CultureInfo En = new System.Globalization.CultureInfo("en-GB");
 
         /// <summary>Alte deutsche Dauer-Namen (0.1.0) auf die englischen abbilden.</summary>

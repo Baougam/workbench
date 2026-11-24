@@ -208,7 +208,7 @@ namespace Workbench
                         k.SetValue("MUIVerb", "Workbench");
                         k.SetValue("Icon", Ziel + ",0");
                         k.SetValue("SubCommands", "");
-                        string[][] eintraege = { new[] { "a1", "1 Hour", "1 hour" }, new[] { "a2", "1 day", "1 day" }, new[] { "a3", "1 week", "1 week" }, new[] { "a4", "1 month", "1 month" }, new[] { "a5", "Forever", Dauer.Immer } };
+                        string[][] eintraege = { new[] { "a1", "For an hour", "1 hour" }, new[] { "a2", "For a day", "1 day" }, new[] { "a3", "For a week", "1 week" }, new[] { "a4", "For a month", "1 month" }, new[] { "a5", "Forever", Dauer.Immer } };
                         foreach (var e in eintraege)
                             using (var s = k.CreateSubKey(@"shell\" + e[0]))
                             {

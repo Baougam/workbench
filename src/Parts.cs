@@ -106,6 +106,44 @@ namespace Workbench
             return g;
         }
 
+        static readonly string[] bildEndungen = { ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".heic", ".tif", ".tiff", ".mp4", ".mov", ".mkv", ".webm", ".avi" };
+
+        /// <summary>
+        /// Workbench-eigenes Datei-Zeichen für die Karte: ruhiges Dokument mit Eselsohr in der Farbe des Typs und der Endung –
+        /// statt des Symbols der App, mit der die Datei geöffnet wird. Bilder und Videos zeigen ihr echtes Vorschaubild.
+        /// </summary>
+        public static FrameworkElement Glyphe(string pfad, double b, double h)
+        {
+            var g = new Grid { Width = b, Height = h };
+            if (Directory.Exists(pfad))
+            {
+                var o = UI.OrdnerBild(b);
+                o.VerticalAlignment = VerticalAlignment.Center;
+                g.Children.Add(o);
+                return g;
+            }
+            string ext = Path.GetExtension(pfad).ToLowerInvariant();
+            if (Array.IndexOf(bildEndungen, ext) >= 0)
+            {
+                var rahmen = new Border { Width = b, Height = b, CornerRadius = new CornerRadius(10), Background = Farbe.B("#1AFFFFFF"), VerticalAlignment = VerticalAlignment.Center, BorderBrush = Farbe.B("#26FFFFFF"), BorderThickness = new Thickness(1) };
+                g.Children.Add(rahmen);
+                Laden(pfad, (int)(b * 2), false, bs => { if (bs != null) rahmen.Background = new ImageBrush(bs) { Stretch = Stretch.UniformToFill }; });
+                return g;
+            }
+            var ci = System.Globalization.CultureInfo.InvariantCulture;
+            double r = 6, c = Math.Round(b * 0.34);
+            string koerper = string.Format(ci, "M{0},0 H{1} L{2},{3} V{4} A{0},{0} 0 0 1 {5},{6} H{0} A{0},{0} 0 0 1 0,{4} V{0} A{0},{0} 0 0 1 {0},0 Z", r, b - c, b, c, h - r, b - r, h);
+            string ohr = string.Format(ci, "M{0},0 V{1} A3,3 0 0 0 {2},{3} H{4} Z", b - c, c - 3, b - c + 3, c, b);
+            g.Children.Add(new System.Windows.Shapes.Path { Data = Geometry.Parse(koerper), Fill = Farbe.Endung(ext) });
+            g.Children.Add(new System.Windows.Shapes.Path { Data = Geometry.Parse(koerper), Fill = new LinearGradientBrush(Color.FromArgb(40, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90) });
+            g.Children.Add(new System.Windows.Shapes.Path { Data = Geometry.Parse(ohr), Fill = Farbe.B("#73FFFFFF") });
+            string e = ext.TrimStart('.').ToUpperInvariant();
+            if (e.Length > 4) e = e.Substring(0, 4);
+            if (e.Length == 0) e = "FILE";
+            g.Children.Add(new TextBlock { Text = e, FontSize = Math.Max(8, b * 0.21), FontWeight = FontWeights.Bold, Foreground = Farbe.B("#C01C1405"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, h * 0.12) });
+            return g;
+        }
+
         static Image Einfach(BitmapSource bs, double b, double h)
         {
             var img = new Image { Source = bs, Stretch = Stretch.Uniform, Width = b, Height = h };
