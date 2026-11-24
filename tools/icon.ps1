@@ -16,9 +16,9 @@ $bilder = foreach ($s in $groessen) {
   $g = [System.Drawing.Graphics]::FromImage($bmp)
   $g.SmoothingMode = 'AntiAlias'; $g.Clear([System.Drawing.Color]::Transparent)
   $k = $s / 24.0
-  Rund $g (New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 30, 37, 51))) 0 0 $s $s (5.5 * $k)
-  Rund $g (New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(115, 143, 180, 255))) (8 * $k) (4.5 * $k) (12 * $k) (9.5 * $k) (2.6 * $k)
-  Rund $g (New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 143, 180, 255))) (4 * $k) (10 * $k) (12 * $k) (9.5 * $k) (2.6 * $k)
+  Rund $g (New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 20, 22, 28))) 0 0 $s $s (5.5 * $k)
+  Rund $g (New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(120, 244, 184, 96))) (8 * $k) (4.5 * $k) (12 * $k) (9.5 * $k) (2.6 * $k)
+  Rund $g (New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 244, 184, 96))) (4 * $k) (10 * $k) (12 * $k) (9.5 * $k) (2.6 * $k)
   $g.Dispose()
   $ms = New-Object System.IO.MemoryStream
   $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()

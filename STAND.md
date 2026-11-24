@@ -15,6 +15,11 @@ und einen kurzen Live-Start im Testordner (Download-Karte unten rechts, Vorschla
   Namen von Knöpfen nur als Tooltip. Aktionen als Symbole in einer schwebenden Leiste, die nur bei Auswahl erscheint.
 - **Ebenen-Schieber**: schmale Punktleiste links, ohne Beschriftung (Name als Tooltip).
 - Kein „KI-Look“ (keine Verläufe als Deko, keine Info-Banner, keine Emoji).
+- **Eigener Stil**: Akzent *Bernstein* `#F4B860` (= „läuft ab“), sonst Weiß in Abstufungen auf Tinte `#0E1015`.
+  Motiv **Schieber**: Ebenen-Punktleiste im Fenster und Zeit-Schieber (1 Std · 1 Tag · 1 Woche · 1 Monat · ∞) in der Nachfrage.
+  Motiv **Blattstapel**: die aktuelle Ebene ist ein Blatt, die Kanten der darunterliegenden schauen oben hervor; Wechsel = Blatt gleitet.
+  **Zeitring** am Symbol statt Zahl (Rest der gewählten Zeit), genaue Angabe im Tooltip.
+- **Leistung**: Hintergrundbild nur 48 px breit laden und weich hochskalieren (keine BlurEffect), keine Schatten-Effekte je Beschriftung.
 
 **Noch nicht auf dem echten System installiert/getestet** (Registry-Seitenleiste, Autostart, Desktop-Symbol, echter
 Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\Workbench.exe`.

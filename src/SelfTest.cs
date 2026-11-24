@@ -195,9 +195,9 @@ namespace Workbench
             {
                 var f = new Frage(E, new List<Eintrag> { E.S.D.Eintraege.First(x => x.Ablauf.HasValue) }, false);
                 var k = f.Karte; f.Content = null;
-                k.Measure(new Size(384, 800)); k.Arrange(new Rect(k.DesiredSize));
+                k.Measure(new Size(410, 800)); k.Arrange(new Rect(k.DesiredSize));
                 f.KalenderFuerBild();
-                k.Measure(new Size(384, 900)); k.Arrange(new Rect(k.DesiredSize));
+                k.Measure(new Size(410, 900)); k.Arrange(new Rect(k.DesiredSize));
                 Ok(true, "Frage + Kalender bauen sich");
             }
             catch (Exception ex) { Ok(false, "Frage: " + ex.Message); }
@@ -229,7 +229,9 @@ namespace Workbench
                 string p = Path.Combine(Paths.Downloads, name);
                 if (name.EndsWith(".png")) Bild(p, name.GetHashCode());
                 else File.WriteAllBytes(p, new byte[Math.Abs(name.GetHashCode()) % 900000 + 20000]);
-                E.S.D.Eintraege.Add(new Eintrag { Pfad = p, Hinzu = jetzt, Ablauf = jetzt.AddHours(stunden), Herkunft = "download", Gewaehlt = wahl });
+                var ab = jetzt.AddHours(stunden);
+                double gesamt = wahl == "1 Std" ? 1 : wahl == "1 Tag" ? 24 : wahl == "1 Woche" ? 168 : wahl == "1 Monat" ? 720 : 1300;
+                E.S.D.Eintraege.Add(new Eintrag { Pfad = p, Hinzu = ab.AddHours(-gesamt), Ablauf = ab, Herkunft = "download", Gewaehlt = wahl });
             };
             neu("Rechnung_Oktober.pdf", 0.7, "1 Std");
             neu("setup_tool_v2.exe", 5, "1 Tag");
@@ -266,13 +268,13 @@ namespace Workbench
             var f = new Frage(E, new List<Eintrag> { E.S.D.Eintraege[3] }, false);
             var k = f.Karte; f.Content = null;
             var r1 = (System.Windows.Controls.Border)Rahmen(k);
-            Speichern(r1, 384, 0, Path.Combine(ziel, "6-frage.png"));
+            Speichern(r1, 410, 0, Path.Combine(ziel, "6-frage.png"));
             r1.Child = null;
             f.KalenderFuerBild();
-            Speichern(Rahmen(k), 384, 0, Path.Combine(ziel, "7-kalender.png"));
+            Speichern(Rahmen(k), 410, 0, Path.Combine(ziel, "7-kalender.png"));
             var info = new Frage(E, new List<Eintrag> { new Eintrag { Pfad = Path.Combine(Paths.Wurzel, "1 Woche", "Flyer_Entwurf.pdf"), Ablauf = jetzt.AddDays(7), Gewaehlt = "1 Woche", Herkunft = "ordner" } }, true);
             var ik = info.Karte; info.Content = null;
-            Speichern(Rahmen(ik), 384, 0, Path.Combine(ziel, "8-gespeichert.png"));
+            Speichern(Rahmen(ik), 410, 0, Path.Combine(ziel, "8-gespeichert.png"));
             return 0;
         }
 

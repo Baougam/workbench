@@ -8,6 +8,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
+using System.Windows.Shapes;
 
 namespace Workbench
 {
@@ -48,12 +49,12 @@ namespace Workbench
             ShowActivated = false;
             ResizeMode = ResizeMode.NoResize;
             SizeToContent = SizeToContent.Height;
-            Width = 384;
+            Width = 410;
             FontFamily = UI.Schrift;
             Title = "Workbench";
 
-            bahn = new Border { Height = 2, CornerRadius = new CornerRadius(1), Background = Farbe.B("#14FFFFFF"), Margin = new Thickness(2, 14, 2, 0) };
-            bahn.Child = new Border { CornerRadius = new CornerRadius(1), Background = Farbe.B("#B38FB4FF"), RenderTransform = balken, RenderTransformOrigin = new Point(0, 0.5) };
+            bahn = new Border { Height = 2, CornerRadius = new CornerRadius(1), Background = Farbe.B("#0FFFFFFF"), Margin = new Thickness(2, 6, 2, 0) };
+            bahn.Child = new Border { CornerRadius = new CornerRadius(1), Background = Farbe.B("#80F4B860"), RenderTransform = balken, RenderTransformOrigin = new Point(0, 0.5) };
 
             karte = new Border
             {
@@ -149,41 +150,79 @@ namespace Workbench
         {
             var sp = new StackPanel();
             sp.Children.Add(Kopf(false));
-            var reihe1 = new UniformGrid { Columns = 4, Margin = new Thickness(-3, 12, -3, 0) };
-            foreach (var n in Dauer.Auswahl) reihe1.Children.Add(Knopf(n, null, null));
-            sp.Children.Add(reihe1);
-            var w = Cloud.Aktuell(E.Cfg);
-            var reihe2 = new UniformGrid { Columns = w != null ? 3 : 2, Margin = new Thickness(-3, 0, -3, 0) };
-            reihe2.Children.Add(Knopf(Dauer.Bis, Ikon.Kalender, "Bis …"));
-            reihe2.Children.Add(Knopf(Dauer.Immer, Ikon.Unendlich, "Für immer"));
-            if (w != null) reihe2.Children.Add(Knopf("wolke", Ikon.Wolke, w.Name));
-            sp.Children.Add(reihe2);
+            sp.Children.Add(Zeitleiste());
             inhalt.Tag = "wahl";
             inhalt.Content = sp;
             if (uhr == null) Balken(info ? 6 : E.Cfg.Sekunden);
         }
 
-        ToggleButton Knopf(string name, string icon, string hilfe)
+        /// <summary>
+        /// Der Zeit-Schieber – dasselbe Motiv wie der Ebenen-Schieber im Fenster: eine Linie, fünf Stationen
+        /// (1 Std · 1 Tag · 1 Woche · 1 Monat · ∞), der Vorschlag sitzt als Knopf darauf. Ein Klick auf eine Station genügt.
+        /// Rechts daneben: Kalender und Cloud als Symbole.
+        /// </summary>
+        FrameworkElement Zeitleiste()
         {
-            var t = new ToggleButton { Style = (Style)Application.Current.FindResource("Wahl"), Margin = new Thickness(3), Height = 38, FontSize = 13 };
-            bool an = name == vorschlag;
-            t.IsChecked = an;
-            if (icon == null) t.Content = name;
-            else
+            var g = new Grid { Margin = new Thickness(0, 14, 0, 0) };
+            g.ColumnDefinitions.Add(new ColumnDefinition());
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            string[] stationen = { "1 Std", "1 Tag", "1 Woche", "1 Monat", Dauer.Immer };
+            string[] beschriftung = { "1 Std", "1 Tag", "1 Woche", "1 Monat", "∞" };
+            var leiste = new Grid { Height = 50 };
+            var linie = new Border { Height = 2, CornerRadius = new CornerRadius(1), Background = Farbe.B("#26FFFFFF"), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 12, 0, 0), IsHitTestVisible = false };
+            leiste.SizeChanged += delegate { double h = leiste.ActualWidth / stationen.Length / 2; linie.Margin = new Thickness(h, 12, h, 0); };
+            leiste.Children.Add(linie);
+            var raster = new UniformGrid { Columns = stationen.Length };
+            for (int i = 0; i < stationen.Length; i++)
             {
-                t.Content = UI.Icon(icon, 17, an ? Farbe.AkzentText : Farbe.Text, 1.8);
-                t.ToolTip = hilfe;
-                ToolTipService.SetPlacement(t, PlacementMode.Top);
+                string n = stationen[i];
+                bool an = n == vorschlag;
+                var b = new Button { Style = (Style)Application.Current.FindResource("Leer"), Background = Brushes.Transparent };
+                var sp = new StackPanel();
+                var punktFlaeche = new Grid { Width = 26, Height = 26, HorizontalAlignment = HorizontalAlignment.Center };
+                Ellipse punkt;
+                if (an)
+                {
+                    punktFlaeche.Children.Add(new Ellipse { Width = 22, Height = 22, Fill = Farbe.B("#33F4B860") });
+                    punkt = new Ellipse { Width = 14, Height = 14, Fill = Farbe.Akzent };
+                }
+                else punkt = new Ellipse { Width = 8, Height = 8, Fill = Farbe.B("#8CFFFFFF") };
+                punktFlaeche.Children.Add(punkt);
+                sp.Children.Add(punktFlaeche);
+                var t = new TextBlock { Text = beschriftung[i], FontSize = i == 4 ? 15 : 11.5, Foreground = an ? Farbe.Text : Farbe.Text2, FontWeight = an ? FontWeights.SemiBold : FontWeights.Normal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, i == 4 ? -1 : 2, 0, 0) };
+                sp.Children.Add(t);
+                b.Content = sp;
+                b.ToolTip = i == 4 ? "Für immer" : null;
+                System.Windows.Automation.AutomationProperties.SetName(b, i == 4 ? "Für immer" : n);
+                if (!an)
+                {
+                    b.MouseEnter += delegate { punkt.Width = 12; punkt.Height = 12; punkt.Fill = Farbe.B("#F2FFFFFF"); t.Foreground = Farbe.Text; };
+                    b.MouseLeave += delegate { punkt.Width = 8; punkt.Height = 8; punkt.Fill = Farbe.B("#8CFFFFFF"); t.Foreground = Farbe.Text2; };
+                }
+                b.Click += delegate { Anwenden(n, null, true); };
+                raster.Children.Add(b);
             }
-            System.Windows.Automation.AutomationProperties.SetName(t, hilfe ?? name);
-            t.Click += delegate
+            leiste.Children.Add(raster);
+            g.Children.Add(leiste);
+
+            var extra = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(6, -2, -4, 0) };
+            extra.Children.Add(new Border { Width = 1, Height = 24, Background = Farbe.B("#1FFFFFFF"), Margin = new Thickness(0, 3, 6, 0), VerticalAlignment = VerticalAlignment.Top });
+            var kal = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 32, Height = 32, Content = UI.Icon(Ikon.Kalender, 16, Farbe.Text2, 1.8), ToolTip = "Bis …" };
+            ToolTipService.SetPlacement(kal, PlacementMode.Top);
+            kal.Click += delegate { Kalender(); };
+            extra.Children.Add(kal);
+            var w = Cloud.Aktuell(E.Cfg);
+            if (w != null)
             {
-                t.IsChecked = true;
-                if (name == Dauer.Bis) { Kalender(); return; }
-                if (name == "wolke") { InWolke(Cloud.Aktuell(E.Cfg)); return; }
-                Anwenden(name, null, true);
-            };
-            return t;
+                var wb = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 32, Height = 32, Content = UI.Icon(Ikon.Wolke, 17, Farbe.Text2, 1.8), ToolTip = w.Name };
+                ToolTipService.SetPlacement(wb, PlacementMode.Top);
+                wb.Click += delegate { InWolke(w); };
+                extra.Children.Add(wb);
+            }
+            Grid.SetColumn(extra, 1);
+            g.Children.Add(extra);
+            return g;
         }
 
         void Kalender()

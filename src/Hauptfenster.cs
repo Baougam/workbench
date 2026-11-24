@@ -38,6 +38,9 @@ namespace Workbench
 
         readonly Grid wurzel = new Grid();
         readonly Grid buehne = new Grid();
+        readonly Border blatt = new Border();
+        readonly TranslateTransform blattY = new TranslateTransform();
+        readonly Border[] hinterBlatt = new Border[2];
         readonly StackPanel ort = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         TextBox suche;
         Border suchFeld;
@@ -57,8 +60,8 @@ namespace Workbench
 
         static readonly Brush Label = Farbe.B("#F2FFFFFF");
         static readonly Brush LabelLeise = Farbe.B("#99FFFFFF");
-        static readonly Brush Auswahl = Farbe.B("#3D8FB4FF");
-        static readonly Brush AuswahlRand = Farbe.B("#808FB4FF");
+        static readonly Brush Auswahl = Farbe.B("#2BFFFFFF");
+        static readonly Brush AuswahlRand = Farbe.B("#4DFFFFFF");
         static readonly Brush Schwebe = Farbe.B("#1FFFFFFF");
 
         public FrameworkElement Wurzel { get { return wurzel; } }
@@ -87,10 +90,26 @@ namespace Workbench
             mitte.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });
             mitte.ColumnDefinitions.Add(new ColumnDefinition());
             mitte.Children.Add(Schiene());
-            buehne.Margin = new Thickness(4, 6, 18, 18);
+            // Der Ebenen-Stapel: die aktuelle Fläche liegt als Blatt oben, die Kanten der übrigen schauen darüber hervor.
+            var stapel = new Grid { Margin = new Thickness(2, 2, 18, 18) };
+            for (int i = 0; i < 2; i++)
+            {
+                // nur die Oberkante eines Blattes – schaut über dem vorderen hervor, scheint nicht hindurch
+                hinterBlatt[i] = new Border { CornerRadius = new CornerRadius(16, 16, 0, 0), Background = Farbe.B(i == 0 ? "#0DFFFFFF" : "#07FFFFFF"), BorderBrush = Farbe.B(i == 0 ? "#1FFFFFFF" : "#14FFFFFF"), BorderThickness = new Thickness(1, 1, 1, 0), Height = 8, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(18 + i * 18, 6 - i * 6, 18 + i * 18, 0), IsHitTestVisible = false };
+                stapel.Children.Insert(0, hinterBlatt[i]);
+            }
+            blatt.CornerRadius = new CornerRadius(18);
+            blatt.Background = Farbe.B("#10FFFFFF");
+            blatt.BorderBrush = Farbe.B("#17FFFFFF");
+            blatt.BorderThickness = new Thickness(1);
+            blatt.Margin = new Thickness(0, 12, 0, 0);
+            blatt.Padding = new Thickness(14, 12, 14, 12);
+            blatt.RenderTransform = blattY;
             buehne.Background = Brushes.Transparent;
-            Grid.SetColumn(buehne, 1);
-            mitte.Children.Add(buehne);
+            blatt.Child = buehne;
+            stapel.Children.Add(blatt);
+            Grid.SetColumn(stapel, 1);
+            mitte.Children.Add(stapel);
             Grid.SetRow(mitte, 1);
             lagen.Children.Add(mitte);
             wurzel.Children.Add(lagen);
@@ -135,12 +154,15 @@ namespace Workbench
         // ================= Rahmen =================
 
         /// <summary>Dein eigenes Desktop-Hintergrundbild – weich und abgedunkelt. Ohne Bild: ruhiger Verlauf.</summary>
+        /// <summary>
+        /// Leistungssparend: das Bild wird nur 48 px breit geladen und weich hochskaliert – ergibt von selbst eine Unschärfe,
+        /// ohne dass die Grafikkarte bei jedem Bild einen Weichzeichner rechnet.
+        /// </summary>
         FrameworkElement Hintergrund()
         {
-            var g = new Grid { ClipToBounds = true };
-            var bg = new LinearGradientBrush(Color.FromRgb(0x1B, 0x26, 0x33), Color.FromRgb(0x1D, 0x18, 0x2A), 35);
-            g.Background = bg;
-            var datei = Tapete();
+            var g = new Grid { ClipToBounds = true, Background = Farbe.B("#0E1015") };
+            var datei = Vorschau.Sofort ? null : Tapete();
+            bool bildDa = false;
             if (datei != null)
             {
                 try
@@ -148,16 +170,25 @@ namespace Workbench
                     var bi = new BitmapImage();
                     bi.BeginInit();
                     bi.UriSource = new Uri(datei);
-                    bi.DecodePixelWidth = 1280;
+                    bi.DecodePixelWidth = 48;
                     bi.CacheOption = BitmapCacheOption.OnLoad;
                     bi.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
                     bi.EndInit();
                     bi.Freeze();
-                    g.Children.Add(new Image { Source = bi, Stretch = Stretch.UniformToFill, Margin = new Thickness(-40), Effect = new BlurEffect { Radius = 28, RenderingBias = RenderingBias.Performance } });
+                    var img = new Image { Source = bi, Stretch = Stretch.UniformToFill, Margin = new Thickness(-30) };
+                    RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
+                    g.Children.Add(img);
+                    bildDa = true;
                 }
                 catch (Exception ex) { Log.Fehler("Hintergrundbild", ex); }
             }
-            g.Children.Add(new Border { Background = Farbe.B("#9E0D0F14") });
+            if (!bildDa)
+            {
+                // eigener ruhiger Grund: Tinte mit zwei weichen Lichtern (statisch, kostet nichts)
+                g.Children.Add(new Border { Background = new RadialGradientBrush(Color.FromArgb(70, 0xF4, 0xB8, 0x60), Colors.Transparent) { Center = new Point(0.12, 1.05), GradientOrigin = new Point(0.12, 1.05), RadiusX = 0.7, RadiusY = 0.8 } });
+                g.Children.Add(new Border { Background = new RadialGradientBrush(Color.FromArgb(60, 0x3E, 0x8E, 0x9C), Colors.Transparent) { Center = new Point(0.95, -0.05), GradientOrigin = new Point(0.95, -0.05), RadiusX = 0.75, RadiusY = 0.85 } });
+            }
+            g.Children.Add(new Border { Background = Farbe.B(bildDa ? "#A60B0C10" : "#330B0C10") });
             return g;
         }
 
@@ -301,9 +332,23 @@ namespace Workbench
             }
             btnKorb.Background = neu == Korb ? Schwebe : Brushes.Transparent;
             btnEinst.Background = neu == Einst ? Schwebe : Brushes.Transparent;
+            // so viele Blattkanten, wie Ebenen darunter liegen
+            int darunter = neu < Ebenen ? Ebenen - 1 - neu : 0;
+            for (int i = 0; i < 2; i++)
+            {
+                double ziel2 = i < darunter ? 1 : 0;
+                if (bild) hinterBlatt[i].Opacity = ziel2;
+                else hinterBlatt[i].BeginAnimation(OpacityProperty, new DoubleAnimation(ziel2, TimeSpan.FromMilliseconds(260)));
+            }
             if (wechsel) { auswahl = null; if (suche.Text.Length > 0) suche.Text = ""; SucheZu(); }
             Neuzeichnen();
-            if (wechsel && !bild && buehne.Children.Count > 0) UI.Einblenden(buehne.Children[0], richtung == 0 ? 8 : richtung * 30, 240);
+            if (wechsel && !bild)
+            {
+                // das Blatt gleitet: tiefer = von unten herein, zurück = von oben
+                double von = richtung == 0 ? 10 : richtung * 40;
+                blattY.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(von, 0, TimeSpan.FromMilliseconds(320)) { EasingFunction = UI.Weich });
+                blatt.BeginAnimation(OpacityProperty, new DoubleAnimation(0.2, 1, TimeSpan.FromMilliseconds(260)));
+            }
         }
 
         void Schritt(int d)
@@ -351,7 +396,7 @@ namespace Workbench
         // ================= Symbole =================
 
         /// <summary>Ein Desktop-Symbol: Bild, Name darunter, optional ein kleines Abzeichen (Restzeit).</summary>
-        Border Symbol(string pfad, string bildPfad, string name, string abzeichen, Brush aFg, Brush aBg, bool nurSymbol, string hilfe)
+        Border Symbol(string pfad, string bildPfad, string name, double? anteil, Brush ringFarbe, bool nurSymbol, string hilfe)
         {
             var b = new Border { Width = 92, Padding = new Thickness(4, 8, 4, 6), Margin = new Thickness(1), CornerRadius = new CornerRadius(6), BorderThickness = new Thickness(1), Background = Brushes.Transparent, BorderBrush = Brushes.Transparent, ToolTip = hilfe ?? name, Tag = pfad };
             ToolTipService.SetInitialShowDelay(b, 700);
@@ -361,19 +406,20 @@ namespace Workbench
             bild2.HorizontalAlignment = HorizontalAlignment.Center;
             bild2.VerticalAlignment = VerticalAlignment.Center;
             kopf.Children.Add(bild2);
-            if (abzeichen != null)
+            if (anteil.HasValue)
             {
-                var a = new Border { Background = aBg, CornerRadius = new CornerRadius(8), Height = 17, Padding = new Thickness(5, 0, 5, 0), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, -4, -10, 0), IsHitTestVisible = false };
-                a.Child = new TextBlock { Text = abzeichen, FontSize = 10.5, FontWeight = FontWeights.SemiBold, Foreground = aFg, VerticalAlignment = VerticalAlignment.Center };
-                kopf.Children.Add(a);
+                var r = Zeitring(anteil.Value, ringFarbe, 18);
+                r.HorizontalAlignment = HorizontalAlignment.Right;
+                r.VerticalAlignment = VerticalAlignment.Top;
+                r.Margin = new Thickness(0, -5, -7, 0);
+                kopf.Children.Add(r);
             }
             sp.Children.Add(kopf);
             var t = new TextBlock
             {
                 Text = name, FontSize = 12, Foreground = Label, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap,
                 TextTrimming = TextTrimming.CharacterEllipsis, MaxHeight = 32, LineHeight = 16, LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
-                Margin = new Thickness(0, 6, 0, 0),
-                Effect = new DropShadowEffect { BlurRadius = 4, ShadowDepth = 1, Opacity = 0.9, Color = Colors.Black }
+                Margin = new Thickness(0, 6, 0, 0)
             };
             sp.Children.Add(t);
             b.Child = sp;
@@ -381,6 +427,30 @@ namespace Workbench
             b.MouseLeave += delegate { Stil(b, auswahl == pfad, false); };
             symbole[pfad] = b;
             return b;
+        }
+
+        /// <summary>Der Zeitring: wie viel von der gewählten Zeit noch übrig ist – ohne eine Zahl.</summary>
+        static FrameworkElement Zeitring(double anteil, Brush farbe, double d)
+        {
+            anteil = Math.Max(0.04, Math.Min(1, anteil));
+            var g = new Grid { Width = d, Height = d, IsHitTestVisible = false };
+            g.Children.Add(new Ellipse { Fill = Farbe.B("#E614161B") });
+            double c = d / 2, r = c - 3;
+            g.Children.Add(new Ellipse { Width = r * 2, Height = r * 2, Stroke = Farbe.B("#2EFFFFFF"), StrokeThickness = 2 });
+            if (anteil >= 0.995) g.Children.Add(new Ellipse { Width = r * 2, Height = r * 2, Stroke = farbe, StrokeThickness = 2 });
+            else
+            {
+                double w = anteil * 2 * Math.PI;
+                var start = new Point(c, c - r);
+                var ende = new Point(c + r * Math.Sin(w), c - r * Math.Cos(w));
+                var fig = new PathFigure { StartPoint = start, IsClosed = false };
+                fig.Segments.Add(new ArcSegment(ende, new Size(r, r), 0, w > Math.PI, SweepDirection.Clockwise, true));
+                var geo = new PathGeometry();
+                geo.Figures.Add(fig);
+                geo.Freeze();
+                g.Children.Add(new System.Windows.Shapes.Path { Data = geo, Stroke = farbe, StrokeThickness = 2, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round });
+            }
+            return g;
         }
 
         static void Stil(Border b, bool gewaehlt, bool hover)
@@ -456,8 +526,7 @@ namespace Workbench
 
             var reihe = new StackPanel { Orientation = Orientation.Horizontal };
             string[] titel = { "Heute", "Diese Woche", "Später" };
-            Brush[] fg = { Farbe.B("#2A1A06"), Farbe.B("#0E1420"), Farbe.B("#E8EBF0") };
-            Brush[] bg = { Farbe.Bald, Farbe.Woche, Farbe.B("#E6464C58") };
+            Brush[] ring = { Farbe.Akzent, Farbe.B("#E6FFFFFF"), Farbe.B("#80FFFFFF") };
             for (int s = 0; s < 3; s++)
             {
                 int s2 = s;
@@ -471,7 +540,9 @@ namespace Workbench
                 foreach (var e in teil)
                 {
                     var e2 = e;
-                    var sym = Symbol(e.Pfad, e.Pfad, e.Name, Kurz(e.Ablauf.Value, jetzt), fg[s], bg[s], false, e.Name + "\nkommt " + Dauer.Wann(e.Ablauf.Value) + " in den Papierkorb");
+                    double gesamt = Math.Max(1, (e.Ablauf.Value - e.Hinzu).TotalSeconds);
+                    double rest = (e.Ablauf.Value - jetzt).TotalSeconds / gesamt;
+                    var sym = Symbol(e.Pfad, e.Pfad, e.Name, rest, ring[s], false, e.Name + "\nnoch " + Kurz(e.Ablauf.Value, jetzt) + " · " + Dauer.Wann(e.Ablauf.Value));
                     Bedienbar(sym, e.Pfad, () => Oeffnen(e2.Pfad), el => KontextBefristet(el, e2));
                     wp.Children.Add(sym);
                 }
@@ -615,7 +686,7 @@ namespace Workbench
                 {
                     string p2 = p;
                     bool ordner = Directory.Exists(p);
-                    var sym = Symbol(p, p, System.IO.Path.GetFileName(p), null, null, null, cloud, null);
+                    var sym = Symbol(p, p, System.IO.Path.GetFileName(p), null, null, cloud, null);
                     Action oeffnen = () => { if (ordner) Betreten(cloud, p2); else Oeffnen(p2); };
                     Bedienbar(sym, p, oeffnen, el => KontextOrdner(el, p2, cloud, oeffnen));
                     if (ordner) AblageZiel(sym, sym, () => p2);
@@ -843,7 +914,7 @@ namespace Workbench
             {
                 var x2 = x;
                 string hilfe = x.Name + "\n" + Wann(x.Geloescht) + " · " + (x.IstOrdner ? "Ordner" : Dauer.Groesse(x.Groesse)) + (x.Wb != null ? " · war " + x.Wb.Dauer : "") + "\naus " + System.IO.Path.GetDirectoryName(x.Original);
-                var sym = Symbol(x.RPfad ?? x.Name, x.RPfad ?? x.Name, x.Name, null, null, null, false, hilfe);
+                var sym = Symbol(x.RPfad ?? x.Name, x.RPfad ?? x.Name, x.Name, null, null, false, hilfe);
                 sym.Opacity = 0.85;
                 Bedienbar(sym, x.RPfad ?? x.Name, () => Zurueckholen(x2), el => UI.Menue(el, new List<KeyValuePair<string, Action>>
                 {

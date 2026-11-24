@@ -15,10 +15,10 @@ namespace Workbench
         public static readonly Brush Text = B("#ECEEF2");
         public static readonly Brush Text2 = B("#A3AAB6");
         public static readonly Brush Text3 = B("#8A92A0");
-        public static readonly Brush Akzent = B("#8FB4FF");
-        public static readonly Brush AkzentText = B("#0E1420");
-        public static readonly Brush AkzentWeich = B("#1F8FB4FF");
-        public static readonly Brush AkzentRand = B("#738FB4FF");
+        public static readonly Brush Akzent = B("#F4B860");
+        public static readonly Brush AkzentText = B("#1C1405");
+        public static readonly Brush AkzentWeich = B("#24F4B860");
+        public static readonly Brush AkzentRand = B("#80F4B860");
         public static readonly Brush Linie = B("#10FFFFFF");
         public static readonly Brush Flaeche = B("#08FFFFFF");
         public static readonly Brush Flaeche2 = B("#0DFFFFFF");
@@ -26,10 +26,10 @@ namespace Workbench
         public static readonly Brush Fenster = B("#1B1E25");
         public static readonly Brush FensterMica = B("#C8181B22");
         public static readonly Brush Karte = B("#F8212430");
-        public static readonly Brush Bald = B("#FFB869");
-        public static readonly Brush BaldWeich = B("#21FFB869");
-        public static readonly Brush Woche = B("#9DBBFF");
-        public static readonly Brush WocheWeich = B("#219DBBFF");
+        public static readonly Brush Bald = B("#F4B860");
+        public static readonly Brush BaldWeich = B("#24F4B860");
+        public static readonly Brush Woche = B("#E6FFFFFF");
+        public static readonly Brush WocheWeich = B("#1AFFFFFF");
         public static readonly Brush Spaeter = B("#B4BBC7");
         public static readonly Brush SpaeterWeich = B("#12FFFFFF");
         public static readonly Brush Gefahr = B("#FF9C8F");
@@ -283,7 +283,7 @@ namespace Workbench
           <ControlTemplate.Triggers>
             <Trigger Property='IsMouseOver' Value='True'><Setter TargetName='h' Property='Opacity' Value='1'/></Trigger>
             <Trigger Property='IsPressed' Value='True'><Setter TargetName='h' Property='Opacity' Value='0.5'/></Trigger>
-            <Trigger Property='IsKeyboardFocused' Value='True'><Setter TargetName='b' Property='BorderBrush' Value='#8FB4FF'/></Trigger>
+            <Trigger Property='IsKeyboardFocused' Value='True'><Setter TargetName='b' Property='BorderBrush' Value='#F4B860'/></Trigger>
             <Trigger Property='IsEnabled' Value='False'><Setter Property='Opacity' Value='0.4'/></Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -292,9 +292,9 @@ namespace Workbench
   </Style>
 
   <Style x:Key='BtnPri' TargetType='Button' BasedOn='{StaticResource Btn}'>
-    <Setter Property='Background' Value='#8FB4FF'/>
-    <Setter Property='BorderBrush' Value='#8FB4FF'/>
-    <Setter Property='Foreground' Value='#0E1420'/>
+    <Setter Property='Background' Value='#F4B860'/>
+    <Setter Property='BorderBrush' Value='#F4B860'/>
+    <Setter Property='Foreground' Value='#1C1405'/>
     <Setter Property='FontWeight' Value='SemiBold'/>
   </Style>
 
@@ -421,8 +421,8 @@ namespace Workbench
           <ControlTemplate.Triggers>
             <Trigger Property='IsMouseOver' Value='True'><Setter TargetName='b' Property='Background' Value='#0FFFFFFF'/></Trigger>
             <Trigger Property='IsChecked' Value='True'>
-              <Setter TargetName='b' Property='Background' Value='#248FB4FF'/>
-              <Setter TargetName='b' Property='BorderBrush' Value='#808FB4FF'/>
+              <Setter TargetName='b' Property='Background' Value='#1FF4B860'/>
+              <Setter TargetName='b' Property='BorderBrush' Value='#99F4B860'/>
               <Setter Property='Foreground' Value='#ECEEF2'/>
             </Trigger>
           </ControlTemplate.Triggers>
@@ -450,9 +450,9 @@ namespace Workbench
           <ControlTemplate.Triggers>
             <Trigger Property='IsMouseOver' Value='True'><Setter TargetName='h' Property='Opacity' Value='1'/></Trigger>
             <Trigger Property='IsChecked' Value='True'>
-              <Setter TargetName='b' Property='Background' Value='#8FB4FF'/>
-              <Setter TargetName='b' Property='BorderBrush' Value='#8FB4FF'/>
-              <Setter Property='Foreground' Value='#0E1420'/>
+              <Setter TargetName='b' Property='Background' Value='#F4B860'/>
+              <Setter TargetName='b' Property='BorderBrush' Value='#F4B860'/>
+              <Setter Property='Foreground' Value='#1C1405'/>
               <Setter Property='FontWeight' Value='SemiBold'/>
             </Trigger>
           </ControlTemplate.Triggers>
@@ -494,9 +494,9 @@ namespace Workbench
           </Grid>
           <ControlTemplate.Triggers>
             <Trigger Property='IsChecked' Value='True'>
-              <Setter TargetName='bahn' Property='Background' Value='#8FB4FF'/>
-              <Setter TargetName='bahn' Property='BorderBrush' Value='#8FB4FF'/>
-              <Setter TargetName='knopf' Property='Fill' Value='#0E1420'/>
+              <Setter TargetName='bahn' Property='Background' Value='#F4B860'/>
+              <Setter TargetName='bahn' Property='BorderBrush' Value='#F4B860'/>
+              <Setter TargetName='knopf' Property='Fill' Value='#1C1405'/>
               <Setter TargetName='knopf' Property='HorizontalAlignment' Value='Right'/>
               <Setter TargetName='knopf' Property='Margin' Value='0,0,5,0'/>
             </Trigger>
@@ -509,7 +509,7 @@ namespace Workbench
   <Style x:Key='Suchfeld' TargetType='TextBox'>
     <Setter Property='Foreground' Value='#ECEEF2'/>
     <Setter Property='CaretBrush' Value='#ECEEF2'/>
-    <Setter Property='SelectionBrush' Value='#8FB4FF'/>
+    <Setter Property='SelectionBrush' Value='#F4B860'/>
     <Setter Property='FontSize' Value='13'/>
     <Setter Property='Background' Value='Transparent'/>
     <Setter Property='BorderThickness' Value='0'/>
