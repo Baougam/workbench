@@ -8,8 +8,8 @@ using System.Windows.Threading;
 namespace Workbench
 {
     /// <summary>
-    /// Beim Ziehen einer Datei am oberen/unteren Rand verweilen = Ebene wechseln. Eine Pille mit dem Namen der nächsten Ebene
-    /// füllt sich bernsteinfarben; ist sie voll, wird gewechselt. Liegt über allem, fängt selbst keine Maus ab.
+    /// Beim Ziehen einer Datei am oberen/unteren Rand verweilen = Ebene wechseln. Am Rand wächst ein durchsichtiger weißer Schein;
+    /// ist er ganz da, wird gewechselt. Liegt über allem, fängt selbst keine Maus ab.
     /// Läuft nur, solange gezogen wird.
     /// </summary>
     class Randwechsel : Grid
@@ -19,11 +19,8 @@ namespace Workbench
 
         readonly Func<int, string> nameDerEbene;     // Richtung (-1/+1) → Name, null = dort ist nichts mehr
         readonly Action<int> wechseln, neigen;       // neigen(0) = Blatt zurück
-        readonly Border pille;
-        readonly TextBlock text;
-        readonly ContentControl pfeil = new ContentControl { VerticalAlignment = VerticalAlignment.Center };
-        readonly ScaleTransform voll = new ScaleTransform(0, 1);
-        readonly TranslateTransform rutsch = new TranslateTransform();
+        readonly Border schein;
+        readonly ScaleTransform wuchs = new ScaleTransform(1, 0.35);
         readonly Border geist;
         readonly TranslateTransform geistOrt = new TranslateTransform();
         readonly DispatcherTimer takt;
@@ -42,20 +39,8 @@ namespace Workbench
             this.neigen = neigen;
             IsHitTestVisible = false;
 
-            text = new TextBlock { FontSize = 13, FontWeight = FontWeights.SemiBold, Foreground = Farbe.Text, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-            var zeile = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(14, 0, 17, 0) };
-            zeile.Children.Add(pfeil);
-            zeile.Children.Add(text);
-            var innen = new Grid();
-            innen.Children.Add(new Border { CornerRadius = new CornerRadius(16), Background = Farbe.B("#59F4B860"), RenderTransform = voll });
-            innen.Children.Add(zeile);
-            innen.SizeChanged += delegate { innen.Clip = new RectangleGeometry(new Rect(innen.RenderSize), 16, 16); };
-            pille = new Border
-            {
-                Height = 34, CornerRadius = new CornerRadius(17), Background = Farbe.B("#F5191C23"), BorderBrush = Farbe.AkzentRand, BorderThickness = new Thickness(1),
-                HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(60, 52, 18, 30), Opacity = 0, RenderTransform = rutsch, Child = innen
-            };
-            Children.Add(pille);
+            schein = new Border { Height = 110, Margin = new Thickness(63, 59, 19, 19), Opacity = 0, RenderTransform = wuchs };
+            Children.Add(schein);
 
             geist = new Border { HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Opacity = 0.8, RenderTransform = geistOrt, Visibility = Visibility.Collapsed };
             Children.Add(geist);
@@ -65,9 +50,23 @@ namespace Workbench
         }
 
         /// <summary>Symbol der gezogenen Datei am Zeiger (nur beim eigenen Ziehen).</summary>
-        public void Geist(string pfad)
+        public void Geist(string pfad) { Geist(pfad, 1); }
+
+        public void Geist(string pfad, int anzahl)
         {
-            geist.Child = pfad == null ? null : Vorschau.Glyphe(pfad, 38, 46);
+            Grid g = null;
+            if (pfad != null)
+            {
+                g = new Grid { Width = 50, Height = 54 };
+                g.Children.Add(Vorschau.Glyphe(pfad, 38, 46));
+                if (anzahl > 1)
+                    g.Children.Add(new Border
+                    {
+                        MinWidth = 20, Height = 20, CornerRadius = new CornerRadius(10), Background = Farbe.Akzent, Padding = new Thickness(5, 0, 5, 0), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom,
+                        Child = new TextBlock { Text = anzahl.ToString(), FontSize = 11.5, FontWeight = FontWeights.SemiBold, Foreground = Farbe.AkzentText, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+                    });
+            }
+            geist.Child = g;
             if (pfad == null) geist.Visibility = Visibility.Collapsed;
         }
 
@@ -98,18 +97,32 @@ namespace Workbench
         void Beginnen()
         {
             seit = DateTime.UtcNow;
-            text.Text = nameDerEbene(zone);
-            pfeil.Content = UI.Icon(zone < 0 ? "M12 19V6M6 12l6-6 6 6" : "M12 5v13M6 12l6 6 6-6", 14, Farbe.Akzent, 2);
-            pille.VerticalAlignment = zone < 0 ? VerticalAlignment.Top : VerticalAlignment.Bottom;
-            voll.ScaleX = 0;
-            pille.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(140)));
-            rutsch.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(zone * 10, 0, TimeSpan.FromMilliseconds(220)) { EasingFunction = UI.Weich });
+            bool oben = zone < 0;
+            schein.VerticalAlignment = oben ? VerticalAlignment.Top : VerticalAlignment.Bottom;
+            schein.CornerRadius = oben ? new CornerRadius(17, 17, 0, 0) : new CornerRadius(0, 0, 17, 17);
+            schein.RenderTransformOrigin = new Point(0.5, oben ? 0 : 1);
+            var g = new LinearGradientBrush { StartPoint = new Point(0, oben ? 0 : 1), EndPoint = new Point(0, oben ? 1 : 0) };
+            g.GradientStops.Add(new GradientStop(Color.FromArgb(92, 255, 255, 255), 0));
+            g.GradientStops.Add(new GradientStop(Color.FromArgb(38, 255, 255, 255), 0.35));
+            g.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 255, 255), 1));
+            g.Freeze();
+            schein.Background = g;
+            Stand(0);
             neigen(zone);
+        }
+
+        /// <summary>0…1: der Schein wird heller und wächst ins Blatt hinein.</summary>
+        void Stand(double t)
+        {
+            double w = 1 - (1 - t) * (1 - t);
+            schein.BeginAnimation(OpacityProperty, null);
+            schein.Opacity = 0.15 + 0.85 * w;
+            wuchs.ScaleY = 0.35 + 0.65 * w;
         }
 
         void Ausblenden()
         {
-            pille.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(140)));
+            schein.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(180)));
             neigen(0);
         }
 
@@ -134,12 +147,12 @@ namespace Workbench
                 return;
             }
             double t = Math.Min(1, ms / Verweilen);
-            voll.ScaleX = t;
+            Stand(t);
             if (t < 1) return;
             int richtung = zone;
             wartet = true;
             seit = DateTime.UtcNow;
-            pille.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(200)));
+            schein.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(260)));
             wechseln(richtung);
         }
 
@@ -157,10 +170,7 @@ namespace Workbench
         {
             zone = richtung;
             Beginnen();
-            pille.BeginAnimation(OpacityProperty, null);
-            rutsch.BeginAnimation(TranslateTransform.YProperty, null);
-            pille.Opacity = 1;
-            voll.ScaleX = fuell;
+            Stand(fuell);
         }
     }
 }

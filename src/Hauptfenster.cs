@@ -152,6 +152,9 @@ namespace Workbench
             wurzel.Children.Add(VersionLeise());
             rand = new Randwechsel(d => ansicht < Ebenen && ansicht + d >= 0 && ansicht + d < Ebenen ? new[] { "Expiring", "Permanent", wolke != null ? wolke.Name : "Cloud" }[ansicht + d] : null, RandWechsel, RandNeigen);
             wurzel.Children.Add(rand);
+            var rahmenEbene = new Canvas { IsHitTestVisible = false };
+            rahmenEbene.Children.Add(rahmen);
+            wurzel.Children.Add(rahmenEbene);
             RandAblage();
 
             if (!bild)
@@ -184,31 +187,49 @@ namespace Workbench
                     if (!(a.Source == buehne || a.OriginalSource is ScrollViewer || a.OriginalSource is WrapPanel || a.OriginalSource is Grid || a.OriginalSource is Canvas)) return;
                     Waehle(null);
                     // ins Leere drücken und hoch/runter ziehen = Ebene wechseln
-                    if (ansicht < Ebenen && a.ClickCount == 1) { leerStart = a.GetPosition(this); leerZug = true; buehne.CaptureMouse(); }
+                    if (a.ClickCount == 1 && (ansicht < Ebenen || ansicht == Korb))
+                    {
+                        leerStart = a.GetPosition(wurzel); leerSeit = DateTime.UtcNow; leerZug = true; aufziehen = false;
+                        basis = StrgGedrueckt ? gruppe.ToList() : new List<string>();
+                        buehne.CaptureMouse();
+                    }
                 };
                 buehne.MouseMove += (s, a) =>
                 {
                     if (!leerZug || a.LeftButton != MouseButtonState.Pressed) return;
-                    var p = a.GetPosition(this);
+                    var p = a.GetPosition(wurzel);
                     double dy = p.Y - leerStart.Y, dx = p.X - leerStart.X;
-                    if (Math.Abs(dy) < 8 || Math.Abs(dy) < Math.Abs(dx) * 1.3) return;
-                    blattY.BeginAnimation(TranslateTransform.YProperty, null);
-                    blattY.Y = Math.Max(-46, Math.Min(46, dy * 0.3));          // das Blatt folgt leicht dem Finger
-                    if (Math.Abs(dy) > 90)
+                    if (!aufziehen)
                     {
-                        leerZug = false;
-                        buehne.ReleaseMouseCapture();
-                        int vorher = ansicht;
-                        Schritt(dy < 0 ? 1 : -1);
-                        if (ansicht == vorher) blattY.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(220)) { EasingFunction = UI.Weich });
+                        if (Math.Abs(dy) < 6 && Math.Abs(dx) < 6) return;
+                        // schneller Strich hoch/runter = Ebene; alles andere = Rahmen
+                        bool strich = ansicht < Ebenen && !StrgGedrueckt && Math.Abs(dy) > Math.Abs(dx) * 1.6 && (DateTime.UtcNow - leerSeit).TotalMilliseconds < 280;
+                        if (strich)
+                        {
+                            blattY.BeginAnimation(TranslateTransform.YProperty, null);
+                            blattY.Y = Math.Max(-46, Math.Min(46, dy * 0.3));          // das Blatt folgt leicht dem Finger
+                            if (Math.Abs(dy) <= 90) return;
+                            leerZug = false;
+                            buehne.ReleaseMouseCapture();
+                            int vorher = ansicht;
+                            Schritt(dy < 0 ? 1 : -1);
+                            if (ansicht == vorher) BlattZurueck();
+                            return;
+                        }
+                        aufziehen = true;
+                        if (blattY.Y != 0) BlattZurueck();
                     }
+                    Rahmen(leerStart, p);
                 };
-                buehne.MouseLeftButtonUp += (s, a) =>
+                buehne.MouseLeftButtonUp += delegate { if (leerZug) buehne.ReleaseMouseCapture(); };
+                buehne.LostMouseCapture += delegate
                 {
                     if (!leerZug) return;
                     leerZug = false;
-                    buehne.ReleaseMouseCapture();
-                    blattY.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(220)) { EasingFunction = UI.Weich });   // zurückfedern
+                    rahmen.Visibility = Visibility.Collapsed;
+                    if (!aufziehen && blattY.Y != 0) BlattZurueck();
+                    if (aufziehen) LeisteFuellen();
+                    aufziehen = false;
                 };
             }
             minuten = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
@@ -420,6 +441,104 @@ namespace Workbench
         // ================= Beim Ziehen am Rand verweilen = Ebene wechseln =================
 
         Randwechsel rand;
+        // ---------- Mehrere auswählen: Rahmen aufziehen, Strg+Klick, Strg+A ----------
+
+        /// <summary>Alles Markierte; „auswahl“ ist eines davon.</summary>
+        readonly HashSet<string> gruppe = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        readonly Border rahmen = new Border { Visibility = Visibility.Collapsed, CornerRadius = new CornerRadius(6), Background = Farbe.B("#1FF4B860"), BorderBrush = Farbe.AkzentRand, BorderThickness = new Thickness(1) };
+        List<string> basis = new List<string>();
+        DateTime leerSeit;
+        bool aufziehen;
+
+        static bool StrgGedrueckt { get { return (Keyboard.Modifiers & ModifierKeys.Control) != 0; } }
+
+        void BlattZurueck() { blattY.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(220)) { EasingFunction = UI.Weich }); }
+
+        /// <summary>Rahmen zeichnen und alles markieren, was er berührt.</summary>
+        public void Rahmen(Point von, Point bis)
+        {
+            var r = new Rect(von, bis);
+            var feld = blatt.TransformToAncestor(wurzel).TransformBounds(new Rect(blatt.RenderSize));
+            r.Intersect(feld);
+            if (r.IsEmpty) r = new Rect(von, new Size(0, 0));
+            Canvas.SetLeft(rahmen, r.X); Canvas.SetTop(rahmen, r.Y);
+            rahmen.Width = r.Width; rahmen.Height = r.Height;
+            rahmen.Visibility = Visibility.Visible;
+            var neu = new HashSet<string>(basis, StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in symbole)
+            {
+                if (!kv.Value.IsDescendantOf(wurzel)) continue;
+                var f = kv.Value.TransformToAncestor(wurzel).TransformBounds(new Rect(kv.Value.RenderSize));
+                f.Inflate(-10, -8);
+                if (r.IntersectsWith(f)) neu.Add(kv.Key);
+            }
+            if (neu.SetEquals(gruppe)) return;
+            GruppeSetzen(neu);
+        }
+
+        void GruppeSetzen(IEnumerable<string> neu)
+        {
+            var n = new HashSet<string>(neu.Where(x => symbole.ContainsKey(x)), StringComparer.OrdinalIgnoreCase);
+            foreach (var p in gruppe) { Border b; if (!n.Contains(p) && symbole.TryGetValue(p, out b)) Stil(b, false, false); }
+            foreach (var p in n) Stil(symbole[p], true, false);
+            gruppe.Clear();
+            foreach (var p in n) gruppe.Add(p);
+            if (auswahl == null || !gruppe.Contains(auswahl)) auswahl = gruppe.FirstOrDefault();
+            if (!leerZug) LeisteFuellen();
+        }
+
+        /// <summary>Maus auf etwas gedrückt: Strg schaltet um; was schon mitmarkiert ist, bleibt (damit man alle zusammen ziehen kann).</summary>
+        void Druecken(string pfad)
+        {
+            if (StrgGedrueckt)
+            {
+                if (pfad == null) return;
+                var n = new HashSet<string>(gruppe, StringComparer.OrdinalIgnoreCase);
+                if (Mouse.LeftButton == MouseButtonState.Pressed && !n.Remove(pfad)) n.Add(pfad); else n.Add(pfad);
+                GruppeSetzen(n);
+            }
+            else if (pfad == null || !gruppe.Contains(pfad)) Waehle(pfad);
+        }
+
+        /// <summary>Losgelassen ohne zu ziehen: nur noch dieses eine.</summary>
+        void Loslassen(string pfad) { if (!StrgGedrueckt && gruppe.Count > 1) Waehle(pfad); }
+
+        /// <summary>Alles, was mit diesem Ding zusammen markiert ist (sonst nur es selbst).</summary>
+        string[] Mit(string pfad) { return gruppe.Count > 1 && gruppe.Contains(pfad) ? gruppe.ToArray() : new[] { pfad }; }
+        List<Eintrag> Mit(Eintrag e)
+        {
+            var l = Mit(e.Pfad).Select(p => E.S.Finde(p)).Where(x => x != null).ToList();
+            return l.Count > 0 ? l : new List<Eintrag> { e };
+        }
+
+        /// <summary>Alle zusammen ausblenden, dann einmal handeln und neu zeichnen.</summary>
+        void Gemeinsam(string[] pfade, double y, Action<string> tun)
+        {
+            int offen = pfade.Length;
+            foreach (var p in pfade)
+                Ausblenden(p, y, () =>
+                {
+                    if (--offen > 0) return;
+                    foreach (var q in pfade) try { tun(q); } catch (Exception ex) { Log.Fehler("Gemeinsam", ex); }
+                    auswahl = null;
+                    Neuzeichnen();
+                    KorbLesen();
+                });
+        }
+
+        public int GruppeAnzahl { get { return gruppe.Count; } }
+        public void GruppeTest(Action<HashSet<string>> f) { f(gruppe); }
+        public Dictionary<string, Border> SymboleTest { get { return symbole; } }
+        public void AllesMarkieren() { GruppeSetzen(symbole.Keys.ToList()); }
+        public void EntfernenTest() { Entfernen(); }
+
+        void Entfernen()
+        {
+            if (auswahl == null) return;
+            if (ansicht == Befristet) { var e = Gewaehlt; if (e != null) Wegwerfen(e); }
+            else if (ansicht == Dauerhaft || ansicht == Wolke) InKorb(auswahl);
+        }
+
         string tischZug;          // Datei, die gerade auf der freien Fläche verschoben wird (noch kein Windows-Drag)
 
         void RandAblage()
@@ -461,14 +580,15 @@ namespace Workbench
         void RandNeigen(int richtung)
         {
             if (bild) return;
-            leiste.Opacity = richtung > 0 ? 0 : 1;
+            leiste.BeginAnimation(OpacityProperty, new DoubleAnimation(richtung > 0 ? 0 : 1, TimeSpan.FromMilliseconds(140)));
             blattY.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(-richtung * 10, TimeSpan.FromMilliseconds(260)) { EasingFunction = UI.Weich });
         }
 
         void RandWechsel(int richtung)
         {
-            leiste.Opacity = 1;
+            if (!bild) leiste.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(140)));
             string pfad = tischZug;
+            string[] alle = pfad == null ? null : Mit(pfad);
             if (pfad != null)
             {
                 // von der freien Fläche: Symbol zurück an seinen Platz, ab hier als echtes Windows-Ziehen weiter
@@ -478,14 +598,16 @@ namespace Workbench
             }
             Schritt(richtung);
             if (pfad != null && Mouse.LeftButton == MouseButtonState.Pressed)
-                Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => Ziehen(pfad)));
+                Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => Ziehen(alle)));
         }
 
         /// <summary>Datei mitnehmen – das Fenster ist die Quelle, damit ein Ebenenwechsel das Ziehen nicht abreißt.</summary>
-        void Ziehen(string pfad)
+        void Ziehen(string[] pfade)
         {
-            rand.Geist(pfad);
-            try { DragDrop.DoDragDrop(this, new DataObject(DataFormats.FileDrop, new[] { pfad }), DragDropEffects.Copy | DragDropEffects.Move | DragDropEffects.Link); }
+            pfade = pfade.Where(x => File.Exists(x) || Directory.Exists(x)).ToArray();
+            if (pfade.Length == 0) return;
+            rand.Geist(pfade[0], pfade.Length);
+            try { DragDrop.DoDragDrop(this, new DataObject(DataFormats.FileDrop, pfade), DragDropEffects.Copy | DragDropEffects.Move | DragDropEffects.Link); }
             catch (Exception ex) { Log.Fehler("Ziehen", ex); }
             finally { rand.Ende(); }
         }
@@ -566,9 +688,11 @@ namespace Workbench
             }
             buehne.Children.Clear();
             buehne.Children.Add(v);
-            if (auswahl != null && !symbole.ContainsKey(auswahl)) auswahl = null;
-            Border sb;
-            if (auswahl != null && symbole.TryGetValue(auswahl, out sb)) Stil(sb, true, false);
+            if (auswahl == null) gruppe.Clear();
+            else gruppe.Add(auswahl);
+            gruppe.RemoveWhere(x => !symbole.ContainsKey(x));
+            if (auswahl != null && !gruppe.Contains(auswahl)) auswahl = gruppe.FirstOrDefault();
+            foreach (var g in gruppe) Stil(symbole[g], true, false);
             LeisteFuellen();
         }
 
@@ -625,8 +749,8 @@ namespace Workbench
             };
             sp.Children.Add(t);
             b.Child = sp;
-            b.MouseEnter += delegate { Stil(b, auswahl == pfad, true); };
-            b.MouseLeave += delegate { Stil(b, auswahl == pfad, false); };
+            b.MouseEnter += delegate { Stil(b, gruppe.Contains(pfad), true); };
+            b.MouseLeave += delegate { Stil(b, gruppe.Contains(pfad), false); };
             symbole[pfad] = b;
             return b;
         }
@@ -664,8 +788,10 @@ namespace Workbench
         void Waehle(string pfad)
         {
             Border b;
-            if (auswahl != null && symbole.TryGetValue(auswahl, out b)) Stil(b, false, false);
+            foreach (var g in gruppe) if (symbole.TryGetValue(g, out b)) Stil(b, false, false);
+            gruppe.Clear();
             auswahl = pfad;
+            if (pfad != null) gruppe.Add(pfad);
             if (pfad != null && symbole.TryGetValue(pfad, out b)) Stil(b, true, true);
             LeisteFuellen();
         }
@@ -681,9 +807,9 @@ namespace Workbench
                 if (a.ClickCount == 2) { gedrueckt = false; doppel(); return; }
                 start = a.GetPosition(this);
                 gedrueckt = true;
-                Waehle(pfad);
+                Druecken(pfad);
             };
-            el.MouseLeftButtonUp += delegate { gedrueckt = false; };
+            el.MouseLeftButtonUp += delegate { if (gedrueckt) Loslassen(pfad); gedrueckt = false; };
             el.MouseMove += (s, a) =>
             {
                 if (!gedrueckt || a.LeftButton != MouseButtonState.Pressed) return;
@@ -692,10 +818,9 @@ namespace Workbench
                 gedrueckt = false;
                 string echt = pfad;
                 if (ansicht == Korb) return;
-                if (!File.Exists(echt) && !Directory.Exists(echt)) return;
-                Ziehen(echt);
+                Ziehen(Mit(echt));
             };
-            el.MouseRightButtonUp += (s, a) => { Waehle(pfad); kontext(el); a.Handled = true; };
+            el.MouseRightButtonUp += (s, a) => { if (!gruppe.Contains(pfad)) Waehle(pfad); kontext(el); a.Handled = true; };
         }
 
         static WrapPanel Spalten()
@@ -779,16 +904,17 @@ namespace Workbench
             var pop = new Popup { PlacementTarget = ziel, Placement = oben ? PlacementMode.Top : PlacementMode.Right, StaysOpen = false, AllowsTransparency = true, PopupAnimation = PopupAnimation.Fade, HorizontalOffset = oben ? -150 : -6 };
             var sp = new StackPanel();
             var kopf = new Grid();
-            kopf.Children.Add(new TextBlock { Text = e.Name, FontSize = 13.5, FontWeight = FontWeights.SemiBold, Foreground = Farbe.Text, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 0, 70, 0) });
-            if (e.Ablauf.HasValue)
+            var mit = Mit(e);
+            kopf.Children.Add(new TextBlock { Text = mit.Count > 1 ? mit.Count + " files" : e.Name, FontSize = 13.5, FontWeight = FontWeights.SemiBold, Foreground = Farbe.Text, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 0, 70, 0) });
+            if (e.Ablauf.HasValue && mit.Count == 1)
                 kopf.Children.Add(new TextBlock { Text = Kurz(e.Ablauf.Value, DateTime.UtcNow) + " left", FontSize = 12, Foreground = Farbe.Text3, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, ToolTip = Dauer.Wann(e.Ablauf.Value) });
             sp.Children.Add(kopf);
-            string aktuell = Array.IndexOf(ZeitUI.Stationen, e.Gewaehlt) >= 0 ? e.Gewaehlt : null;
+            string aktuell = Array.IndexOf(ZeitUI.Stationen, e.Gewaehlt) >= 0 && mit.All(x => x.Gewaehlt == e.Gewaehlt) ? e.Gewaehlt : null;
             var schieber = ZeitUI.Schieber(aktuell, n =>
             {
                 pop.IsOpen = false;
                 if (n == Dauer.Immer) { Wegschieben(e, Paths.Dauerhaft); return; }
-                E.FristSetzen(e, Dauer.Ablauf(n, DateTime.UtcNow), n);
+                foreach (var x in mit) E.FristSetzen(x, Dauer.Ablauf(n, DateTime.UtcNow), n);
                 Neuzeichnen();
             }, () => { pop.IsOpen = false; BisWaehlen(ziel, e); }, wolke, w => { pop.IsOpen = false; Wegschieben(e, w.Pfad); });
             schieber.Margin = new Thickness(0, 12, 0, 0);
@@ -803,8 +929,8 @@ namespace Workbench
                 b.Click += delegate { pop.IsOpen = false; tun(); };
                 reihe.Children.Add(b);
             };
-            knopf(Ikon.Oeffnen, "Open", Farbe.Text, () => Oeffnen(e.Pfad));
-            knopf(Ikon.Ordner, "Show in folder", Farbe.Text, () => ImOrdnerZeigen(e.Pfad));
+            if (mit.Count == 1) knopf(Ikon.Oeffnen, "Open", Farbe.Text, () => Oeffnen(e.Pfad));
+            if (mit.Count == 1) knopf(Ikon.Ordner, "Show in folder", Farbe.Text, () => ImOrdnerZeigen(e.Pfad));
             var rechts = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             var weg = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 34, Height = 34, Content = UI.Icon(Ikon.Muell, 16, Farbe.Gefahr, 1.8), ToolTip = "Move to Recycle Bin" };
             System.Windows.Automation.AutomationProperties.SetName(weg, "Move to Recycle Bin");
@@ -829,21 +955,20 @@ namespace Workbench
         {
             var pop = new Popup { PlacementTarget = ziel, Placement = PlacementMode.Top, StaysOpen = false, AllowsTransparency = true, PopupAnimation = PopupAnimation.Fade, VerticalOffset = -8 };
             var k = new Kalender();
-            k.Gewaehlt += tag => { pop.IsOpen = false; E.FristSetzen(e, Dauer.BisTag(tag), "until " + tag.ToString("d MMM", Dauer.En)); Neuzeichnen(); };
+            var mit = Mit(e);
+            k.Gewaehlt += tag => { pop.IsOpen = false; foreach (var x in mit) E.FristSetzen(x, Dauer.BisTag(tag), "until " + tag.ToString("d MMM", Dauer.En)); Neuzeichnen(); };
             pop.Child = new Border { Width = 330, Background = Farbe.B("#FA22252D"), BorderBrush = Farbe.B("#1FFFFFFF"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14), Padding = new Thickness(14), Margin = new Thickness(12), Effect = new DropShadowEffect { BlurRadius = 24, ShadowDepth = 6, Opacity = 0.5 }, Child = k };
             pop.IsOpen = true;
         }
 
         void Wegschieben(Eintrag e, string ordner)
         {
-            Action los = () => { E.Verschieben(e, ordner); auswahl = null; Neuzeichnen(); };
-            Ausblenden(e.Pfad, -12, los);
+            Gemeinsam(Mit(e).Select(x => x.Pfad).ToArray(), -12, p => { var x = E.S.Finde(p); if (x != null) E.Verschieben(x, ordner); });
         }
 
         void Wegwerfen(Eintrag e)
         {
-            Action los = () => { E.JetztWeg(e); auswahl = null; Neuzeichnen(); KorbLesen(); };
-            Ausblenden(e.Pfad, 12, los);
+            Gemeinsam(Mit(e).Select(x => x.Pfad).ToArray(), 12, p => { var x = E.S.Finde(p); if (x != null) E.JetztWeg(x); });
         }
 
         void Ausblenden(string pfad, double y, Action danach)
@@ -931,10 +1056,12 @@ namespace Workbench
                         if (Directory.Exists(p)) { string p2 = p; AblageZiel(sym, sym, () => p2, () => Betreten(cloud, p2), null); }
                         return sym;
                     },
-                    p => Waehle(p),
+                    p => Druecken(p),
                     p => { if (Directory.Exists(p)) Betreten(cloud, p); else Oeffnen(p); },
                     p => KontextOrdner(p, cloud));
                 tisch.ZugBewegt = TischZug;
+                tisch.Gruppe = Mit;
+                tisch.Losgelassen = Loslassen;
                 flaeche.Children.Add(tisch);
             }
             aktuellerTisch = tisch;
@@ -976,7 +1103,7 @@ namespace Workbench
 
         void InKorb(string pfad)
         {
-            Ausblenden(pfad, 12, () => { try { Native.InPapierkorb(pfad); } catch (Exception ex) { Log.Fehler("Papierkorb", ex); } auswahl = null; Neuzeichnen(); KorbLesen(); });
+            Gemeinsam(Mit(pfad), 12, p => Native.InPapierkorb(p));
         }
 
         FrameworkElement KeineWolke()
@@ -1263,7 +1390,7 @@ namespace Workbench
                 var e = Gewaehlt;
                 if (e != null)
                 {
-                    LKnopf(Ikon.Oeffnen, "Open", Farbe.Text, () => Oeffnen(e.Pfad));
+                    if (gruppe.Count > 1) Anzahl(); else LKnopf(Ikon.Oeffnen, "Open", Farbe.Text, () => Oeffnen(e.Pfad));
                     LKnopf(Ikon.Uhr, "Change time", Farbe.Text, null).Click += (s, a) => Zeitkarte((Button)s, e, true);
                     LKnopf(Ikon.Unendlich, "Keep permanently", Farbe.Akzent, () => Wegschieben(e, Paths.Dauerhaft));
                     if (wolke != null) LKnopf(Ikon.Wolke, "Move to " + wolke.Name, Farbe.Text, () => Wegschieben(e, wolke.Pfad));
@@ -1277,11 +1404,12 @@ namespace Workbench
                 if (p != null && (File.Exists(p) || Directory.Exists(p)))
                 {
                     bool cloud = ansicht == Wolke, ordner = Directory.Exists(p);
-                    LKnopf(Ikon.Oeffnen, "Open", Farbe.Text, () => { if (ordner) Betreten(cloud, p); else Oeffnen(p); });
                     Border sb;
-                    LKnopf(Ikon.Stift, "Rename", Farbe.Text, () => { if (symbole.TryGetValue(p, out sb)) Umbenennen(sb, p); });
-                    if (!cloud && wolke != null) LKnopf(Ikon.Wolke, "Move to " + wolke.Name, Farbe.Text, () => { Verschieben(p, wolke.Pfad); auswahl = null; Neuzeichnen(); });
-                    if (cloud) LKnopf(Ikon.Unendlich, "Move to Permanent", Farbe.Text, () => { Verschieben(p, Paths.Dauerhaft); auswahl = null; Neuzeichnen(); });
+                    if (gruppe.Count > 1) Anzahl();
+                    else LKnopf(Ikon.Oeffnen, "Open", Farbe.Text, () => { if (ordner) Betreten(cloud, p); else Oeffnen(p); });
+                    if (gruppe.Count == 1) LKnopf(Ikon.Stift, "Rename", Farbe.Text, () => { if (symbole.TryGetValue(p, out sb)) Umbenennen(sb, p); });
+                    if (!cloud && wolke != null) LKnopf(Ikon.Wolke, "Move to " + wolke.Name, Farbe.Text, () => Gemeinsam(Mit(p), -12, q => Verschieben(q, wolke.Pfad)));
+                    if (cloud) LKnopf(Ikon.Unendlich, "Move to Permanent", Farbe.Text, () => Gemeinsam(Mit(p), -12, q => Verschieben(q, Paths.Dauerhaft)));
                     Trenner();
                     LKnopf(Ikon.Muell, "Move to Recycle Bin", Farbe.Gefahr, () => InKorb(p));
                 }
@@ -1289,7 +1417,14 @@ namespace Workbench
             else if (ansicht == Korb && korb != null)
             {
                 var x = KorbGewaehlt;
-                if (x != null)
+                if (x != null && gruppe.Count > 1)
+                {
+                    var alle = korb.Where(y => gruppe.Contains(y.RPfad ?? y.Name)).ToList();
+                    Anzahl();
+                    LKnopf(Ikon.Zurueck, "Restore", Farbe.Akzent, () => { foreach (var y in alle) Zurueckholen(y); });
+                    ZweiKlick(LKnopf(Ikon.X, "Delete permanently", Farbe.Gefahr, null), () => { foreach (var y in alle) Loeschen(y); });
+                }
+                else if (x != null)
                 {
                     LKnopf(Ikon.Zurueck, "Restore", Farbe.Akzent, () => Zurueckholen(x));
                     ZweiKlick(LKnopf(Ikon.X, "Delete permanently", Farbe.Gefahr, null), () => Loeschen(x));
@@ -1317,6 +1452,11 @@ namespace Workbench
                 }
             }
             else if (!zeigen) leiste.Visibility = Visibility.Collapsed;
+        }
+
+        void Anzahl()
+        {
+            leisteInhalt.Children.Add(new TextBlock { Text = gruppe.Count.ToString(), FontSize = 13, FontWeight = FontWeights.SemiBold, Foreground = Farbe.Akzent, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 8, 0) });
         }
 
         Button LKnopf(string icon, string name, Brush farbe, Action a)
@@ -1490,6 +1630,7 @@ namespace Workbench
                 a.Handled = true;
             }
             else if (imText) return;
+            else if (strg && a.Key == Key.A) { if (ansicht < Ebenen || ansicht == Korb) AllesMarkieren(); a.Handled = true; }
             else if (strg && a.Key == Key.G) { Zeige(ansicht == Netzansicht ? letzteEbene : Netzansicht); a.Handled = true; }
             else if (a.Key == Key.Down || a.Key == Key.PageDown) { Schritt(1); a.Handled = true; }
             else if (a.Key == Key.Up || a.Key == Key.PageUp) { Schritt(-1); a.Handled = true; }
@@ -1502,7 +1643,7 @@ namespace Workbench
                 if (akt != null && w != null && !Paths.Gleich(akt, w)) Betreten(c, System.IO.Path.GetDirectoryName(akt));
                 a.Handled = true;
             }
-            else if (a.Key == Key.Enter && auswahl != null)
+            else if (a.Key == Key.Enter && auswahl != null && gruppe.Count < 2)
             {
                 if (Directory.Exists(auswahl) && (ansicht == Dauerhaft || ansicht == Wolke)) Betreten(ansicht == Wolke, auswahl);
                 else if (ansicht != Korb) Oeffnen(auswahl);
@@ -1510,12 +1651,10 @@ namespace Workbench
             }
             else if (a.Key == Key.Delete && auswahl != null)
             {
-                var e = Gewaehlt;
-                if (ansicht == Befristet && e != null) Wegwerfen(e);
-                else if (ansicht == Dauerhaft || ansicht == Wolke) InKorb(auswahl);
+                Entfernen();
                 a.Handled = true;
             }
-            else if (a.Key == Key.F2 && auswahl != null && (ansicht == Dauerhaft || ansicht == Wolke))
+            else if (a.Key == Key.F2 && auswahl != null && gruppe.Count < 2 && (ansicht == Dauerhaft || ansicht == Wolke))
             {
                 Border b;
                 if (symbole.TryGetValue(auswahl, out b)) Umbenennen(b, auswahl);

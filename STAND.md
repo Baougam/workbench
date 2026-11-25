@@ -138,6 +138,12 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 
 ## Ziehen am Rand (2026-11-25)
 
-- `src/Rand.cs`: Datei ziehen und oben/unten verweilen (700 ms) = Ebene wechseln; Pille mit Ebenenname fuellt sich. Freie Flaeche uebergibt dabei an
+- `src/Rand.cs`: Datei ziehen und oben/unten verweilen (700 ms) = Ebene wechseln; weisser transparenter Schein waechst am Rand (Nutzerwunsch, keine Pille). Freie Flaeche uebergibt dabei an
   ein echtes Windows-Ziehen (Quelle = Fenster). Expiring-Flaeche nimmt jetzt Ablegen an (Standard-Dauer). Logik im Selbsttest; echte Mausbedienung nicht automatisiert getestet.
 - Browser end-to-end mit Brave + Edge geprueft (eigenes Testprofil): Menue -> Download -> Auftrag. Nicht geprueft: Installation ueber Load unpacked von Hand.
+
+## Mehrfachauswahl (2026-11-25)
+
+- Ins Leere druecken + ziehen = Rahmen; schneller Strich hoch/runter (unter 280 ms, ueber 90 px) = Ebene. Strg+Klick, Strg+A. `gruppe` in Hauptfenster, `Mit(...)` = alle Markierten.
+- Gemeinsam: ziehen, Zeit aendern, behalten, Cloud, Papierkorb, wiederherstellen; auf der freien Flaeche zusammen verschieben. Logik im Selbsttest, echte Maus nicht.
+- Mac: Build vom 25.11. (Browser) wurde von GitHub abgebrochen (kein Runner frei), neu angestossen.

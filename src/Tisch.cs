@@ -132,6 +132,10 @@ namespace Workbench
         /// <summary>Eine Datei wird auf der Fläche verschoben (Pfad) bzw. losgelassen (null).</summary>
         public Action<string> ZugBewegt;
         Action zugZurueck;
+        /// <summary>Alles, was mit diesem Pfad zusammen markiert ist.</summary>
+        public Func<string, string[]> Gruppe;
+        public Action<string> Losgelassen;
+        readonly Dictionary<string, Point> zugAnfang = new Dictionary<string, Point>();
         /// <summary>Verschieben abbrechen: Symbol geht an seinen alten Platz.</summary>
         public void ZugAbbrechen() { var z = zugZurueck; zugZurueck = null; if (z != null) z(); }
 
@@ -452,14 +456,21 @@ namespace Workbench
                 if (zug != null) { zug.X2 = p.X; zug.Y2 = p.Y; return; }
                 if (!schiebt && Math.Abs(p.X - start.X) < 5 && Math.Abs(p.Y - start.Y) < 5) return;
                 if (!schiebt && !notiz)
+                {
+                    // alle Markierten wandern mit
+                    zugAnfang.Clear();
+                    var mit = Gruppe != null ? Gruppe(pfade[k]) : new[] { pfade[k] };
+                    foreach (var kv in pfade)
+                        if (mit.Contains(kv.Value, StringComparer.OrdinalIgnoreCase) && dinge.ContainsKey(kv.Key))
+                            zugAnfang[kv.Key] = new Point(Canvas.GetLeft(dinge[kv.Key]), Canvas.GetTop(dinge[kv.Key]));
                     zugZurueck = () =>
                     {
                         gedrueckt = false; schiebt = false;
                         el.ReleaseMouseCapture();
-                        Panel.SetZIndex(el, 0);
-                        Setzen(k, anfang.X, anfang.Y);
+                        foreach (var z in zugAnfang) { Panel.SetZIndex(dinge[z.Key], 0); Setzen(z.Key, z.Value.X, z.Value.Y); }
                         LinienZeichnen();
                     };
+                }
                 schiebt = true;
                 halte.Stop(); halteBei = null;
                 var imTisch = a.GetPosition(this);
@@ -469,15 +480,23 @@ namespace Workbench
                     gedrueckt = false; schiebt = false; zugZurueck = null;
                     if (ZugBewegt != null) ZugBewegt(null);
                     el.ReleaseMouseCapture();
-                    Setzen(k, anfang.X, anfang.Y);
+                    foreach (var z in zugAnfang) Setzen(z.Key, z.Value.X, z.Value.Y);
                     LinienZeichnen();
-                    string pf = pfade[k];
-                    if (File.Exists(pf) || Directory.Exists(pf))
-                        try { DragDrop.DoDragDrop(el, new DataObject(DataFormats.FileDrop, new[] { pf }), DragDropEffects.Copy | DragDropEffects.Move | DragDropEffects.Link); } catch { }
+                    var pf = (Gruppe != null ? Gruppe(pfade[k]) : new[] { pfade[k] }).Where(x => File.Exists(x) || Directory.Exists(x)).ToArray();
+                    if (pf.Length > 0)
+                        try { DragDrop.DoDragDrop(el, new DataObject(DataFormats.FileDrop, pf), DragDropEffects.Copy | DragDropEffects.Move | DragDropEffects.Link); } catch { }
                     return;
                 }
-                Setzen(k, Math.Max(0, Math.Round((anfang.X + p.X - start.X) / 4) * 4), Math.Max(0, Math.Round((anfang.Y + p.Y - start.Y) / 4) * 4));
-                Panel.SetZIndex(el, 10);
+                if (!notiz && zugAnfang.Count > 1)
+                {
+                    double vx = Math.Max(Math.Round((p.X - start.X) / 4) * 4, -zugAnfang.Values.Min(z => z.X)), vy = Math.Max(Math.Round((p.Y - start.Y) / 4) * 4, -zugAnfang.Values.Min(z => z.Y));
+                    foreach (var z in zugAnfang) { Setzen(z.Key, z.Value.X + vx, z.Value.Y + vy); Panel.SetZIndex(dinge[z.Key], 10); }
+                }
+                else
+                {
+                    Setzen(k, Math.Max(0, Math.Round((anfang.X + p.X - start.X) / 4) * 4), Math.Max(0, Math.Round((anfang.Y + p.Y - start.Y) / 4) * 4));
+                    Panel.SetZIndex(el, 10);
+                }
                 LinienZeichnen();
                 if (!notiz && ZugBewegt != null) ZugBewegt(pfade[k]);
             };
@@ -499,10 +518,11 @@ namespace Workbench
                 if (schiebt)
                 {
                     if (notiz) { var n = NotizVon(k); n.X = Canvas.GetLeft(el); n.Y = Canvas.GetTop(el); }
-                    else { var p = PlatzVon(k); p.X = Canvas.GetLeft(el); p.Y = Canvas.GetTop(el); }
+                    else foreach (var z in zugAnfang.Keys) { var p = PlatzVon(z); p.X = Canvas.GetLeft(dinge[z]); p.Y = Canvas.GetTop(dinge[z]); Panel.SetZIndex(dinge[z], 0); }
                     Anordnungen.Merken();
                     Ausdehnen();
                 }
+                else if (!notiz && Losgelassen != null) Losgelassen(pfade[k]);
             };
             el.MouseRightButtonUp += (s, a) =>
             {

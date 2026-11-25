@@ -293,6 +293,34 @@ namespace Workbench
             }
             catch (Exception ex) { Ok(false, "Randwechsel: " + ex); }
 
+            // 13) Mehrere markieren: Rahmen aufziehen, alles markieren, gemeinsam löschen
+            try
+            {
+                var mNamen = new[] { "m1.txt", "m2.txt", "m3.txt" }.Select(n => Path.Combine(Paths.Dauerhaft, n)).ToArray();
+                foreach (var n in mNamen) File.WriteAllText(n, "x");
+                var w = new Hauptfenster(E, 1, true);
+                w.Wurzel.Measure(new Size(1060, 700)); w.Wurzel.Arrange(new Rect(0, 0, 1060, 700)); w.Wurzel.UpdateLayout();
+                Ok(w.GruppeAnzahl == 0, "anfangs nichts markiert");
+                w.Rahmen(new Point(70, 60), new Point(1040, 690));
+                Ok(w.GruppeAnzahl == w.SymboleTest.Count && w.GruppeAnzahl >= 3, "Rahmen über alles markiert alles");
+                var f = w.SymboleTest[mNamen[0]].TransformToAncestor(w.Wurzel).TransformBounds(new Rect(w.SymboleTest[mNamen[0]].RenderSize));
+                w.Rahmen(new Point(f.X + 20, f.Y + 20), new Point(f.X + 40, f.Y + 40));
+                Ok(w.GruppeAnzahl == 1, "kleiner Rahmen markiert nur eins");
+                w.Rahmen(new Point(1000, 680), new Point(1030, 688));
+                Ok(w.GruppeAnzahl == 0, "Rahmen im Leeren hebt auf");
+                // gemeinsam löschen: über die Fristen-Ebene, deren Papierkorb im Test umgeleitet ist
+                var dann = new[] { "d1.txt", "d2.txt", "d3.txt" }.Select(n => Path.Combine(Paths.Daten, n)).ToArray();
+                foreach (var n in dann) { File.WriteAllText(n, "x"); E.FristVonHand(n, "1 day"); }
+                var b = new Hauptfenster(E, 0, true);
+                b.Wurzel.Measure(new Size(1060, 700)); b.Wurzel.Arrange(new Rect(0, 0, 1060, 700)); b.Wurzel.UpdateLayout();
+                b.AllesMarkieren();
+                int mVorher = b.GruppeAnzahl;
+                b.EntfernenTest();
+                Pumpen(600, null);
+                Ok(mVorher >= 3 && dann.All(n => E.S.Finde(n) == null && korb.Any(p => Paths.Gleich(p, n))), "Entf nimmt alle Markierten");
+            }
+            catch (Exception ex) { Ok(false, "Mehrfachauswahl: " + ex); }
+
             E.Stop();
         }
     }
@@ -384,6 +412,9 @@ namespace Workbench
                 }
                 if (a == 1)
                 {
+                    w.Rahmen(new Point(75, 70), new Point(330, 400));
+                    Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "2c-rahmen.png"));
+                    w.Rahmen(new Point(1000, 690), new Point(1001, 691));
                     w.KreisFuerBild("Projects");                  // Kreismenü (gedrückt halten)
                     Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "2b-kreis.png"));
                 }
