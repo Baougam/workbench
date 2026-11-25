@@ -46,6 +46,27 @@
       <key>NSSendFileTypes</key><array><string>public.item</string></array>
       <key>NSRequiredContext</key><dict/>
     </dict>
+    <dict>
+      <key>NSMenuItem</key><dict><key>default</key><string>Download with Workbench: For a day</string></dict>
+      <key>NSMessage</key><string>getDay</string>
+      <key>NSPortName</key><string>Workbench</string>
+      <key>NSSendTypes</key><array><string>public.url</string><string>public.utf8-plain-text</string></array>
+      <key>NSRequiredContext</key><dict><key>NSTextContent</key><string>URL</string></dict>
+    </dict>
+    <dict>
+      <key>NSMenuItem</key><dict><key>default</key><string>Download with Workbench: For a week</string></dict>
+      <key>NSMessage</key><string>getWeek</string>
+      <key>NSPortName</key><string>Workbench</string>
+      <key>NSSendTypes</key><array><string>public.url</string><string>public.utf8-plain-text</string></array>
+      <key>NSRequiredContext</key><dict><key>NSTextContent</key><string>URL</string></dict>
+    </dict>
+    <dict>
+      <key>NSMenuItem</key><dict><key>default</key><string>Download with Workbench: Keep forever</string></dict>
+      <key>NSMessage</key><string>getForever</string>
+      <key>NSPortName</key><string>Workbench</string>
+      <key>NSSendTypes</key><array><string>public.url</string><string>public.utf8-plain-text</string></array>
+      <key>NSRequiredContext</key><dict><key>NSTextContent</key><string>URL</string></dict>
+    </dict>
   </array>
 </dict>
 </plist>

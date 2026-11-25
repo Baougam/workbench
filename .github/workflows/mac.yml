@@ -3,7 +3,7 @@ name: macOS build
 on:
   push:
     branches: [main]
-    paths: ['mac/**', 'VERSION', '.github/workflows/mac.yml']
+    paths: ['mac/**', 'browser/**', 'VERSION', '.github/workflows/mac.yml']
   workflow_dispatch:
 
 permissions:

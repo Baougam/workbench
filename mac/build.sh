@@ -27,6 +27,11 @@ for S in 16 32 128 256 512; do
 done
 iconutil -c icns build/AppIcon.iconset -o "$APP/Contents/Resources/AppIcon.icns"
 
+# browser extension
+mkdir -p "$APP/Contents/Resources/browser"
+cp ../browser/manifest.json ../browser/background.js "$APP/Contents/Resources/browser/"
+for S in 16 32 48 128; do sips -z $S $S build/icon.png --out "$APP/Contents/Resources/browser/icon$S.png" >/dev/null; done
+
 # ad-hoc signature (needed to run on Apple Silicon; no Apple developer account involved)
 codesign --force --deep --sign - "$APP"
 codesign --verify --verbose "$APP"

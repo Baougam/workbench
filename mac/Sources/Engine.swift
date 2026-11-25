@@ -46,6 +46,7 @@ final class Engine {
     private var watcher: Watcher?
     private var pending: [String: (size: Int64, stable: Int, since: Date, origin: String)] = [:]
     private var gone: [String: Date] = [:]
+    private var plannedTimes: [String: (time: String, at: Date)] = [:]   // picked in the browser before the download finished
     private var pendingTimer: Timer?
     private var expiryTimer: Timer?
 
@@ -130,6 +131,11 @@ final class Engine {
                 let e = Entry(path: p, added: now, expires: Dur.expiry(d, from: now), origin: "folder", chosen: d)
                 store.update(e); store.save(); plan()
                 onSaved?(e)
+            } else if let pt = plannedTimes.removeValue(forKey: p) {
+                // already picked in the browser: no card
+                let e = Entry(path: p, added: now, expires: Dur.expiry(pt.time, from: now), origin: w.origin, chosen: pt.time)
+                store.update(e)
+                setTimer(e, until: e.expires, chosen: pt.time)
             } else {
                 let s = store.suggestion(for: p)
                 let e = Entry(path: p, added: now, expires: Dur.expiry(s, from: now), origin: w.origin, chosen: s)
@@ -143,6 +149,21 @@ final class Engine {
         }
         if !downloads.isEmpty { store.save(); plan(); onDownloads?(downloads) }
         if pending.isEmpty && gone.isEmpty { pendingTimer?.invalidate(); pendingTimer = nil }
+    }
+
+    /// Browser extension: "plan" arrives once the file name is known, "done" after the download.
+    func planned(_ path: String, _ time: String, done: Bool) {
+        plannedTimes = plannedTimes.filter { Date().timeIntervalSince($0.value.at) < 48 * 3600 }
+        if let e = store.find(path) {
+            if e.chosen != time { setTimer(e, until: Dur.expiry(time), chosen: time) }
+            return
+        }
+        plannedTimes[path] = (time, Date())
+        guard done, pending[path] == nil else { return }
+        if originFor(path) != nil { changed([path]); return }
+        // saved somewhere Workbench doesn't watch: set the timer directly
+        plannedTimes.removeValue(forKey: path)
+        if time != Dur.forever { _ = setByHand(path, time) }
     }
 
     // MARK: timers

@@ -47,6 +47,10 @@ Workbench then lives in the menu bar (the little stack icon), starts at login an
 **Tip:** drag the *Workbench* folder from your home folder into Finder’s sidebar — then it’s in every Save dialog.
 To set a timer on any file: right-click it › *Quick Actions* (or *Services*) › *Workbench: Keep for a day*.
 
+**Browser:** *Settings › Browser* adds *Download with Workbench* to Chrome, Brave, Edge and Vivaldi. Safari only loads
+extensions signed with an Apple account, so there it works through the Services menu: select a web address, right-click ›
+*Services › Download with Workbench*. That download doesn’t use your Safari login, so it only works for public files.
+
 The Mac version has the core of Workbench: the download card, timers, the three layers, the Recycle Bin (Trash),
 cloud folders, gestures and the tour. Free arrangement with lines and notes, the graph view and the press-and-hold menu
 are coming next.

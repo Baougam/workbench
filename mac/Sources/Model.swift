@@ -84,6 +84,8 @@ struct Settings: Codable {
     var cloudPath = ""
     var latestVersion = ""
     var lastCheck = Date.distantPast
+    var browser = false             // native messaging host registered
+    var browsers: [String] = []     // browsers whose extension has said hello
 
     init() {}
     // missing keys fall back to defaults (older files keep working)
@@ -98,6 +100,8 @@ struct Settings: Codable {
         askedToMove = (try? c.decode(Bool.self, forKey: .askedToMove)) ?? false
         cloudPath = (try? c.decode(String.self, forKey: .cloudPath)) ?? ""
         latestVersion = (try? c.decode(String.self, forKey: .latestVersion)) ?? ""
+        browser = (try? c.decode(Bool.self, forKey: .browser)) ?? false
+        browsers = (try? c.decode([String].self, forKey: .browsers)) ?? []
         lastCheck = (try? c.decode(Date.self, forKey: .lastCheck)) ?? Date.distantPast
     }
 }

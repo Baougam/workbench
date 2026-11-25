@@ -133,8 +133,8 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
   `vormerken|fertig\t<dauer>\t<pfad>` bzw. `browser\thallo`, weckt die Instanz (oder startet sie). `Engine.Vormerken`:
   Wahl gilt still (keine Karte); außerhalb der Ordner setzt „done“ die Frist direkt. Live getestet (Host + Warteschlange).
 - Fremde Erweiterungen kann kein Programm selbst installieren → Entwicklermodus-Hinweis von Chrome bleibt; später Store (Edge gratis).
-- Mac: offen. Chrome/Brave/Edge gingen dort genauso (NativeMessagingHosts unter ~/Library/Application Support/…);
-  Safari bräuchte eine Safari-Web-Extension mit Apple-Konto, sonst muss man „Unsigned extensions“ nach jedem Safari-Start neu erlauben.
+- Mac: `mac/Sources/Browser.swift` (Chrome/Brave/Edge/Vivaldi, Host = App-Binary, Warteschlange `BrowserQueue`). Safari nur Dienste-Menü
+  (lädt selbst, ohne Anmeldung der Seite). Nur kompiliert, ungetestet. Echte Safari-Erweiterung bräuchte eine Safari-Web-Extension mit Apple-Konto, sonst muss man „Unsigned extensions“ nach jedem Safari-Start neu erlauben.
 
 ## Ziehen am Rand (2026-11-25)
 

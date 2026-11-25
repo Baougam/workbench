@@ -576,6 +576,15 @@ struct SettingsView: View {
             row("Confirm saves to Workbench") { Toggle("", isOn: bind(\.confirmSaves)).toggleStyle(.switch).labelsHidden() }
             row("Start at login") { Toggle("", isOn: bind(\.startAtLogin)).toggleStyle(.switch).labelsHidden() }
             row("Workbench in Finder") { Button("Show") { NSWorkspace.shared.activateFileViewerSelecting([Paths.root]) }.help("Drag the Workbench folder into Finder’s sidebar – then it shows up in every Save dialog") }
+            if !Browsers.installed.isEmpty {
+                row("Browser") {
+                    HStack(spacing: 6) {
+                        ForEach(Browsers.installed) { b in
+                            Button((store.settings.browsers.contains(b.name) ? "✓ " : "") + b.name) { Browsers.setUp(b) }.help("Right-click a link › Download with Workbench")
+                        }
+                    }
+                }
+            }
             row("Tour") { Button("Show") { MainModel.shared.tour = 0 } }
             HStack {
                 Text("v" + AppInfo.version).font(.system(size: 11.5)).foregroundColor(Color.white.opacity(0.35))

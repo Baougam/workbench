@@ -134,6 +134,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self?.showCard([e], info: true)
         }
         engine.start()
+        Browsers.listen()
         if !UserDefaults.standard.bool(forKey: "loginItemSet") {
             LoginItem.set(Store.shared.settings.startAtLogin)
             UserDefaults.standard.set(true, forKey: "loginItemSet")
@@ -301,6 +302,16 @@ final class ServiceProvider: NSObject {
     @objc func keepWeek(_ pb: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>) { keep(pb, Dur.week) }
     @objc func keepMonth(_ pb: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>) { keep(pb, Dur.month) }
 
+    // Safari & any app: on a link
+    @objc func getDay(_ pb: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>) { get(pb, Dur.day) }
+    @objc func getWeek(_ pb: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>) { get(pb, Dur.week) }
+    @objc func getForever(_ pb: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>) { get(pb, Dur.forever) }
+
+    private func get(_ pb: NSPasteboard, _ d: String) {
+        if let u = (pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL])?.first { Browsers.download(u, d); return }
+        if let s = pb.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), let u = URL(string: s) { Browsers.download(u, d) }
+    }
+
     private func keep(_ pb: NSPasteboard, _ d: String) {
         let urls = (pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
         var done: [Entry] = []
@@ -311,5 +322,8 @@ final class ServiceProvider: NSObject {
 
 @main
 enum Main {
-    static func main() { AppDelegate.main() }
+    static func main() {
+        if Browsers.isHost { Browsers.runHost(); return }
+        AppDelegate.main()
+    }
 }
