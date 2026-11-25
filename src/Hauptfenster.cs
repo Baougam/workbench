@@ -161,6 +161,15 @@ namespace Workbench
                 };
                 StateChanged += delegate { wurzel.Margin = WindowState == WindowState.Maximized ? new Thickness(7) : new Thickness(0); };
                 PreviewKeyDown += Tasten;
+                // Klick woanders: Eingabefeld (Suche, Netz-Suche, Notiz) verliert den Fokus – leere Suche klappt zu
+                PreviewMouseDown += (s, a) =>
+                {
+                    var tb = Keyboard.FocusedElement as TextBox;
+                    if (tb == null || tb.IsMouseOver) return;
+                    if (tb == suche && suchFeld.IsMouseOver) return;
+                    Keyboard.ClearFocus();
+                    if (suche.Text.Length == 0) SucheZu();
+                };
                 PreviewMouseWheel += Rad;
                 TextInput += Tippen;
                 IsVisibleChanged += delegate { if (IsVisible && veraltet) Neuzeichnen(); };
@@ -311,8 +320,9 @@ namespace Workbench
                 ToolTipService.SetInitialShowDelay(b, 150);
                 System.Windows.Automation.AutomationProperties.SetName(b, namen[i]);
                 b.Click += delegate { Zeige(ebene); RundgangMitgehen(); };
-                if (i == 1) AblageZiel(b, null, () => Paths.Dauerhaft);
-                if (i == 2) AblageZiel(b, null, () => wolke != null ? wolke.Pfad : null);
+                if (i == 0) AblageZiel(b, null, BefristetOrdner, () => Zeige(ebene), an => BlattEcho(ebene, an));
+                if (i == 1) AblageZiel(b, null, () => Paths.Dauerhaft, () => Zeige(ebene), an => BlattEcho(ebene, an));
+                if (i == 2) AblageZiel(b, null, () => wolke != null ? wolke.Pfad : null, () => Zeige(ebene), an => BlattEcho(ebene, an));
                 b.MouseEnter += delegate { if (ebene != aktivesBlatt) blattX[ebene].BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(3, TimeSpan.FromMilliseconds(120))); };
                 b.MouseLeave += delegate { if (ebene != aktivesBlatt) blattX[ebene].BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(160))); };
                 stufen.Add(b);
@@ -638,23 +648,54 @@ namespace Workbench
 
         Eintrag Gewaehlt { get { return auswahl == null ? null : E.S.Finde(auswahl); } }
 
-        void KontextBefristet(FrameworkElement ziel, Eintrag e)
+        /// <summary>
+        /// Rechtsklick auf eine befristete Datei: keine lange Liste, sondern eine kleine Karte – oben der Zeit-Schieber
+        /// (ein Klick setzt die neue Dauer ab jetzt), darunter ein paar Symbole.
+        /// </summary>
+        void KontextBefristet(FrameworkElement ziel, Eintrag e) { Zeitkarte(ziel, e, false); }
+
+        void Zeitkarte(FrameworkElement ziel, Eintrag e, bool oben)
         {
-            var m = new List<KeyValuePair<string, Action>>
+            var pop = new Popup { PlacementTarget = ziel, Placement = oben ? PlacementMode.Top : PlacementMode.Right, StaysOpen = false, AllowsTransparency = true, PopupAnimation = PopupAnimation.Fade, HorizontalOffset = oben ? -150 : -6 };
+            var sp = new StackPanel();
+            var kopf = new Grid();
+            kopf.Children.Add(new TextBlock { Text = e.Name, FontSize = 13.5, FontWeight = FontWeights.SemiBold, Foreground = Farbe.Text, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 0, 70, 0) });
+            if (e.Ablauf.HasValue)
+                kopf.Children.Add(new TextBlock { Text = Kurz(e.Ablauf.Value, DateTime.UtcNow) + " left", FontSize = 12, Foreground = Farbe.Text3, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, ToolTip = Dauer.Wann(e.Ablauf.Value) });
+            sp.Children.Add(kopf);
+            string aktuell = Array.IndexOf(ZeitUI.Stationen, e.Gewaehlt) >= 0 ? e.Gewaehlt : null;
+            var schieber = ZeitUI.Schieber(aktuell, n =>
             {
-                new KeyValuePair<string, Action>("Open", () => Oeffnen(e.Pfad)),
-                new KeyValuePair<string, Action>("Show in folder", () => ImOrdnerZeigen(e.Pfad)),
-                new KeyValuePair<string, Action>("-", null),
-                new KeyValuePair<string, Action>("Another day", () => Verlaengern(e, "1 day")),
-                new KeyValuePair<string, Action>("Another week", () => Verlaengern(e, "1 week")),
-                new KeyValuePair<string, Action>("Another month", () => Verlaengern(e, "1 month")),
-                new KeyValuePair<string, Action>("Until…", () => BisWaehlen(ziel, e)),
-                new KeyValuePair<string, Action>("-", null),
-                new KeyValuePair<string, Action>("Keep permanently", () => Wegschieben(e, Paths.Dauerhaft)),
+                pop.IsOpen = false;
+                if (n == Dauer.Immer) { Wegschieben(e, Paths.Dauerhaft); return; }
+                E.FristSetzen(e, Dauer.Ablauf(n, DateTime.UtcNow), n);
+                Neuzeichnen();
+            }, () => { pop.IsOpen = false; BisWaehlen(ziel, e); }, wolke, w => { pop.IsOpen = false; Wegschieben(e, w.Pfad); });
+            schieber.Margin = new Thickness(0, 12, 0, 0);
+            sp.Children.Add(schieber);
+            sp.Children.Add(new Border { Height = 1, Background = Farbe.B("#14FFFFFF"), Margin = new Thickness(-2, 8, -2, 8) });
+            var reihe = new StackPanel { Orientation = Orientation.Horizontal };
+            Action<string, string, Brush, Action> knopf = (icon, name, farbe, tun) =>
+            {
+                var b = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 34, Height = 34, Content = UI.Icon(icon, 16, farbe, 1.8), ToolTip = name, Margin = new Thickness(0, 0, 2, 0) };
+                ToolTipService.SetPlacement(b, PlacementMode.Bottom);
+                System.Windows.Automation.AutomationProperties.SetName(b, name);
+                b.Click += delegate { pop.IsOpen = false; tun(); };
+                reihe.Children.Add(b);
             };
-            if (wolke != null) m.Add(new KeyValuePair<string, Action>("Move to " + wolke.Name, () => Wegschieben(e, wolke.Pfad)));
-            m.Add(new KeyValuePair<string, Action>("Move to Recycle Bin", () => Wegwerfen(e)));
-            UI.Menue(ziel, m);
+            knopf(Ikon.Oeffnen, "Open", Farbe.Text, () => Oeffnen(e.Pfad));
+            knopf(Ikon.Ordner, "Show in folder", Farbe.Text, () => ImOrdnerZeigen(e.Pfad));
+            var rechts = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            var weg = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 34, Height = 34, Content = UI.Icon(Ikon.Muell, 16, Farbe.Gefahr, 1.8), ToolTip = "Move to Recycle Bin" };
+            System.Windows.Automation.AutomationProperties.SetName(weg, "Move to Recycle Bin");
+            weg.Click += delegate { pop.IsOpen = false; Wegwerfen(e); };
+            var unten = new Grid();
+            unten.Children.Add(reihe);
+            weg.HorizontalAlignment = HorizontalAlignment.Right;
+            unten.Children.Add(weg);
+            sp.Children.Add(unten);
+            pop.Child = ZeitUI.Karte(sp, 380);
+            pop.IsOpen = true;
         }
 
         void Verlaengern(Eintrag e, string um)
@@ -743,7 +784,7 @@ namespace Workbench
                     string ziel = teile[i].Value;
                     tb.MouseLeftButtonUp += delegate { Betreten(cloud, ziel); };
                     tb.AllowDrop = true;
-                    AblageZiel(tb, null, () => ziel);
+                    AblageZiel(tb, null, () => ziel, () => Betreten(cloud, ziel), null);
                 }
                 ort.Children.Add(tb);
             }
@@ -767,7 +808,7 @@ namespace Workbench
                     p =>
                     {
                         var sym = Symbol(p, p, System.IO.Path.GetFileName(p), null, null, cloud, null);
-                        if (Directory.Exists(p)) { string p2 = p; AblageZiel(sym, sym, () => p2); }
+                        if (Directory.Exists(p)) { string p2 = p; AblageZiel(sym, sym, () => p2, () => Betreten(cloud, p2), null); }
                         return sym;
                     },
                     p => Waehle(p),
@@ -898,12 +939,30 @@ namespace Workbench
         }
 
         /// <summary>Was hier abgelegt wird, wandert in den Zielordner (mit Strg: kopieren).</summary>
-        void AblageZiel(FrameworkElement el, Border rahmen, Func<string> zielOrdner)
+        void AblageZiel(FrameworkElement el, Border rahmen, Func<string> zielOrdner) { AblageZiel(el, rahmen, zielOrdner, null, null); }
+
+        /// <summary>
+        /// Was hier abgelegt wird, wandert in den Zielordner (mit Strg: kopieren). federn = kurz darüber halten öffnet das Ziel
+        /// (Ebene oder Ordner), damit man direkt weiter hineinziehen kann. hover = sichtbares Echo beim Darüberziehen.
+        /// </summary>
+        void AblageZiel(FrameworkElement el, Border rahmen, Func<string> zielOrdner, Action federn, Action<bool> hover)
         {
             el.AllowDrop = true;
             Brush alt = rahmen != null ? rahmen.BorderBrush : null;
-            el.DragEnter += (s, a) => { if (rahmen != null && a.Data.GetDataPresent(DataFormats.FileDrop)) rahmen.BorderBrush = AuswahlRand; };
-            el.DragLeave += (s, a) => { if (rahmen != null) rahmen.BorderBrush = alt; };
+            DispatcherTimer feder = null;
+            Action aus = () => { if (feder != null) feder.Stop(); if (rahmen != null) rahmen.BorderBrush = alt; if (hover != null) hover(false); };
+            el.DragEnter += (s, a) =>
+            {
+                if (!a.Data.GetDataPresent(DataFormats.FileDrop)) return;
+                if (rahmen != null) rahmen.BorderBrush = AuswahlRand;
+                if (hover != null) hover(true);
+                if (federn != null)
+                {
+                    if (feder == null) { feder = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(650) }; feder.Tick += delegate { feder.Stop(); federn(); }; }
+                    feder.Stop(); feder.Start();
+                }
+            };
+            el.DragLeave += (s, a) => aus();
             el.DragOver += (s, a) =>
             {
                 if (!a.Data.GetDataPresent(DataFormats.FileDrop) || zielOrdner() == null) a.Effects = DragDropEffects.None;
@@ -912,7 +971,7 @@ namespace Workbench
             };
             el.Drop += (s, a) =>
             {
-                if (rahmen != null) rahmen.BorderBrush = alt;
+                aus();
                 a.Handled = true;
                 var pfade = a.Data.GetData(DataFormats.FileDrop) as string[];
                 string ziel = zielOrdner();
@@ -925,8 +984,25 @@ namespace Workbench
                 }
                 E.MeldeGeaendert();
                 bool inWolke = wolke != null && ziel.StartsWith(wolke.Pfad, StringComparison.OrdinalIgnoreCase);
-                if (ansicht == Dauerhaft || ansicht == Wolke) Neuzeichnen(); else Zeige(inWolke ? Wolke : Dauerhaft);
+                bool befristet = Paths.DauerVonOrdner(System.IO.Path.Combine(ziel, "x")) != null && !ziel.StartsWith(Paths.Dauerhaft, StringComparison.OrdinalIgnoreCase);
+                int zielAnsicht = befristet ? Befristet : (inWolke ? Wolke : Dauerhaft);
+                if (ansicht == zielAnsicht || ansicht == Dauerhaft || ansicht == Wolke) Neuzeichnen(); else Zeige(zielAnsicht);
             };
+        }
+
+        /// <summary>Ablegen auf „Expiring“: in den Workbench-Ordner der Standard-Dauer – die Frist setzt sich von selbst.</summary>
+        string BefristetOrdner()
+        {
+            foreach (var z in Paths.ZeitOrdner) if (z[1] == E.Cfg.Standard) return System.IO.Path.Combine(Paths.Wurzel, z[0]);
+            return System.IO.Path.Combine(Paths.Wurzel, Paths.ZeitOrdner[2][0]);
+        }
+
+        /// <summary>Beim Darüberziehen schiebt sich das Blatt ein Stück heraus und bekommt einen Bernstein-Rand.</summary>
+        void BlattEcho(int i, bool an)
+        {
+            if (i == aktivesBlatt) return;
+            blattX[i].BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(an ? 6 : 0, TimeSpan.FromMilliseconds(140)));
+            blaetter[i].BorderBrush = an ? Farbe.Akzent : Farbe.B("#3DFFFFFF");
         }
 
         void AblageZielKorb(FrameworkElement el)
@@ -1067,17 +1143,7 @@ namespace Workbench
                 if (e != null)
                 {
                     LKnopf(Ikon.Oeffnen, "Open", Farbe.Text, () => Oeffnen(e.Pfad));
-                    LKnopf(Ikon.Uhr, "Extend", Farbe.Text, null).Click += (s, a) =>
-                    {
-                        var b = (Button)s;
-                        UI.Menue(b, new List<KeyValuePair<string, Action>>
-                        {
-                            new KeyValuePair<string, Action>("Another day", () => Verlaengern(e, "1 day")),
-                            new KeyValuePair<string, Action>("Another week", () => Verlaengern(e, "1 week")),
-                            new KeyValuePair<string, Action>("Another month", () => Verlaengern(e, "1 month")),
-                            new KeyValuePair<string, Action>("Until…", () => BisWaehlen(b, e)),
-                        }, false, true);
-                    };
+                    LKnopf(Ikon.Uhr, "Change time", Farbe.Text, null).Click += (s, a) => Zeitkarte((Button)s, e, true);
                     LKnopf(Ikon.Unendlich, "Keep permanently", Farbe.Akzent, () => Wegschieben(e, Paths.Dauerhaft));
                     if (wolke != null) LKnopf(Ikon.Wolke, "Move to " + wolke.Name, Farbe.Text, () => Wegschieben(e, wolke.Pfad));
                     Trenner();

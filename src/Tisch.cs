@@ -725,8 +725,12 @@ namespace Workbench
             kreis.Visibility = Visibility.Visible;
             kreisPunkte = punkte;
             kreisAn = null;
-            var m = flaeche.TranslatePoint(Mitte(k), this);
+            var m0 = flaeche.TranslatePoint(Mitte(k), this);
             double r = farben ? 62 : 76;
+            // am Rand nach innen ausweichen – nichts wird abgeschnitten
+            double rand = r + 26;
+            var m = new Point(Math.Max(rand, Math.Min(ActualWidth - rand, m0.X)), Math.Max(rand, Math.Min(ActualHeight - rand - 24, m0.Y)));
+            kreisMitte = m;
             var hof = new Ellipse { Width = r * 2 + 70, Height = r * 2 + 70, IsHitTestVisible = false, Fill = new RadialGradientBrush(Color.FromArgb(200, 14, 16, 21), Color.FromArgb(0, 14, 16, 21)) };
             Canvas.SetLeft(hof, m.X - hof.Width / 2); Canvas.SetTop(hof, m.Y - hof.Height / 2);
             kreis.Children.Add(hof);
@@ -779,15 +783,26 @@ namespace Workbench
             kreis.Children.Add(kreisName);
         }
 
+        Point kreisMitte;
+
+        /// <summary>
+        /// Richtung zählt, nicht Treffsicherheit: sobald der Zeiger ein Stück aus der Mitte heraus ist, gilt das Symbol in
+        /// dieser Richtung als gewählt (wie bei Gesten-Menüs). Loslassen führt es sofort aus.
+        /// </summary>
         void KreisZeigerAuf(Point p)
         {
             if (kreisPunkte == null) return;
             KreisPunkt naechster = null;
-            double best = 26 * 26;
-            foreach (var k in kreisPunkte)
+            double dx = p.X - kreisMitte.X, dy = p.Y - kreisMitte.Y, abstand = Math.Sqrt(dx * dx + dy * dy);
+            if (abstand > 16 && abstand < 170)
             {
-                double x = Canvas.GetLeft(k.El) + 20, y = Canvas.GetTop(k.El) + 20, d = (x - p.X) * (x - p.X) + (y - p.Y) * (y - p.Y);
-                if (d < best) { best = d; naechster = k; }
+                double w = Math.Atan2(dy, dx), best = double.MaxValue;
+                foreach (var k in kreisPunkte)
+                {
+                    double kx = Canvas.GetLeft(k.El) + 20 - kreisMitte.X, ky = Canvas.GetTop(k.El) + 20 - kreisMitte.Y;
+                    double d = Math.Abs(Math.Atan2(Math.Sin(w - Math.Atan2(ky, kx)), Math.Cos(w - Math.Atan2(ky, kx))));
+                    if (d < best) { best = d; naechster = k; }
+                }
             }
             if (naechster == kreisAn) return;
             if (kreisAn != null) Wachsen(kreisAn, 1);
