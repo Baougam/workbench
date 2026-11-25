@@ -108,3 +108,12 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 2. Optional: Hinweis bei neuen Dateien auf dem echten Desktop („Wie lange?“), standardmäßig aus.
 3. Optional: signierter Installer / Update-Prüfung für andere Nutzer.
 4. Bestehende alte Downloads einmalig „aufräumen“ anbieten.
+
+## Download-Erkennung (2026-11-25)
+
+- `~`-Namen zählen wieder (ignoriert nur `~$`, `~wr`, `.~`). Mehr Teil-Endungen: `.!qb`, `.crswap`, `.bc!`, `.dlpart`.
+- **Nachholen**: `StoreDaten.LetzterBlick` (UTC) = bis wann Downloads/Desktop gesehen wurden. Beim Start und nach
+  Beobachter-Überlauf fragt `Engine.Nachholen()` Dateien nach, die seitdem entstanden sind (max. 14 Tage zurück, max. 30).
+  Erster Start setzt nur den Zeitpunkt. Mac: nur Endungen + 48 h, Nachholen fehlt dort noch.
+- Wartende Downloads werden erst nach 48 h aufgegeben (vorher 6 h).
+- Idee des Nutzers, offen: Browser-Rechtsklick „Download with Workbench › Dauer“ (bräuchte Browser-Erweiterung).
