@@ -44,6 +44,8 @@ namespace Workbench
         readonly StackPanel ort = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         TextBox suche;
         Border suchFeld;
+        Point leerStart;
+        bool leerZug;
         readonly Border[] blaetter = new Border[3];
         readonly TranslateTransform[] blattX = new TranslateTransform[3];
         int aktivesBlatt = -1;
@@ -174,7 +176,37 @@ namespace Workbench
                 TextInput += Tippen;
                 IsVisibleChanged += delegate { if (IsVisible && veraltet) Neuzeichnen(); };
                 Loaded += delegate { KorbLesen(); };
-                buehne.MouseLeftButtonDown += (s, a) => { if (a.Source == buehne || a.OriginalSource is ScrollViewer || a.OriginalSource is WrapPanel || a.OriginalSource is Grid || a.OriginalSource is Canvas) Waehle(null); };
+                buehne.MouseLeftButtonDown += (s, a) =>
+                {
+                    if (!(a.Source == buehne || a.OriginalSource is ScrollViewer || a.OriginalSource is WrapPanel || a.OriginalSource is Grid || a.OriginalSource is Canvas)) return;
+                    Waehle(null);
+                    // ins Leere drücken und hoch/runter ziehen = Ebene wechseln
+                    if (ansicht < Ebenen && a.ClickCount == 1) { leerStart = a.GetPosition(this); leerZug = true; buehne.CaptureMouse(); }
+                };
+                buehne.MouseMove += (s, a) =>
+                {
+                    if (!leerZug || a.LeftButton != MouseButtonState.Pressed) return;
+                    var p = a.GetPosition(this);
+                    double dy = p.Y - leerStart.Y, dx = p.X - leerStart.X;
+                    if (Math.Abs(dy) < 8 || Math.Abs(dy) < Math.Abs(dx) * 1.3) return;
+                    blattY.BeginAnimation(TranslateTransform.YProperty, null);
+                    blattY.Y = Math.Max(-46, Math.Min(46, dy * 0.3));          // das Blatt folgt leicht dem Finger
+                    if (Math.Abs(dy) > 90)
+                    {
+                        leerZug = false;
+                        buehne.ReleaseMouseCapture();
+                        int vorher = ansicht;
+                        Schritt(dy < 0 ? 1 : -1);
+                        if (ansicht == vorher) blattY.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(220)) { EasingFunction = UI.Weich });
+                    }
+                };
+                buehne.MouseLeftButtonUp += (s, a) =>
+                {
+                    if (!leerZug) return;
+                    leerZug = false;
+                    buehne.ReleaseMouseCapture();
+                    blattY.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(220)) { EasingFunction = UI.Weich });   // zurückfedern
+                };
             }
             minuten = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
             minuten.Tick += delegate { if (ansicht == Befristet) Neuzeichnen(); };
