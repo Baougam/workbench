@@ -61,14 +61,14 @@ final class MainModel: ObservableObject {
         let l = layer.rawValue
         guard l == 1 || l == 2, let p = back[l]?.popLast(), let cur = currentFolder(l) else { return }
         forward[l, default: []].append(cur)
-        withAnimation(.easeOut(duration: 0.2)) { folder[l] = p }
+        withAnimation(.easeOut(duration: 0.2)) { folder[l] = p; selection = [] }
     }
 
     func goForward() {
         let l = layer.rawValue
         guard l == 1 || l == 2, let p = forward[l]?.popLast(), let cur = currentFolder(l) else { return }
         back[l, default: []].append(cur)
-        withAnimation(.easeOut(duration: 0.2)) { folder[l] = p }
+        withAnimation(.easeOut(duration: 0.2)) { folder[l] = p; selection = [] }
     }
 }
 
@@ -325,14 +325,13 @@ struct LayerDrop: DropDelegate {
 
 func dropFiles(_ info: DropInfo, into dir: URL, skipTimed: Bool = false) -> Bool {
     let providers = info.itemProviders(for: [UTType.fileURL])
+    let group = EdgeHold.shared.dragged      // several files dragged together inside Workbench
+    EdgeHold.shared.dragged = []
     for p in providers {
         _ = p.loadObject(ofClass: URL.self) { url, _ in
             guard let u = url else { return }
             DispatchQueue.main.async {
-                // several files dragged together inside Workbench
-                let group = EdgeHold.shared.dragged
                 var paths = group.contains(u.path) ? group : [u.path]
-                EdgeHold.shared.dragged = []
                 if skipTimed { paths = paths.filter { Store.shared.find($0) == nil } }
                 MainModel.shared.move(paths, to: dir)
             }

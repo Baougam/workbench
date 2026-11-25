@@ -130,6 +130,8 @@ final class EdgeHold: ObservableObject {
         guard NSEvent.pressedMouseButtons & 1 != 0 else {
             timer?.invalidate(); timer = nil
             zone = 0; progress = 0; waiting = false
+            // dropped elsewhere: forget the group (the drop itself arrives just after the button is released)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in if let s = self, s.timer == nil { s.dragged = [] } }
             return
         }
         let z = currentZone()
