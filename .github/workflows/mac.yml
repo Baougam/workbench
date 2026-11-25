@@ -9,6 +9,11 @@ on:
 permissions:
   contents: write
 
+# only the newest push counts
+concurrency:
+  group: mac-build
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: macos-latest
@@ -27,9 +32,12 @@ jobs:
         run: |
           git config user.name "workbench-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cp download/Workbench-mac.zip /tmp/Workbench-mac.zip
+          git fetch origin main
+          git reset --hard origin/main
+          cp /tmp/Workbench-mac.zip download/Workbench-mac.zip
           git add download/Workbench-mac.zip
           git commit -m "macOS build $(tr -d ' \r\n' < VERSION) [skip ci]" || exit 0
-          git pull --rebase origin main
           git push origin HEAD:main
 
       - name: Keep the build log on failure (branch ci-log)
