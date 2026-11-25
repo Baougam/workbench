@@ -52,6 +52,7 @@ namespace Workbench
             wDl = Beobachter(Paths.Downloads, false);
             wRoot = Beobachter(Paths.Wurzel, true);
             DesktopBeobachten(Cfg.Desktop);
+            Nachholen();
 
             SystemEvents.PowerModeChanged += (s, e) => { if (e.Mode == PowerModes.Resume) ui.BeginInvoke(new Action(() => { Aufraeumen(); Planen(); })); };
             SystemEvents.TimeChanged += (s, e) => ui.BeginInvoke(new Action(() => { Aufraeumen(); Planen(); }));
@@ -62,6 +63,7 @@ namespace Workbench
 
         public void Stop()
         {
+            if (warten.Count == 0) { S.D.LetzterBlick = DateTime.UtcNow; S.Speichern(); }
             if (wDl != null) wDl.Dispose();
             if (wRoot != null) wRoot.Dispose();
             if (wDesk != null) wDesk.Dispose();
@@ -98,7 +100,7 @@ namespace Workbench
             w.Created += (s, e) => ui.BeginInvoke(new Action(() => Neu(e.FullPath)));
             w.Deleted += (s, e) => ui.BeginInvoke(new Action(() => Geloescht(e.FullPath)));
             w.Renamed += (s, e) => ui.BeginInvoke(new Action(() => Umbenannt(e.OldFullPath, e.FullPath)));
-            w.Error += (s, e) => ui.BeginInvoke(new Action(() => { Log.Info("Beobachter-Puffer voll, gleiche ab"); Abgleichen(); MeldeGeaendert(); }));
+            w.Error += (s, e) => ui.BeginInvoke(new Action(() => { Log.Info("Beobachter-Puffer voll, gleiche ab"); Abgleichen(); Nachholen(); MeldeGeaendert(); }));
             w.EnableRaisingEvents = true;
             return w;
         }
@@ -110,9 +112,9 @@ namespace Workbench
             string n = Path.GetFileName(pfad);
             if (string.IsNullOrEmpty(n)) return true;
             string l = n.ToLowerInvariant();
-            if (l.StartsWith("~$") || l.StartsWith("~wr") || l.StartsWith(".~") || l.StartsWith("~")) return true;
+            if (l.StartsWith("~$") || l.StartsWith("~wr") || l.StartsWith(".~")) return true;
             if (l == "desktop.ini" || l == "thumbs.db") return true;
-            string[] endungen = { ".crdownload", ".part", ".partial", ".download", ".opdownload", ".tmp", ".temp", ".!ut", ".aria2", ".tmp.part", ".~tmp" };
+            string[] endungen = { ".crdownload", ".part", ".partial", ".download", ".opdownload", ".tmp", ".temp", ".!ut", ".aria2", ".tmp.part", ".~tmp", ".!qb", ".crswap", ".bc!", ".dlpart" };
             foreach (var e in endungen) if (l.EndsWith(e)) return true;
             if (l.StartsWith("unconfirmed ") && l.EndsWith(".crdownload")) return true;
             try
@@ -192,7 +194,7 @@ namespace Workbench
                 string p = kv.Key; var w = kv.Value;
                 bool istOrdner = Directory.Exists(p);
                 if (!istOrdner && !File.Exists(p)) { warten.Remove(p); continue; }
-                if ((jetzt - w.Seit).TotalHours > 6) { warten.Remove(p); continue; }
+                if ((jetzt - w.Seit).TotalHours > 48) { warten.Remove(p); continue; }
                 bool bereit;
                 if (istOrdner) bereit = ++w.Stabil >= 2;
                 else if (LaeuftNoch(p)) { w.Stabil = 0; bereit = false; }
@@ -237,6 +239,11 @@ namespace Workbench
                 Planen();
                 MeldeGeaendert();
                 if (DownloadsFertig != null) DownloadsFertig(fertigDl);
+            }
+            if (warten.Count == 0)
+            {
+                S.D.LetzterBlick = jetzt;
+                if (fertigDl.Count > 0) S.Speichern();
             }
             if (warten.Count == 0 && weg.Count == 0) tWarte.Stop();
         }
@@ -417,6 +424,39 @@ namespace Workbench
                 }
             }
             if (neu) S.Speichern();
+        }
+
+        /// <summary>Downloads, die ankamen, während Workbench nicht lief (oder der Beobachter überlief), nachträglich fragen.</summary>
+        public void Nachholen()
+        {
+            var seit = S.D.LetzterBlick;
+            if (seit == default(DateTime)) { S.D.LetzterBlick = DateTime.UtcNow; S.Speichern(); return; }   // erster Start: Altbestand nicht fragen
+            var grenze = DateTime.UtcNow.AddDays(-14);
+            if (seit < grenze) seit = grenze;
+            var ordner = new List<string> { Paths.Downloads };
+            if (wDesk != null) ordner.Add(Paths.Desktop);
+            var neu = new List<KeyValuePair<string, DateTime>>();
+            foreach (var o in ordner)
+            {
+                if (string.IsNullOrEmpty(o) || !Directory.Exists(o)) continue;
+                try
+                {
+                    foreach (var p in Directory.EnumerateFiles(o))
+                    {
+                        if (warten.ContainsKey(p) || S.Finde(p) != null || IstHilfsdatei(p) || IstVerknuepfung(p)) continue;
+                        DateTime c;
+                        try { c = File.GetCreationTimeUtc(p); } catch { continue; }
+                        if (c > seit) neu.Add(new KeyValuePair<string, DateTime>(p, c));
+                    }
+                }
+                catch (Exception ex) { Log.Fehler("Nachholen", ex); }
+            }
+            foreach (var kv in neu.OrderByDescending(k => k.Value).Take(30))
+            {
+                bool dl = ImDownloadOrdner(kv.Key);
+                warten[kv.Key] = new Warte { Seit = DateTime.UtcNow, Herkunft = dl ? "download" : "desktop" };
+            }
+            if (neu.Count > 0) { Log.Info("Nachgeholt: " + neu.Count); if (!tWarte.IsEnabled) tWarte.Start(); }
         }
 
         public void MeldeGeaendert()

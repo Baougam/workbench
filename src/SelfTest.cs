@@ -69,6 +69,8 @@ namespace Workbench
             Ok(Engine.IstHilfsdatei(@"C:\x\~$Brief.docx"), "Word-Sperrdatei wird ignoriert");
             Ok(Engine.IstHilfsdatei(@"C:\x\~WRL0001.tmp"), "Word-Zwischendatei wird ignoriert");
             Ok(!Engine.IstHilfsdatei(@"C:\x\Rechnung.pdf"), "normale Datei zählt");
+            Ok(!Engine.IstHilfsdatei(@"C:\x\~Notizen.txt"), "Datei mit ~ am Anfang zählt");
+            Ok(Engine.IstHilfsdatei(@"C:\x\film.mkv.!qB") && Engine.IstHilfsdatei(@"C:\x\a.crswap"), "qBittorrent/Chrome-Teildateien werden ignoriert");
 
             // 2) Zeiten
             var j = new DateTime(2026, 11, 24, 12, 0, 0, DateTimeKind.Utc);
@@ -139,6 +141,18 @@ namespace Workbench
             Ok(dl != null && dl[0].Herkunft == "desktop", "Bild auf dem Desktop wird gefragt");
             E.FristSetzen(E.S.Finde(deskBild), null, Dauer.Immer);
             Ok(File.Exists(deskBild) && E.S.Finde(deskBild) == null, "„Für immer“ vom Desktop: bleibt auf dem Desktop");
+
+            // 4c) Download, während Workbench nicht hinschaute (aus, Puffer übergelaufen) → wird nachgeholt; Erledigtes nicht
+            dl = null;
+            E.S.D.LetzterBlick = DateTime.UtcNow.AddMinutes(-5);
+            string verpasst = Path.Combine(Paths.Downloads, "verpasst.pdf");
+            E.Stop();
+            File.WriteAllBytes(verpasst, new byte[1200]);
+            E.DesktopBeobachten(true);
+            E.Nachholen();
+            Pumpen(8000, () => dl != null);
+            Ok(dl != null && dl.Count == 1 && Paths.Gleich(dl[0].Pfad, verpasst), "verpasster Download wird nachgeholt, Erledigtes nicht");
+            E.Start();
 
             // 5) Word speichert neu: umbenennen in Temp, neu schreiben, Temp löschen → Frist bleibt
             var vorher = E.S.Finde(tag).Ablauf;

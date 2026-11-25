@@ -261,6 +261,7 @@ namespace Workbench
         public List<Eintrag> Eintraege = new List<Eintrag>();
         public List<Recycelt> Papierkorb = new List<Recycelt>();
         public Dictionary<string, string> LetzteWahl = new Dictionary<string, string>();
+        public DateTime LetzterBlick;   // UTC – bis hierhin hat Workbench Downloads/Desktop gesehen
     }
 
     /// <summary>Die Liste aller befristeten Dateien. Klein, als JSON gespeichert, atomar geschrieben.</summary>
@@ -288,6 +289,7 @@ namespace Workbench
                     if (D.Eintraege == null) D.Eintraege = new List<Eintrag>();
                     if (D.Papierkorb == null) D.Papierkorb = new List<Recycelt>();
                     if (D.LetzteWahl == null) D.LetzteWahl = new Dictionary<string, string>();
+                    if (D.LetzterBlick != default(DateTime)) D.LetzterBlick = Utc(D.LetzterBlick);
                     foreach (var e in D.Eintraege)
                     {
                         e.Hinzu = Utc(e.Hinzu);

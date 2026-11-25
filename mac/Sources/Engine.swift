@@ -116,7 +116,7 @@ final class Engine {
         var downloads: [Entry] = []
         for (p, w) in pending {
             guard Paths.fm.fileExists(atPath: p) else { pending.removeValue(forKey: p); continue }
-            if now.timeIntervalSince(w.since) > 6 * 3600 { pending.removeValue(forKey: p); continue }
+            if now.timeIntervalSince(w.since) > 48 * 3600 { pending.removeValue(forKey: p); continue }
             if stillRunning(p) { pending[p] = (w.size, 0, w.since, w.origin); continue }
             let size = (try? Paths.fm.attributesOfItem(atPath: p)[.size] as? Int64) ?? 0
             var stable = w.stable

@@ -145,7 +145,7 @@ enum Paths {
     static func isHelperFile(_ path: String) -> Bool {
         let n = (path as NSString).lastPathComponent.lowercased()
         if n.isEmpty || n.hasPrefix(".") || n.hasPrefix("~$") || n == "desktop.ini" || n == "icon\r" { return true }
-        for e in [".crdownload", ".part", ".partial", ".download", ".opdownload", ".tmp", ".temp", ".aria2"] where n.hasSuffix(e) { return true }
+        for e in [".crdownload", ".part", ".partial", ".download", ".opdownload", ".tmp", ".temp", ".aria2", ".!qb", ".crswap", ".bc!", ".dlpart", ".!ut"] where n.hasSuffix(e) { return true }
         return false
     }
 }
