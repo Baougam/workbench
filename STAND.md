@@ -88,6 +88,20 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
   die laufende Instanz. Taskleisten-Sprungliste (`--zeige <n>`).
 - README hat jetzt eine Installationsanleitung für andere (Releases, SmartScreen, Update, Entfernen, Selbst bauen).
 
+## macOS-Version (seit 2026-11-25)
+
+- Eigenes Swift/SwiftUI-Programm in `mac/` (Model, Engine, Prompt, MainView, App). Gebaut **nur** über GitHub Actions
+  (`.github/workflows/mac.yml`, `macos-latest`): universal (arm64 + x86_64), ad-hoc signiert, Ergebnis wird als
+  `download/Workbench-mac.zip` nach main committet ([skip ci]). Bei Fehlern landet das Build-Log auf Branch `ci-log`
+  (`ci/mac-build.log`) – so lässt es sich ohne GitHub-Login lesen (`git fetch origin ci-log`).
+- Kein Apple-Entwicklerkonto (Nutzerentscheidung): Erststart per Rechtsklick › Öffnen bzw. „Open Anyway“; in README.
+- Kein Mac zum Testen vorhanden (Nutzer) → nur Kompilier-Prüfung durch CI, kein echter Klicktest.
+- Umfang v1: Downloads/Desktop/Workbench-Ordner beobachten (FSEvents), Download-Karte (NSPanel, nicht aktivierend),
+  Fristen → Papierkorb, Menüleisten-Symbol, Anmeldestart (SMAppService), drei Ebenen mit Blattstapel und leerenden
+  Symbolen, Wischen/Pfeiltasten, Drop auf Blätter/Ordner mit Aufklappen, Einstellungen, Rundgang, Services-Menü,
+  Update-Hinweis. Noch nicht: freies Anordnen/Linien/Notizen, Netz, Kreismenü, Papierkorb-Ansicht (öffnet Finder-Papierkorb),
+  Finder-Seitenleiste (Nutzer zieht Ordner selbst hinein – kein öffentliches API).
+
 ## Nächste Schritte (Vorschläge)
 
 1. Auf dem echten PC installieren und durchklicken (Seitenleiste in Word-Speichern-Dialog, Autostart nach Neustart).

@@ -1,8 +1,8 @@
 # Workbench
 
-Downloads that clean up after themselves, and a desktop that stays tidy. For Windows 10 and 11.
+Downloads that clean up after themselves, and a desktop that stays tidy. For Windows 10/11 and macOS 13 or later.
 
-## Install
+## Install on Windows
 
 1. **[Download Workbench.exe](https://github.com/Baougam/workbench/raw/main/download/Workbench.exe)**
 2. Double-click it.
@@ -27,6 +27,24 @@ Windows doesn’t let apps pin themselves, so the tour shows you where to click.
 layouts and notes. When an update is out, a small dot appears on the settings icon.
 
 **Uninstall:** *Settings › Apps › Workbench*, or *Settings › Remove* inside Workbench. Your files stay where they are.
+
+## Install on Mac
+
+1. **[Download Workbench-mac.zip](https://github.com/Baougam/workbench/raw/main/download/Workbench-mac.zip)** and double-click it to unzip.
+2. **Right-click Workbench › Open › Open.**
+   The app isn’t signed with a paid Apple certificate, so the first time macOS asks to be sure. On recent macOS you may
+   instead see “Workbench can’t be opened” — then go to *System Settings › Privacy & Security* and click **Open Anyway**.
+   You only do this once.
+3. Workbench offers to move itself to *Applications* — click **Move**. When macOS asks whether Workbench may access
+   your Downloads and Desktop folders, click **Allow**. That’s how it notices new files.
+
+Workbench then lives in the menu bar (the little stack icon), starts at login and asks after every download.
+**Tip:** drag the *Workbench* folder from your home folder into Finder’s sidebar — then it’s in every Save dialog.
+To set a timer on any file: right-click it › *Quick Actions* (or *Services*) › *Workbench: Keep for a day*.
+
+The Mac version has the core of Workbench: the download card, timers, the three layers, the Recycle Bin (Trash),
+cloud folders, gestures and the tour. Free arrangement with lines and notes, the graph view and the press-and-hold menu
+are coming next.
 
 ## What it does
 
