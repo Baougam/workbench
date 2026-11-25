@@ -20,6 +20,11 @@ Workbench installs itself to `%LOCALAPPDATA%\Programs\Workbench` — **no admin 
 | Right-click › *Workbench* | on any file or folder (Windows 11: under *Show more options*) |
 | *Settings › Apps* | so you can uninstall it like any other app |
 
+**Browser (Chrome, Edge, Brave, Vivaldi):** *Settings › Browser › Add* (also offered in the tour) adds
+*Download with Workbench* to the right-click menu on links and images — pick the time before the download even starts.
+Browsers only let you add extensions from outside their store by hand, so Workbench opens the extensions page and
+fills in the folder for you: turn on *Developer mode*, click *Load unpacked*, then *Select Folder*.
+
 **Pin it to the taskbar:** right-click Workbench in the taskbar and choose *Pin to taskbar*.
 Windows doesn’t let apps pin themselves, so the tour shows you where to click.
 
@@ -103,6 +108,7 @@ The code and comments are in German; the app itself is in English.
 | `src/Papierkorb.cs` | Reads the real Recycle Bin (`$Recycle.Bin`) — restore and delete without dialogs |
 | `src/Cloud.cs` | Finds Google Drive, OneDrive, Dropbox, iCloud |
 | `src/Install.cs` | Self-install, autostart, Explorer sidebar, right-click menu, uninstall |
+| `src/Browser.cs`, `browser/` | Browser extension (embedded in the exe), native messaging host, guided setup |
 | `src/Update.cs` | Quiet update check (reads `VERSION`) |
 | `src/Theme.cs`, `src/Parts.cs` | Look and feel, icons, thumbnails, calendar |
 | `src/SelfTest.cs` | `--selftest` and `--render` |

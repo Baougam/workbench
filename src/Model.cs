@@ -351,6 +351,8 @@ namespace Workbench
         public bool TippTaskleiste = true;         // einmaliger Tipp zum Anheften
         public string CloudPfad = "";              // Ebene 3; leer = automatisch (Google Drive, OneDrive, Dropbox …)
         public string CloudName = "";
+        public bool Browser = false;               // Browser-Erweiterung eingerichtet (Native-Messaging-Host angemeldet)
+        public bool BrowserVerbunden = false;      // die Erweiterung hat sich schon einmal gemeldet
 
         static string Datei { get { return Path.Combine(Paths.Daten, "einstellungen.json"); } }
 

@@ -244,6 +244,7 @@ namespace Workbench
                 Autostart(false);
                 Seitenleiste(false);
                 Rechtsklick(false);
+                Browser.Abmelden();
                 try { Registry.CurrentUser.DeleteSubKeyTree(UninstallKey, false); } catch { }
                 foreach (var lnk in new[]
                 {

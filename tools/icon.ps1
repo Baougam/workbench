@@ -1,5 +1,5 @@
 # Zeichnet das Workbench-Symbol (zwei Ebenen übereinander) in allen Größen und schreibt eine .ico-Datei.
-param([Parameter(Mandatory)][string]$Ziel)
+param([Parameter(Mandatory)][string]$Ziel, [string]$Png)
 Add-Type -AssemblyName System.Drawing
 
 function Rund([System.Drawing.Graphics]$g, [System.Drawing.Brush]$b, [float]$x, [float]$y, [float]$w, [float]$h, [float]$r) {
@@ -37,3 +37,9 @@ foreach ($b in $bilder) {
 }
 foreach ($b in $bilder) { $w.Write([byte[]]$b[1]) }
 $w.Close()
+
+# PNGs für die Browser-Erweiterung
+if ($Png) {
+  New-Item -ItemType Directory -Force $Png | Out-Null
+  foreach ($b in $bilder) { if (16, 32, 48, 128 -contains $b[0]) { [System.IO.File]::WriteAllBytes((Join-Path $Png "icon$($b[0]).png"), $b[1]) } }
+}

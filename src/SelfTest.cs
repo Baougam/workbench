@@ -34,6 +34,16 @@ namespace Workbench
             return t;
         }
 
+        static Stream Nachricht(string json)
+        {
+            var b = System.Text.Encoding.UTF8.GetBytes(json);
+            var ms = new MemoryStream();
+            ms.Write(BitConverter.GetBytes(b.Length), 0, 4);
+            ms.Write(b, 0, b.Length);
+            ms.Position = 0;
+            return ms;
+        }
+
         static void Pumpen(int ms, Func<bool> bis)
         {
             var ende = DateTime.Now.AddMilliseconds(ms);
@@ -153,6 +163,28 @@ namespace Workbench
             Pumpen(8000, () => dl != null);
             Ok(dl != null && dl.Count == 1 && Paths.Gleich(dl[0].Pfad, verpasst), "verpasster Download wird nachgeholt, Erledigtes nicht");
             E.Start();
+
+            // 4d) Browser: „Download with Workbench › For an hour“ – keine Karte, Frist steht schon
+            dl = null;
+            string ausBrowser = Path.Combine(Paths.Downloads, "Bericht.docx");
+            Ok(E.Vormerken(ausBrowser, "1 hour", false) == null, "Browser-Wahl wird vorgemerkt");
+            File.WriteAllBytes(ausBrowser, new byte[2500]);
+            Pumpen(5000, () => E.S.Finde(ausBrowser) != null);
+            Pumpen(800, null);
+            var eb = E.S.Finde(ausBrowser);
+            Ok(dl == null && eb != null && eb.Gewaehlt == "1 hour", "Download aus dem Browser-Menü: Frist gesetzt, keine Karte");
+            string woanders = Path.Combine(Paths.Daten, "Anderswo.pdf");
+            File.WriteAllBytes(woanders, new byte[100]);
+            var ew = E.Vormerken(woanders, "1 day", true);
+            Ok(ew != null && ew.Gewaehlt == "1 day", "Browser-Download außerhalb der Ordner bekommt die Frist direkt");
+
+            // 4e) Erweiterung und Nachrichten
+            string ext = Path.Combine(Paths.Daten, "ext-test");
+            Browser.Auspacken(ext);
+            string mf = File.Exists(Path.Combine(ext, "manifest.json")) ? File.ReadAllText(Path.Combine(ext, "manifest.json")) : "";
+            Ok(mf.Contains("\"key\"") && mf.Contains("\"" + Program.Version + "\"") && File.Exists(Path.Combine(ext, "background.js")) && File.Exists(Path.Combine(ext, "icon128.png")), "Erweiterung wird ausgepackt");
+            Ok(Browser.NachrichtLesen(Nachricht("{\"op\":\"plan\",\"time\":\"1 day\",\"path\":\"C:\\\\x\\\\a.zip\"}")) == "vormerken\t1 day\tC:\\x\\a.zip", "Browser-Nachricht wird verstanden");
+            Ok(Browser.NachrichtLesen(Nachricht("{\"op\":\"hello\"}")) == "browser\thallo" && Browser.NachrichtLesen(Nachricht("{\"op\":\"plan\",\"time\":\"9 years\",\"path\":\"C:\\\\a\"}")) == null, "unbekannte Dauer wird abgelehnt");
 
             // 5) Word speichert neu: umbenennen in Temp, neu schreiben, Temp löschen → Frist bleibt
             var vorher = E.S.Finde(tag).Ablauf;
@@ -353,6 +385,7 @@ namespace Workbench
             var info = new Frage(E, new List<Eintrag> { new Eintrag { Pfad = Path.Combine(Paths.Wurzel, "1 week", "Flyer_Draft.pdf"), Ablauf = jetzt.AddDays(7), Gewaehlt = "1 week", Herkunft = "ordner" } }, true);
             var ik = info.Karte; info.Content = null;
             Speichern(Rahmen(ik), 410, 0, Path.Combine(ziel, "8-gespeichert.png"));
+            Speichern(Rahmen(new BrowserKarte("Chrome").FuerBild(2)), 330, 0, Path.Combine(ziel, "10-browser.png"));
             return 0;
         }
 

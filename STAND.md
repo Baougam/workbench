@@ -117,3 +117,20 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
   Erster Start setzt nur den Zeitpunkt. Mac: nur Endungen + 48 h, Nachholen fehlt dort noch.
 - Wartende Downloads werden erst nach 48 h aufgegeben (vorher 6 h).
 - Idee des Nutzers, offen: Browser-Rechtsklick „Download with Workbench › Dauer“ (bräuchte Browser-Erweiterung).
+
+## Browser-Erweiterung (2026-11-25, Windows)
+
+- Wunsch des Nutzers: Rechtsklick im Browser auf Link/Bild › „Download with Workbench“ › For an hour/day/week/month/Keep forever.
+- `browser/` (MV3: contextMenus, downloads, nativeMessaging, storage) steckt als Ressource in der exe (`build.ps1` /resource,
+  Symbole aus `tools/icon.ps1 -Png`). Fester `key` im manifest → feste ID `mffnoocgaogljpgadglahpfhiaodlgab`
+  (privater Schlüssel verworfen; für einen Store-Eintrag dessen ID zusätzlich in `allowed_origins`).
+- Ablauf: Settings › Browser › Add (auch im Rundgang-Willkommen) → `Browser.Einrichten`: auspacken nach
+  `%LOCALAPPDATA%\Workbench\Browser`, Host `com.workbench.host` unter HKCU für Chrome/Edge/Brave/Chromium/Vivaldi,
+  Standardbrowser öffnen (`chrome://extensions` …), Pfad in Zwischenablage, `BrowserKarte` (3 Schritte) und
+  Ordner-Fenster des Browsers (#32770, Edit in ComboBox 1148) bekommt den Pfad eingetragen. Erweiterung meldet „hello“ → „Connected“.
+- Host: Browser startet `Workbench.exe chrome-extension://…/` → `Program.BrowserHost` liest 1 Nachricht, Auftrag
+  `vormerken|fertig\t<dauer>\t<pfad>` bzw. `browser\thallo`, weckt die Instanz (oder startet sie). `Engine.Vormerken`:
+  Wahl gilt still (keine Karte); außerhalb der Ordner setzt „done“ die Frist direkt. Live getestet (Host + Warteschlange).
+- Fremde Erweiterungen kann kein Programm selbst installieren → Entwicklermodus-Hinweis von Chrome bleibt; später Store (Edge gratis).
+- Mac: offen. Chrome/Brave/Edge gingen dort genauso (NativeMessagingHosts unter ~/Library/Application Support/…);
+  Safari bräuchte eine Safari-Web-Extension mit Apple-Konto, sonst muss man „Unsigned extensions“ nach jedem Safari-Start neu erlauben.

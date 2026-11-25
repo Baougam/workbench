@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Workbench",
+  "version": "__VERSION__",
+  "description": "Right-click a link › Download with Workbench, and pick how long to keep it.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAug4pL1hxLXFk7Co7zgvsjPgPjwSD2knK99Z1VPY5aSBHBGUwLYIetkHyiYpZjjqrsdxRvOHCYW2rmeu5BXqfJMTpx9ZBiOVX0Y6tZSy0hS+InuNm6q07Ci/v+txL5Auk7+T8+DZ9GKYhtJZGi0J0Zr41yvS67yL/Zr+p+Cc9eGDdUhWwySzxBTvkig3dLS3fxJ2Bn+U8dznLSih9k9AaL4NlbECyYx5+okZX0GvP3+Egz0mV492bdqj0vggo2+YifKlnk2gI/R6cugcKv9W4c+5yrj3W7da511uyiFtz7Qb9vUPqF8E4MmxiYXF9gtra91PEA/IG75FdrbKGTVU1VwIDAQAB",
+  "permissions": ["contextMenus", "downloads", "nativeMessaging", "storage"],
+  "background": { "service_worker": "background.js" },
+  "icons": { "16": "icon16.png", "32": "icon32.png", "48": "icon48.png", "128": "icon128.png" }
+}

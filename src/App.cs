@@ -40,6 +40,7 @@ namespace Workbench
             E.Geaendert += () => { if (fenster != null) fenster.Auffrischen(); };
             E.Start();
             Install.Pruefen(cfg);
+            if (cfg.Browser && !Paths.Test) Browser.Anmelden();   // Pfad der exe aktuell halten, Erweiterung nach Update erneuern
 
             nachrichten = new HwndSource(new HwndSourceParameters("Workbench.Nachrichten") { ParentWindow = new IntPtr(-3), Width = 0, Height = 0 });
             nachrichten.AddHook(Nachricht);
@@ -103,6 +104,12 @@ namespace Workbench
                     var e = E.FristVonHand(t[2], t[1]);
                     if (e != null) bestaetigen.Add(e);
                 }
+                else if (t.Length >= 3 && (t[0] == "vormerken" || t[0] == "fertig"))
+                {
+                    var e = E.Vormerken(t[2], t[1], t[0] == "fertig");
+                    if (e != null) bestaetigen.Add(e);
+                }
+                else if (t.Length >= 2 && t[0] == "browser" && t[1] == "hallo") Browser.Verbunden(E.Cfg);
                 else if (t.Length >= 2 && t[0] == "zeige")
                 {
                     int n;

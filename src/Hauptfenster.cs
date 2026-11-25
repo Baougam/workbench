@@ -1292,6 +1292,7 @@ namespace Workbench
             sp.Children.Add(Zeile("Cloud", wolken, true));
             sp.Children.Add(Zeile("Ask for new desktop files", Schalter(c.Desktop, v => { c.Desktop = v; E.DesktopBeobachten(v); }), true));
             sp.Children.Add(Zeile("Right-click menu", Schalter(c.Rechtsklick, v => { c.Rechtsklick = v; Install.Rechtsklick(v); }), true));
+            sp.Children.Add(Zeile("Browser", BrowserKnopf(), true));
             var rund = new Button { Style = (Style)Application.Current.FindResource("Btn"), Content = "Show", Height = 28, Padding = new Thickness(12, 0, 12, 0), FontSize = 12 };
             rund.Click += delegate { EinfuehrungStarten(); };
             sp.Children.Add(Zeile("Tour", rund, true));
@@ -1323,6 +1324,24 @@ namespace Workbench
             sp.Children.Add(unten);
             tafel.Child = sp;
             return tafel;
+        }
+
+        /// <summary>„Download with Workbench“ im Browser-Rechtsklick: einrichten bzw. verbunden.</summary>
+        FrameworkElement BrowserKnopf()
+        {
+            bool da = E.Cfg.BrowserVerbunden;
+            var b = new Button { Style = (Style)Application.Current.FindResource("Btn"), Height = 28, Padding = new Thickness(12, 0, 12, 0), FontSize = 12, ToolTip = "Right-click a link › Download with Workbench" };
+            if (da)
+            {
+                var sp = new StackPanel { Orientation = Orientation.Horizontal };
+                sp.Children.Add(UI.Icon("M5 12.5l4.5 4.5L19 7.5", 13, Farbe.Gut, 2));
+                sp.Children.Add(new TextBlock { Text = "Connected", Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
+                b.Content = sp;
+                b.ToolTip = "Set up again";
+            }
+            else b.Content = "Add";
+            b.Click += delegate { if (!bild) Browser.Einrichten(E.Cfg); };
+            return b;
         }
 
         FrameworkElement Zeile(string text, FrameworkElement rechts, bool linie)
@@ -1635,6 +1654,12 @@ namespace Workbench
             hinweis.Children.Add(pfeil);
             hinweis.Children.Add(new TextBlock { Text = "Right-click Workbench in the taskbar, then choose Pin to taskbar.", FontSize = 12.5, Foreground = Farbe.Text2, TextWrapping = TextWrapping.Wrap, Width = 250, Margin = new Thickness(8, 0, 0, 0) });
             sp.Children.Add(hinweis);
+            var z3 = new Grid { MinHeight = 40, ToolTip = "Right-click a link › Download with Workbench" };
+            z3.Children.Add(new TextBlock { Text = "Browser", FontSize = 13, Foreground = Farbe.Text, VerticalAlignment = VerticalAlignment.Center });
+            var bb = BrowserKnopf();
+            bb.HorizontalAlignment = HorizontalAlignment.Right; bb.VerticalAlignment = VerticalAlignment.Center;
+            z3.Children.Add(bb);
+            sp.Children.Add(z3);
             b.Click += delegate
             {
                 // Windows erlaubt Programmen das Anheften nicht selbst – wir zeigen, wo es geht, und lassen den Pfeil nicken

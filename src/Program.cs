@@ -16,6 +16,22 @@ namespace Workbench
 
         [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool AllowSetForegroundWindow(int pid);
 
+        static int BrowserHost()
+        {
+            try
+            {
+                string auftrag = Browser.NachrichtLesen(Console.OpenStandardInput());
+                using (var aus = Console.OpenStandardOutput()) Browser.Antworten(aus);
+                if (auftrag == null) return 0;
+                Auftraege.Schreiben(auftrag);
+                EventWaitHandle ev;
+                if (EventWaitHandle.TryOpenExisting(AuftragName, out ev)) { using (ev) ev.Set(); }
+                else if (File.Exists(Install.Ziel)) System.Diagnostics.Process.Start(Install.Ziel, "--background");   // Workbench lief nicht: starten, holt den Auftrag ab
+                return 0;
+            }
+            catch (Exception ex) { Log.Fehler("BrowserHost", ex); return 1; }
+        }
+
         [STAThread]
         static int Main(string[] args)
         {
@@ -26,6 +42,8 @@ namespace Workbench
             {
                 if (modus == "--selftest") return SelfTest.Run();
                 if (modus == "--render") return Render.Run(args.Length > 1 ? args[1] : ".");
+                // Browser-Erweiterung (Native Messaging): eine Nachricht lesen, als Auftrag einstellen, antworten, fertig.
+                if (modus.StartsWith("chrome-extension://")) return BrowserHost();
                 if (modus == "--uninstall") { Install.Deinstallieren(args.Length > 1 && args[1] == "--still"); return 0; }
 
                 // Aufträge von außen: Rechtsklick › Workbench › 1 Tag (--frist "1 day" "C:\…") oder Taskleisten-Sprungliste (--zeige 1)

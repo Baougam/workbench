@@ -29,6 +29,9 @@ namespace Workbench
         readonly Dictionary<string, DateTime> weg = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
         readonly DispatcherTimer tWarte, tAblauf, tGeaendert;
 
+        // Aus dem Browser („Download with Workbench › For a day“): Pfad → gewählte Dauer, bevor der Download fertig ist
+        readonly Dictionary<string, KeyValuePair<string, DateTime>> vorgemerkt = new Dictionary<string, KeyValuePair<string, DateTime>>(StringComparer.OrdinalIgnoreCase);
+
         class Warte { public long Groesse = -1; public int Stabil; public DateTime Seit; public string Herkunft; }
 
         public Engine(Dispatcher d, Einstellungen cfg)
@@ -207,6 +210,15 @@ namespace Workbench
                 if (!bereit) continue;
                 warten.Remove(p);
                 if (S.Finde(p) != null) continue;
+                KeyValuePair<string, DateTime> vm;
+                if (w.Herkunft != "ordner" && vorgemerkt.TryGetValue(p, out vm))
+                {
+                    vorgemerkt.Remove(p);
+                    var e = new Eintrag { Pfad = p, Hinzu = Jetzt(), Herkunft = w.Herkunft, Gewaehlt = vm.Key };
+                    S.D.Eintraege.Add(e);
+                    FristSetzen(e, Dauer.Ablauf(vm.Key, Jetzt()), vm.Key);   // schon gewählt: keine Karte
+                    continue;
+                }
                 if (w.Herkunft != "ordner")
                 {
                     string vorschlag = Vorschlag(p);
@@ -424,6 +436,32 @@ namespace Workbench
                 }
             }
             if (neu) S.Speichern();
+        }
+
+        /// <summary>
+        /// Browser-Erweiterung: „plan“ kommt, sobald der Dateiname feststeht, „done“ nach dem Download.
+        /// Liegt die Datei außerhalb der beobachteten Ordner, setzt „done“ die Frist direkt (wie Rechtsklick › Workbench).
+        /// Rückgabe: Eintrag für eine ruhige Bestätigung, sonst null.
+        /// </summary>
+        public Eintrag Vormerken(string pfad, string dauer, bool fertig)
+        {
+            foreach (var k in vorgemerkt.Where(kv => (DateTime.UtcNow - kv.Value.Value).TotalHours > 48).Select(kv => kv.Key).ToList()) vorgemerkt.Remove(k);
+            var e = S.Finde(pfad);
+            if (e != null)
+            {
+                // Karte kam schon (Download war schneller): Wahl aus dem Browser gilt trotzdem
+                if (e.Gewaehlt != dauer) FristSetzen(e, Dauer.Ablauf(dauer, Jetzt()), dauer);
+                vorgemerkt.Remove(pfad);
+                return null;
+            }
+            vorgemerkt[pfad] = new KeyValuePair<string, DateTime>(dauer, DateTime.UtcNow);
+            if (!fertig || warten.ContainsKey(pfad)) return null;
+            bool beobachtet = ImDownloadOrdner(pfad) || AufDemDesktop(pfad);
+            if (beobachtet && File.Exists(pfad)) { Neu(pfad); return null; }      // wird gleich still übernommen
+            vorgemerkt.Remove(pfad);
+            if (!File.Exists(pfad)) return null;
+            if (dauer == Dauer.Immer) return null;                                // woanders gespeichert und „für immer“: nichts zu tun
+            return FristVonHand(pfad, dauer);
         }
 
         /// <summary>Downloads, die ankamen, während Workbench nicht lief (oder der Beobachter überlief), nachträglich fragen.</summary>

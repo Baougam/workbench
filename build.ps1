@@ -11,17 +11,20 @@ New-Item -ItemType Directory -Force $out | Out-Null
 $exe  = Join-Path $out 'Workbench.exe'
 
 $ico = Join-Path $out 'workbench.ico'
-& (Join-Path $root 'tools\icon.ps1') -Ziel $ico
+$pngs = Join-Path $out 'browser'
+& (Join-Path $root 'tools\icon.ps1') -Ziel $ico -Png $pngs
 
 $refs = @(
   'System.dll', 'System.Core.dll', 'System.Xml.dll', 'System.Drawing.dll', 'System.Windows.Forms.dll',
   'System.Web.Extensions.dll', 'Microsoft.CSharp.dll',
   "$fw\System.Xaml.dll", "$fw\WPF\WindowsBase.dll", "$fw\WPF\PresentationCore.dll", "$fw\WPF\PresentationFramework.dll"
 ) | ForEach-Object { "/r:$_" }
+# Browser-Erweiterung steckt in der exe (Workbench packt sie bei Bedarf aus)
+$res = @(Get-ChildItem "$root\browser\*") + @(Get-ChildItem "$pngs\*.png") | ForEach-Object { "/resource:$($_.FullName),browser/$($_.Name)" }
 $src = Get-ChildItem "$root\src\*.cs" | ForEach-Object { $_.FullName }
 
 & "$fw\csc.exe" /nologo /target:winexe /optimize+ /platform:anycpu /nowarn:1702 /utf8output `
-  "/out:$exe" "/win32manifest:$root\app.manifest" "/win32icon:$ico" @refs @src
+  "/out:$exe" "/win32manifest:$root\app.manifest" "/win32icon:$ico" @refs @res @src
 if ($LASTEXITCODE -ne 0) { throw "Build fehlgeschlagen" }
 Write-Host "Fertig: $exe ($([math]::Round((Get-Item $exe).Length / 1KB)) KB)"
 
