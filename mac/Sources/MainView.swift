@@ -9,7 +9,13 @@ final class MainModel: ObservableObject {
     @Published var layer: Layer = .expiring
     @Published var lastLayer: Layer = .expiring
     @Published var search = ""
-    @Published var selected: String?
+    @Published var selection: Set<String> = []
+    var selected: String? {
+        get { selection.first }
+        set { selection = newValue.map { [$0] } ?? [] }
+    }
+    @Published var marquee: CGRect?
+    var frames: [String: CGRect] = [:]                  // visible tiles in sheet coordinates
     @Published var folder: [Int: String] = [:]          // current subfolder per layer (1, 2)
     @Published var tour: Int? = nil
     @Published var slideFrom: CGFloat = 0
@@ -91,6 +97,9 @@ struct MainView: View {
     @ObservedObject var m = MainModel.shared
     @ObservedObject var store = Store.shared
     @State private var dragY: CGFloat = 0
+    @State private var press: Press?
+
+    struct Press { var since = Date(); var mode = 0; var keep: Set<String> = [] }      // mode 0 = undecided, 1 = frame, 2 = ignore (began on a tile)
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -151,14 +160,54 @@ struct MainView: View {
             .offset(y: dragY)
             .id(m.layer)
             .transition(.asymmetric(insertion: .offset(y: m.slideFrom).combined(with: .opacity), removal: .opacity))
-            // press on empty space and drag up/down = switch layer
-            .gesture(DragGesture(minimumDistance: 12).onChanged { v in
-                if abs(v.translation.height) > abs(v.translation.width) * 1.3 { dragY = max(-46, min(46, v.translation.height * 0.3)) }
-            }.onEnded { v in
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { dragY = 0 }
-                if abs(v.translation.height) > 90 && abs(v.translation.height) > abs(v.translation.width) * 1.3 { m.step(v.translation.height < 0 ? 1 : -1) }
-            })
+            .gesture(pressDrag)
+            if let r = m.marquee {
+                ZStack(alignment: .topLeading) {
+                    Color.clear
+                    RoundedRectangle(cornerRadius: 6).fill(Color.amber.opacity(0.12)).overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.amber.opacity(0.5)))
+                        .frame(width: r.width, height: r.height).offset(x: r.minX, y: r.minY)
+                }.clipped().allowsHitTesting(false)
+            }
+            EdgeGlow().padding(.top, 12)
+            VStack { Spacer(); SelectionBar() }.padding(.bottom, 14)
         }
+        .coordinateSpace(name: "sheet")
+        .onPreferenceChange(TileFrames.self) { f in MainModel.shared.frames = f }
+    }
+
+    /// On empty space: a quick stroke up/down switches layers, any other drag pulls up a selection frame.
+    var pressDrag: some Gesture {
+        DragGesture(minimumDistance: 6, coordinateSpace: .named("sheet"))
+            .onChanged { v in
+                if press == nil {
+                    var p = Press()
+                    if m.layer == .settings || m.frames.values.contains(where: { $0.contains(v.startLocation) }) { p.mode = 2 }
+                    if NSEvent.modifierFlags.contains(.command) { p.keep = m.selection }
+                    press = p
+                }
+                guard var p = press, p.mode != 2 else { return }
+                let t = v.translation
+                if p.mode == 0 {
+                    let stroke = abs(t.height) > abs(t.width) * 1.6 && Date().timeIntervalSince(p.since) < 0.28
+                    if stroke {
+                        dragY = max(-46, min(46, t.height * 0.3))
+                        if abs(t.height) > 90 {
+                            p.mode = 2; press = p
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { dragY = 0 }
+                            m.step(t.height < 0 ? 1 : -1)
+                        }
+                        return
+                    }
+                    p.mode = 1; press = p
+                    if dragY != 0 { withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { dragY = 0 } }
+                }
+                m.frame(v.startLocation, v.location, keep: p.keep)
+            }
+            .onEnded { _ in
+                press = nil
+                m.marquee = nil
+                if dragY != 0 { withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { dragY = 0 } }
+            }
     }
 
     @ViewBuilder var content: some View {
@@ -253,6 +302,7 @@ struct LayerDrop: DropDelegate {
     @Binding var over: Int?
 
     func dropEntered(info: DropInfo) {
+        EdgeHold.shared.begin()
         over = index
         let i = index
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { if over == i, let l = Layer(rawValue: i) { MainModel.shared.show(l) } }
@@ -273,16 +323,18 @@ struct LayerDrop: DropDelegate {
     }
 }
 
-func dropFiles(_ info: DropInfo, into dir: URL) -> Bool {
+func dropFiles(_ info: DropInfo, into dir: URL, skipTimed: Bool = false) -> Bool {
     let providers = info.itemProviders(for: [UTType.fileURL])
     for p in providers {
         _ = p.loadObject(ofClass: URL.self) { url, _ in
             guard let u = url else { return }
             DispatchQueue.main.async {
-                if u.deletingLastPathComponent().path == dir.path { return }
-                if let e = Store.shared.find(u.path) { Engine.shared.move(e, to: dir) }
-                else { try? Paths.fm.moveItem(at: u, to: Paths.freeName(in: dir, u.lastPathComponent)) }
-                Store.shared.version += 1
+                // several files dragged together inside Workbench
+                let group = EdgeHold.shared.dragged
+                var paths = group.contains(u.path) ? group : [u.path]
+                EdgeHold.shared.dragged = []
+                if skipTimed { paths = paths.filter { Store.shared.find($0) == nil } }
+                MainModel.shared.move(paths, to: dir)
             }
         }
     }
@@ -322,7 +374,7 @@ struct Tile: View {
     @State private var over = false
     var name: String { (path as NSString).lastPathComponent }
     var body: some View {
-        let sel = m.selected == path
+        let sel = m.selection.contains(path)
         VStack(spacing: 6) {
             FileIcon(path: path, fraction: fraction, soon: soon)
             Text(name).font(.system(size: 12)).foregroundColor(.text1).multilineTextAlignment(.center).lineLimit(2).frame(width: 84, height: 32, alignment: .top)
@@ -332,7 +384,12 @@ struct Tile: View {
         .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.white.opacity(sel ? 0.3 : 0)))
         .onHover { over = $0 }
         .help(help ?? name)
-        .onDrag { NSItemProvider(contentsOf: URL(fileURLWithPath: path)) ?? NSItemProvider() }
+        .onDrag {
+            EdgeHold.shared.dragged = m.with(path)
+            EdgeHold.shared.begin()
+            return NSItemProvider(contentsOf: URL(fileURLWithPath: path)) ?? NSItemProvider()
+        }
+        .reportsFrame(path)
     }
 }
 
@@ -376,6 +433,7 @@ struct ExpiringView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { m.selected = nil }
+        .onDrop(of: [UTType.fileURL], delegate: ExpiringDrop())
     }
 
     func tile(_ e: Entry, _ now: Date) -> some View {
@@ -383,16 +441,16 @@ struct ExpiringView: View {
         let rest = e.expires!.timeIntervalSince(now) / total
         return Tile(path: e.path, fraction: rest, soon: Dur.column(e.expires!, now: now) == 0, help: e.name + "\n" + Dur.left(e.expires!) + " left · " + Dur.when(e.expires!))
             .onTapGesture(count: 2) { NSWorkspace.shared.open(e.url) }
-            .simultaneousGesture(TapGesture().onEnded { m.selected = e.path })
-            .popover(isPresented: Binding(get: { cardFor == e.path }, set: { if !$0 { cardFor = nil } }), arrowEdge: .trailing) { TimeCard(entry: e) { cardFor = nil } }
+            .simultaneousGesture(TapGesture().onEnded { m.click(e.path) })
+            .popover(isPresented: Binding(get: { cardFor == e.path }, set: { if !$0 { cardFor = nil } }), arrowEdge: .trailing) { TimeCard(entry: e, more: m.with(e.path).compactMap { store.find($0) }) { cardFor = nil } }
             .contextMenu {
                 Button("Change time…") { cardFor = e.path }
                 Button("Open") { NSWorkspace.shared.open(e.url) }
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([e.url]) }
                 Divider()
-                Button("Keep permanently") { Engine.shared.move(e, to: Paths.permanent) }
-                if let c = Cloud.current(store.settings) { Button("Move to " + c.name) { Engine.shared.move(e, to: URL(fileURLWithPath: c.path)) } }
-                Button("Move to Trash") { Engine.shared.trashNow(e) }
+                Button("Keep permanently") { m.move(m.with(e.path), to: Paths.permanent) }
+                if let c = Cloud.current(store.settings) { Button("Move to " + c.name) { m.move(m.with(e.path), to: URL(fileURLWithPath: c.path)) } }
+                Button("Move to Trash") { m.trash(m.with(e.path)) }
             }
     }
 }
@@ -400,24 +458,26 @@ struct ExpiringView: View {
 /// Card with the time slider (right-click › Change time…): one click sets the new duration from now.
 struct TimeCard: View {
     let entry: Entry
+    var more: [Entry] = []
     var done: () -> Void
     @State private var calendar = false
     @State private var day = Date().addingTimeInterval(86400)
+    var all: [Entry] { more.count > 1 ? more : [entry] }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(entry.name).font(.system(size: 13.5, weight: .semibold)).lineLimit(1)
+                Text(all.count > 1 ? "\(all.count) files" : entry.name).font(.system(size: 13.5, weight: .semibold)).lineLimit(1)
                 Spacer()
-                if let x = entry.expires { Text(Dur.left(x) + " left").font(.system(size: 12)).foregroundColor(.text3) }
+                if all.count == 1, let x = entry.expires { Text(Dur.left(x) + " left").font(.system(size: 12)).foregroundColor(.text3) }
             }
             if calendar {
                 DatePicker("", selection: $day, in: Date()..., displayedComponents: .date).datePickerStyle(.graphical).labelsHidden()
-                Button("Keep until " + shortDate(day)) { Engine.shared.setTimer(entry, until: endOfDay(day), chosen: "until " + shortDate(day)); done() }
+                Button("Keep until " + shortDate(day)) { for e in all { Engine.shared.setTimer(e, until: endOfDay(day), chosen: "until " + shortDate(day)) }; done() }
             } else {
                 TimeSlider(current: Dur.stations.contains(entry.chosen) ? entry.chosen : nil, choose: { d in
-                    if d == Dur.forever { Engine.shared.move(entry, to: Paths.permanent) } else { Engine.shared.setTimer(entry, until: Dur.expiry(d), chosen: d) }
+                    for e in all { if d == Dur.forever { Engine.shared.move(e, to: Paths.permanent) } else { Engine.shared.setTimer(e, until: Dur.expiry(d), chosen: d) } }
                     done()
-                }, calendar: { calendar = true }, cloud: Cloud.current(Store.shared.settings), toCloud: { c in Engine.shared.move(entry, to: URL(fileURLWithPath: c.path)); done() })
+                }, calendar: { calendar = true }, cloud: Cloud.current(Store.shared.settings), toCloud: { c in for e in all { Engine.shared.move(e, to: URL(fileURLWithPath: c.path)) }; done() })
             }
         }
         .padding(16).frame(width: 380).preferredColorScheme(.dark)
@@ -490,22 +550,17 @@ struct FolderView: View {
         let folder = d.boolValue
         return Tile(path: p)
             .onTapGesture(count: 2) { if folder { m.enter(layer, p) } else { NSWorkspace.shared.open(URL(fileURLWithPath: p)) } }
-            .simultaneousGesture(TapGesture().onEnded { m.selected = p })
+            .simultaneousGesture(TapGesture().onEnded { m.click(p) })
             .onDrop(of: [UTType.fileURL], delegate: FolderDrop(dir: { folder ? p : nil }, springOpen: folder ? { m.enter(layer, p) } : nil))
             .contextMenu {
                 Button("Open") { if folder { m.enter(layer, p) } else { NSWorkspace.shared.open(URL(fileURLWithPath: p)) } }
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: p)]) }
                 Button("Rename") { newName = (p as NSString).lastPathComponent; renaming = p }
-                if layer == 1, let c = Cloud.current(store.settings) { Button("Move to " + c.name) { moveTo(p, URL(fileURLWithPath: c.path)) } }
-                if layer == 2 { Button("Move to Permanent") { moveTo(p, Paths.permanent) } }
+                if layer == 1, let c = Cloud.current(store.settings) { Button("Move to " + c.name) { m.move(m.with(p), to: URL(fileURLWithPath: c.path)) } }
+                if layer == 2 { Button("Move to Permanent") { m.move(m.with(p), to: Paths.permanent) } }
                 Divider()
-                Button("Move to Trash") { try? Paths.fm.trashItem(at: URL(fileURLWithPath: p), resultingItemURL: nil); store.version += 1 }
+                Button("Move to Trash") { m.trash(m.with(p)) }
             }
-    }
-
-    func moveTo(_ p: String, _ dir: URL) {
-        try? Paths.fm.moveItem(at: URL(fileURLWithPath: p), to: Paths.freeName(in: dir, (p as NSString).lastPathComponent))
-        store.version += 1
     }
 
     func newFolder() {
@@ -530,6 +585,7 @@ struct FolderDrop: DropDelegate {
     var springOpen: (() -> Void)? = nil
     func validateDrop(info: DropInfo) -> Bool { dir() != nil }
     func dropEntered(info: DropInfo) {
+        EdgeHold.shared.begin()
         guard let open = springOpen else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { if NSEvent.pressedMouseButtons != 0 { open() } }   // hold over a folder = open it
     }

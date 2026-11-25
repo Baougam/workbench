@@ -225,6 +225,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if window?.firstResponder is NSTextView { return false }
         let m = MainModel.shared
         if m.tour != nil { return false }
+        let cmd = e.modifierFlags.contains(.command)
+        if cmd && e.charactersIgnoringModifiers == "a" && m.layer != .settings { m.selectAll(); return true }
+        if (e.keyCode == 117 || (e.keyCode == 51 && cmd)) && !m.selection.isEmpty && m.layer != .settings { m.trash(Array(m.selection)); return true }   // ⌦ or ⌘⌫
+        if e.keyCode == 53 && !m.selection.isEmpty { m.selection = []; return true }
         switch e.keyCode {
         case 125: m.step(1); return true            // ↓
         case 126: m.step(-1); return true           // ↑

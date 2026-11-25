@@ -147,3 +147,4 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 - Ins Leere druecken + ziehen = Rahmen; schneller Strich hoch/runter (unter 280 ms, ueber 90 px) = Ebene. Strg+Klick, Strg+A. `gruppe` in Hauptfenster, `Mit(...)` = alle Markierten.
 - Gemeinsam: ziehen, Zeit aendern, behalten, Cloud, Papierkorb, wiederherstellen; auf der freien Flaeche zusammen verschieben. Logik im Selbsttest, echte Maus nicht.
 - Mac: Build vom 25.11. (Browser) wurde von GitHub abgebrochen (kein Runner frei), neu angestossen.
+- Mac: `mac/Sources/Select.swift` (Rahmen, ⌘-Klick, ⌘A, ⌘⌫, Leiste, Rand-Schein). Nach außen zieht SwiftUI nur die eine Datei unter dem Zeiger; innerhalb alle.
