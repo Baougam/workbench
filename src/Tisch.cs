@@ -129,6 +129,11 @@ namespace Workbench
         Line zug;
         string zugVon;
         Window fenster;
+        /// <summary>Eine Datei wird auf der Fläche verschoben (Pfad) bzw. losgelassen (null).</summary>
+        public Action<string> ZugBewegt;
+        Action zugZurueck;
+        /// <summary>Verschieben abbrechen: Symbol geht an seinen alten Platz.</summary>
+        public void ZugAbbrechen() { var z = zugZurueck; zugZurueck = null; if (z != null) z(); }
 
         public Tisch(string ordner, List<string> eintraege, Func<string, Border> bauen, Action<string> waehlen, Action<string> oeffnen, Func<string, List<KeyValuePair<string, Action>>> menueFuer)
         {
@@ -446,13 +451,23 @@ namespace Workbench
                 var p = a.GetPosition(flaeche);
                 if (zug != null) { zug.X2 = p.X; zug.Y2 = p.Y; return; }
                 if (!schiebt && Math.Abs(p.X - start.X) < 5 && Math.Abs(p.Y - start.Y) < 5) return;
+                if (!schiebt && !notiz)
+                    zugZurueck = () =>
+                    {
+                        gedrueckt = false; schiebt = false;
+                        el.ReleaseMouseCapture();
+                        Panel.SetZIndex(el, 0);
+                        Setzen(k, anfang.X, anfang.Y);
+                        LinienZeichnen();
+                    };
                 schiebt = true;
                 halte.Stop(); halteBei = null;
                 var imTisch = a.GetPosition(this);
-                if (!notiz && (imTisch.X < -4 || imTisch.Y < -4 || imTisch.X > ActualWidth + 4 || imTisch.Y > ActualHeight + 4))
+                if (!notiz && !AmRand(a) && (imTisch.X < -4 || imTisch.Y < -4 || imTisch.X > ActualWidth + 4 || imTisch.Y > ActualHeight + 4))
                 {
                     // aus dem Fenster heraus: echte Datei mitnehmen (Mail, Word, Explorer …)
-                    gedrueckt = false; schiebt = false;
+                    gedrueckt = false; schiebt = false; zugZurueck = null;
+                    if (ZugBewegt != null) ZugBewegt(null);
                     el.ReleaseMouseCapture();
                     Setzen(k, anfang.X, anfang.Y);
                     LinienZeichnen();
@@ -464,12 +479,15 @@ namespace Workbench
                 Setzen(k, Math.Max(0, Math.Round((anfang.X + p.X - start.X) / 4) * 4), Math.Max(0, Math.Round((anfang.Y + p.Y - start.Y) / 4) * 4));
                 Panel.SetZIndex(el, 10);
                 LinienZeichnen();
+                if (!notiz && ZugBewegt != null) ZugBewegt(pfade[k]);
             };
             el.MouseLeftButtonUp += (s, a) =>
             {
                 halte.Stop(); halteBei = null;
                 if (!gedrueckt) return;
                 gedrueckt = false;
+                zugZurueck = null;
+                if (ZugBewegt != null) ZugBewegt(null);
                 el.ReleaseMouseCapture();
                 Panel.SetZIndex(el, notiz ? 2 : 0);
                 if (zug != null)
@@ -492,6 +510,14 @@ namespace Workbench
                 if (notiz) NotizMenue((Border)el, NotizVon(k));
                 else { waehlen(pfade[k]); Menue(el, k); }
             };
+        }
+
+        /// <summary>Im oberen/unteren Rand des Fensters (dort wechselt Verweilen die Ebene) – noch nicht „aus dem Fenster heraus“.</summary>
+        bool AmRand(MouseEventArgs a)
+        {
+            var w = Window.GetWindow(this);
+            var inhalt = w == null ? null : w.Content as FrameworkElement;
+            return ZugBewegt != null && inhalt != null && Randwechsel.ZoneBei(a.GetPosition(inhalt), inhalt.ActualWidth, inhalt.ActualHeight) != 0;
         }
 
         string DingUnter(Point p)

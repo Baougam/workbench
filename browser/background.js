@@ -19,6 +19,12 @@ function tell(msg) {
   } catch (e) { /* Workbench not installed */ }
 }
 
+function hello() {
+  const brands = ((navigator.userAgentData && navigator.userAgentData.brands) || []).map((x) => x.brand).join(' ') + ' ' + navigator.userAgent;
+  const browser = navigator.brave || /Brave/.test(brands) ? 'Brave' : /Edg/.test(brands) ? 'Edge' : /Vivaldi/.test(brands) ? 'Vivaldi' : 'Chrome';
+  tell({ op: 'hello', browser });
+}
+
 function menus() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({ id: 'wb', title: 'Download with Workbench', contexts: CONTEXTS });
@@ -28,8 +34,8 @@ function menus() {
   });
 }
 
-chrome.runtime.onInstalled.addListener(() => { menus(); tell({ op: 'hello', browser: navigator.userAgent }); });
-chrome.runtime.onStartup.addListener(() => { menus(); tell({ op: 'hello', browser: navigator.userAgent }); });
+chrome.runtime.onInstalled.addListener(() => { menus(); hello(); });
+chrome.runtime.onStartup.addListener(() => { menus(); hello(); });
 
 async function remember(id, time) { await chrome.storage.session.set({ ['d' + id]: time }); }
 async function recall(id) { const r = await chrome.storage.session.get('d' + id); return r['d' + id]; }

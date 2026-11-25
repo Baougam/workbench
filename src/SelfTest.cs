@@ -184,7 +184,7 @@ namespace Workbench
             string mf = File.Exists(Path.Combine(ext, "manifest.json")) ? File.ReadAllText(Path.Combine(ext, "manifest.json")) : "";
             Ok(mf.Contains("\"key\"") && mf.Contains("\"" + Program.Version + "\"") && File.Exists(Path.Combine(ext, "background.js")) && File.Exists(Path.Combine(ext, "icon128.png")), "Erweiterung wird ausgepackt");
             Ok(Browser.NachrichtLesen(Nachricht("{\"op\":\"plan\",\"time\":\"1 day\",\"path\":\"C:\\\\x\\\\a.zip\"}")) == "vormerken\t1 day\tC:\\x\\a.zip", "Browser-Nachricht wird verstanden");
-            Ok(Browser.NachrichtLesen(Nachricht("{\"op\":\"hello\"}")) == "browser\thallo" && Browser.NachrichtLesen(Nachricht("{\"op\":\"plan\",\"time\":\"9 years\",\"path\":\"C:\\\\a\"}")) == null, "unbekannte Dauer wird abgelehnt");
+            Ok(Browser.NachrichtLesen(Nachricht("{\"op\":\"hello\",\"browser\":\"Brave\"}")) == "browser\thallo\tBrave" && Browser.NachrichtLesen(Nachricht("{\"op\":\"plan\",\"time\":\"9 years\",\"path\":\"C:\\\\a\"}")) == null, "unbekannte Dauer wird abgelehnt");
 
             // 5) Word speichert neu: umbenennen in Temp, neu schreiben, Temp löschen → Frist bleibt
             var vorher = E.S.Finde(tag).Ablauf;
@@ -272,6 +272,27 @@ namespace Workbench
             }
             catch (Exception ex) { Ok(false, "Frage: " + ex.Message); }
 
+            // 12) Beim Ziehen am Rand verweilen wechselt die Ebene; in der Mitte nicht
+            try
+            {
+                var w = new Hauptfenster(E, 0, true);
+                w.Wurzel.Measure(new Size(1060, 700)); w.Wurzel.Arrange(new Rect(0, 0, 1060, 700));
+                var r = w.RandTest;
+                r.Melden(new Point(500, 350)); Pumpen(300, null);
+                Ok(r.Zone == 0 && w.Ansicht == 0, "Ziehen in der Mitte wechselt nicht");
+                r.Melden(new Point(500, 20)); Ok(r.Zone == 0, "ganz oben ist nach oben Schluss");
+                Func<int, int, bool> halten = (y, ms) => { var ende = DateTime.UtcNow.AddMilliseconds(ms); int von = w.Ansicht; while (DateTime.UtcNow < ende && w.Ansicht == von) { r.Melden(new Point(500, y)); Pumpen(60, null); } return w.Ansicht != von; };
+                Ok(!halten(690, 350), "kurz am Rand wechselt nicht");
+                r.Melden(new Point(500, 350));
+                Ok(halten(690, 2500) && w.Ansicht == 1, "unten verweilen = nächste Ebene");
+                Ok(halten(690, 3000) && w.Ansicht == 2, "weiter verweilen = noch eine");
+                r.Melden(new Point(500, 350));
+                Ok(halten(20, 2500) && w.Ansicht == 1, "oben verweilen = zurück");
+                Pumpen(700, null);
+                Ok(r.Zone == 0, "nach dem Loslassen ist die Anzeige weg");
+            }
+            catch (Exception ex) { Ok(false, "Randwechsel: " + ex); }
+
             E.Stop();
         }
     }
@@ -356,6 +377,11 @@ namespace Workbench
                 w.KorbFuerBild(korb);
                 w.Zeige(a);
                 Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, namen[a] + ".png"));
+                if (a == 0)
+                {
+                    w.RandFuerBild();
+                    Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "1b-rand.png"));
+                }
                 if (a == 1)
                 {
                     w.KreisFuerBild("Projects");                  // Kreismenü (gedrückt halten)
@@ -385,7 +411,7 @@ namespace Workbench
             var info = new Frage(E, new List<Eintrag> { new Eintrag { Pfad = Path.Combine(Paths.Wurzel, "1 week", "Flyer_Draft.pdf"), Ablauf = jetzt.AddDays(7), Gewaehlt = "1 week", Herkunft = "ordner" } }, true);
             var ik = info.Karte; info.Content = null;
             Speichern(Rahmen(ik), 410, 0, Path.Combine(ziel, "8-gespeichert.png"));
-            Speichern(Rahmen(new BrowserKarte("Chrome").FuerBild(2)), 330, 0, Path.Combine(ziel, "10-browser.png"));
+            Speichern(Rahmen(new BrowserKarte(new Browser.Ziel { Name = "Brave", Exe = "brave.exe", Seite = "brave://extensions" }).FuerBild(0)), 330, 0, Path.Combine(ziel, "10-browser.png"));
             return 0;
         }
 

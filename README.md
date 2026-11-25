@@ -20,10 +20,10 @@ Workbench installs itself to `%LOCALAPPDATA%\Programs\Workbench` — **no admin 
 | Right-click › *Workbench* | on any file or folder (Windows 11: under *Show more options*) |
 | *Settings › Apps* | so you can uninstall it like any other app |
 
-**Browser (Chrome, Edge, Brave, Vivaldi):** *Settings › Browser › Add* (also offered in the tour) adds
+**Browser (Chrome, Edge, Brave, Vivaldi):** *Settings › Browser* (also offered in the tour) adds
 *Download with Workbench* to the right-click menu on links and images — pick the time before the download even starts.
-Browsers only let you add extensions from outside their store by hand, so Workbench opens the extensions page and
-fills in the folder for you: turn on *Developer mode*, click *Load unpacked*, then *Select Folder*.
+Browsers only let you add extensions from outside their store by hand, so a small card walks you through it: paste the
+address Workbench copied, turn on *Developer mode*, click *Load unpacked*, then *Select Folder* (already filled in).
 
 **Pin it to the taskbar:** right-click Workbench in the taskbar and choose *Pin to taskbar*.
 Windows doesn’t let apps pin themselves, so the tour shows you where to click.

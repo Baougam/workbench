@@ -109,7 +109,7 @@ namespace Workbench
                     var e = E.Vormerken(t[2], t[1], t[0] == "fertig");
                     if (e != null) bestaetigen.Add(e);
                 }
-                else if (t.Length >= 2 && t[0] == "browser" && t[1] == "hallo") Browser.Verbunden(E.Cfg);
+                else if (t.Length >= 3 && t[0] == "browser" && t[1] == "hallo") { Browser.Verbunden(E.Cfg, t[2]); E.MeldeGeaendert(); }
                 else if (t.Length >= 2 && t[0] == "zeige")
                 {
                     int n;

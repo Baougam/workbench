@@ -150,6 +150,9 @@ namespace Workbench
             leiste.RenderTransform = new TranslateTransform();
             wurzel.Children.Add(leiste);
             wurzel.Children.Add(VersionLeise());
+            rand = new Randwechsel(d => ansicht < Ebenen && ansicht + d >= 0 && ansicht + d < Ebenen ? new[] { "Expiring", "Permanent", wolke != null ? wolke.Name : "Cloud" }[ansicht + d] : null, RandWechsel, RandNeigen);
+            wurzel.Children.Add(rand);
+            RandAblage();
 
             if (!bild)
             {
@@ -414,6 +417,91 @@ namespace Workbench
             return b;
         }
 
+        // ================= Beim Ziehen am Rand verweilen = Ebene wechseln =================
+
+        Randwechsel rand;
+        string tischZug;          // Datei, die gerade auf der freien Fläche verschoben wird (noch kein Windows-Drag)
+
+        void RandAblage()
+        {
+            wurzel.PreviewDragOver += (s, a) => { if (a.Data.GetDataPresent(DataFormats.FileDrop)) rand.Melden(a.GetPosition(wurzel)); };
+            wurzel.PreviewDrop += delegate { rand.Ende(); };
+            wurzel.AllowDrop = true;
+            // Am Rand gibt es kein eigenes Ziel: kein Verbotszeichen zeigen, ein Loslassen dort tut aber nichts
+            wurzel.DragOver += (s, a) =>
+            {
+                if (!a.Data.GetDataPresent(DataFormats.FileDrop)) return;
+                a.Effects = rand.Zone != 0 || FuerBefristet(a) != null ? DragDropEffects.Move : DragDropEffects.None;
+                a.Handled = true;
+            };
+            wurzel.Drop += (s, a) =>
+            {
+                var pfade = FuerBefristet(a);
+                a.Effects = DragDropEffects.None;
+                a.Handled = true;
+                if (pfade == null) return;
+                a.Effects = DragDropEffects.Move;
+                foreach (var p in pfade) Verschieben(p, BefristetOrdner());
+                E.MeldeGeaendert();
+            };
+        }
+
+        /// <summary>Auf der Expiring-Fläche ablegen: bekommt die Standard-Dauer. Was schon eine Frist hat, bleibt, wie es ist.</summary>
+        string[] FuerBefristet(DragEventArgs a)
+        {
+            if (ansicht != Befristet) return null;
+            var p = a.GetPosition(wurzel);
+            if (p.X < Randwechsel.LinksAb || p.Y < 44) return null;
+            var pfade = a.Data.GetData(DataFormats.FileDrop) as string[];
+            if (pfade == null) return null;
+            pfade = pfade.Where(x => E.S.Finde(x) == null).ToArray();
+            return pfade.Length > 0 ? pfade : null;
+        }
+
+        void RandNeigen(int richtung)
+        {
+            if (bild) return;
+            leiste.Opacity = richtung > 0 ? 0 : 1;
+            blattY.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(-richtung * 10, TimeSpan.FromMilliseconds(260)) { EasingFunction = UI.Weich });
+        }
+
+        void RandWechsel(int richtung)
+        {
+            leiste.Opacity = 1;
+            string pfad = tischZug;
+            if (pfad != null)
+            {
+                // von der freien Fläche: Symbol zurück an seinen Platz, ab hier als echtes Windows-Ziehen weiter
+                tischZug = null;
+                if (aktuellerTisch != null) aktuellerTisch.ZugAbbrechen();
+                rand.Zeiger = null;
+            }
+            Schritt(richtung);
+            if (pfad != null && Mouse.LeftButton == MouseButtonState.Pressed)
+                Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => Ziehen(pfad)));
+        }
+
+        /// <summary>Datei mitnehmen – das Fenster ist die Quelle, damit ein Ebenenwechsel das Ziehen nicht abreißt.</summary>
+        void Ziehen(string pfad)
+        {
+            rand.Geist(pfad);
+            try { DragDrop.DoDragDrop(this, new DataObject(DataFormats.FileDrop, new[] { pfad }), DragDropEffects.Copy | DragDropEffects.Move | DragDropEffects.Link); }
+            catch (Exception ex) { Log.Fehler("Ziehen", ex); }
+            finally { rand.Ende(); }
+        }
+
+        void TischZug(string pfad)
+        {
+            tischZug = pfad;
+            if (pfad == null) { rand.Ende(); return; }
+            rand.Zeiger = () => tischZug != null && Mouse.LeftButton == MouseButtonState.Pressed ? (Point?)Mouse.GetPosition(wurzel) : null;
+            rand.Melden(Mouse.GetPosition(wurzel));
+        }
+
+        public void RandFuerBild() { rand.FuerBild(1, 0.6); }
+        public Randwechsel RandTest { get { return rand; } }
+        public int Ansicht { get { return ansicht; } }
+
         // ================= Ebenen wechseln =================
 
         public void Zeige(int neu)
@@ -605,7 +693,7 @@ namespace Workbench
                 string echt = pfad;
                 if (ansicht == Korb) return;
                 if (!File.Exists(echt) && !Directory.Exists(echt)) return;
-                try { DragDrop.DoDragDrop(el, new DataObject(DataFormats.FileDrop, new[] { echt }), DragDropEffects.Copy | DragDropEffects.Move | DragDropEffects.Link); } catch { }
+                Ziehen(echt);
             };
             el.MouseRightButtonUp += (s, a) => { Waehle(pfad); kontext(el); a.Handled = true; };
         }
@@ -846,6 +934,7 @@ namespace Workbench
                     p => Waehle(p),
                     p => { if (Directory.Exists(p)) Betreten(cloud, p); else Oeffnen(p); },
                     p => KontextOrdner(p, cloud));
+                tisch.ZugBewegt = TischZug;
                 flaeche.Children.Add(tisch);
             }
             aktuellerTisch = tisch;
@@ -1329,19 +1418,16 @@ namespace Workbench
         /// <summary>„Download with Workbench“ im Browser-Rechtsklick: einrichten bzw. verbunden.</summary>
         FrameworkElement BrowserKnopf()
         {
-            bool da = E.Cfg.BrowserVerbunden;
-            var b = new Button { Style = (Style)Application.Current.FindResource("Btn"), Height = 28, Padding = new Thickness(12, 0, 12, 0), FontSize = 12, ToolTip = "Right-click a link › Download with Workbench" };
-            if (da)
+            var reihe = new StackPanel { Orientation = Orientation.Horizontal };
+            foreach (var z in Browser.Finden())
             {
-                var sp = new StackPanel { Orientation = Orientation.Horizontal };
-                sp.Children.Add(UI.Icon("M5 12.5l4.5 4.5L19 7.5", 13, Farbe.Gut, 2));
-                sp.Children.Add(new TextBlock { Text = "Connected", Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
-                b.Content = sp;
-                b.ToolTip = "Set up again";
+                var z2 = z;
+                bool da = Browser.IstVerbunden(E.Cfg, z.Name);
+                var t = new ToggleButton { Style = (Style)Application.Current.FindResource("Chip"), Content = z.Name, IsChecked = da, Margin = new Thickness(4, 0, 0, 0), Height = 28, Padding = new Thickness(9, 0, 9, 0), FontSize = 12, ToolTip = da ? "Connected — click to set up again" : "Right-click a link › Download with Workbench" };
+                t.Click += delegate { t.IsChecked = da; if (!bild) Browser.Einrichten(E.Cfg, z2); };
+                reihe.Children.Add(t);
             }
-            else b.Content = "Add";
-            b.Click += delegate { if (!bild) Browser.Einrichten(E.Cfg); };
-            return b;
+            return reihe;
         }
 
         FrameworkElement Zeile(string text, FrameworkElement rechts, bool linie)

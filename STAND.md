@@ -126,11 +126,18 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
   (privater Schlüssel verworfen; für einen Store-Eintrag dessen ID zusätzlich in `allowed_origins`).
 - Ablauf: Settings › Browser › Add (auch im Rundgang-Willkommen) → `Browser.Einrichten`: auspacken nach
   `%LOCALAPPDATA%\Workbench\Browser`, Host `com.workbench.host` unter HKCU für Chrome/Edge/Brave/Chromium/Vivaldi,
-  Standardbrowser öffnen (`chrome://extensions` …), Pfad in Zwischenablage, `BrowserKarte` (3 Schritte) und
-  Ordner-Fenster des Browsers (#32770, Edit in ComboBox 1148) bekommt den Pfad eingetragen. Erweiterung meldet „hello“ → „Connected“.
+  ein Knopf je installiertem Browser (App Paths); Adresse `…://extensions` in Zwischenablage (Browser öffnen sie nicht
+  per Befehl, geprüft), `BrowserKarte` (4 Schritte); Ordner-Fenster (#32770 mit direktem Edit 1152 – NICHT 1148/1001, das sind
+  Öffnen/Speichern) bekommt den Pfad eingetragen. Erweiterung meldet „hello“ → „Connected“.
 - Host: Browser startet `Workbench.exe chrome-extension://…/` → `Program.BrowserHost` liest 1 Nachricht, Auftrag
   `vormerken|fertig\t<dauer>\t<pfad>` bzw. `browser\thallo`, weckt die Instanz (oder startet sie). `Engine.Vormerken`:
   Wahl gilt still (keine Karte); außerhalb der Ordner setzt „done“ die Frist direkt. Live getestet (Host + Warteschlange).
 - Fremde Erweiterungen kann kein Programm selbst installieren → Entwicklermodus-Hinweis von Chrome bleibt; später Store (Edge gratis).
 - Mac: offen. Chrome/Brave/Edge gingen dort genauso (NativeMessagingHosts unter ~/Library/Application Support/…);
   Safari bräuchte eine Safari-Web-Extension mit Apple-Konto, sonst muss man „Unsigned extensions“ nach jedem Safari-Start neu erlauben.
+
+## Ziehen am Rand (2026-11-25)
+
+- `src/Rand.cs`: Datei ziehen und oben/unten verweilen (700 ms) = Ebene wechseln; Pille mit Ebenenname fuellt sich. Freie Flaeche uebergibt dabei an
+  ein echtes Windows-Ziehen (Quelle = Fenster). Expiring-Flaeche nimmt jetzt Ablegen an (Standard-Dauer). Logik im Selbsttest; echte Mausbedienung nicht automatisiert getestet.
+- Browser end-to-end mit Brave + Edge geprueft (eigenes Testprofil): Menue -> Download -> Auftrag. Nicht geprueft: Installation ueber Load unpacked von Hand.

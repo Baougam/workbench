@@ -20,7 +20,7 @@ namespace Workbench
     /// Browser-Erweiterung „Download with Workbench“ (Chrome, Edge, Brave …).
     /// Steckt in der exe, wird nach %LOCALAPPDATA%\Workbench\Browser ausgepackt. Verbindung über Native Messaging:
     /// der Browser startet Workbench.exe mit „chrome-extension://…“, schickt eine Nachricht, Workbench stellt sie als Auftrag ein.
-    /// Fremde Erweiterungen darf kein Programm selbst installieren – Workbench öffnet die Seite, kopiert den Pfad
+    /// Fremde Erweiterungen darf kein Programm selbst installieren – Workbench kopiert die Adresse der Seite
     /// und trägt ihn ins Ordner-Fenster des Browsers ein; den Rest klickt man selbst.
     /// </summary>
     static class Browser
@@ -111,7 +111,12 @@ namespace Workbench
             d.TryGetValue("time", out zeit);
             d.TryGetValue("path", out pfad);
             string o = op as string, z = zeit as string, p = pfad as string;
-            if (o == "hello") return "browser\thallo";
+            if (o == "hello")
+            {
+                object br; d.TryGetValue("browser", out br);
+                string bn = br as string;
+                return new[] { "Chrome", "Edge", "Brave", "Vivaldi" }.Contains(bn) ? "browser\thallo\t" + bn : null;
+            }
             if ((o == "plan" || o == "done") && !string.IsNullOrEmpty(p) && (ZeitUI.Stationen.Contains(z)))
             {
                 if (p.IndexOf('\t') >= 0 || p.IndexOf('\n') >= 0 || !Path.IsPathRooted(p)) return null;
@@ -137,46 +142,31 @@ namespace Workbench
 
         // ---------- Einrichten ----------
 
-        class Ziel { public string Name, Exe, Seite; }
+        public class Ziel { public string Name, Exe, Seite; }
 
-        /// <summary>Standardbrowser – oder, falls der keine Chrome-Erweiterungen kann (Firefox …), Chrome bzw. Edge.</summary>
-        static Ziel Finden()
+        /// <summary>Alle installierten Browser, die Chrome-Erweiterungen können.</summary>
+        public static List<Ziel> Finden()
         {
-            string progId = null;
-            try
+            var l = new List<Ziel>();
+            string[][] alle = { new[] { "Chrome", "chrome" }, new[] { "Edge", "msedge" }, new[] { "Brave", "brave" }, new[] { "Vivaldi", "vivaldi" } };
+            foreach (var b in alle)
             {
-                using (var k = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice"))
-                    if (k != null) progId = k.GetValue("ProgId") as string;
+                string exe = AppPfad(Registry.CurrentUser, b[1]) ?? AppPfad(Registry.LocalMachine, b[1]);
+                if (exe != null) l.Add(new Ziel { Name = b[0], Exe = exe, Seite = b[0].ToLowerInvariant() + "://extensions" });
             }
-            catch { }
-            var kandidaten = new List<string>();
-            if (progId != null) kandidaten.Add(progId);
-            kandidaten.AddRange(new[] { "ChromeHTML", "MSEdgeHTM" });
-            foreach (var id in kandidaten)
-            {
-                string name = null, seite = "chrome://extensions";
-                if (id.StartsWith("ChromeHTML")) name = "Chrome";
-                else if (id.StartsWith("MSEdgeHTM")) { name = "Edge"; seite = "edge://extensions"; }
-                else if (id.StartsWith("BraveHTML")) { name = "Brave"; seite = "brave://extensions"; }
-                else if (id.StartsWith("VivaldiHTM")) { name = "Vivaldi"; seite = "vivaldi://extensions"; }
-                else if (id.StartsWith("ChromiumHTM")) name = "Chromium";
-                if (name == null) continue;
-                string exe = ExeVon(id);
-                if (exe != null) return new Ziel { Name = name, Exe = exe, Seite = seite };
-            }
-            return null;
+            return l;
         }
 
-        static string ExeVon(string progId)
+        static string AppPfad(RegistryKey wurzel, string name)
         {
             try
             {
-                using (var k = Registry.ClassesRoot.OpenSubKey(progId + @"\shell\open\command"))
+                using (var k = wurzel.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\App Paths\" + name + ".exe"))
                 {
-                    string c = k == null ? null : k.GetValue("") as string;
-                    if (string.IsNullOrEmpty(c)) return null;
-                    string exe = c.StartsWith("\"") ? c.Substring(1, c.IndexOf('"', 1) - 1) : c.Split(' ')[0];
-                    return File.Exists(exe) ? exe : null;
+                    string p = k == null ? null : k.GetValue("") as string;
+                    if (string.IsNullOrEmpty(p)) return null;
+                    p = p.Trim('"');
+                    return File.Exists(p) ? p : null;
                 }
             }
             catch { return null; }
@@ -184,76 +174,67 @@ namespace Workbench
 
         static BrowserKarte karte;
 
-        /// <summary>Alles vorbereiten, Erweiterungsseite öffnen, Hilfekarte zeigen.</summary>
-        public static void Einrichten(Einstellungen cfg)
+        /// <summary>
+        /// Vorbereiten, Browserfenster öffnen, Hilfekarte zeigen. Browser öffnen „…://extensions“ nicht auf Zuruf eines Programms
+        /// (geprüft: es kommt ein leerer Tab) – darum liegt die Adresse in der Zwischenablage.
+        /// </summary>
+        public static void Einrichten(Einstellungen cfg, Ziel z)
         {
             cfg.Browser = true;
             cfg.Speichern();
             Anmelden();
-            var z = Finden();
-            try { Clipboard.SetText(Ordner); } catch { }
-            if (z != null)
-                try { Process.Start(new ProcessStartInfo(z.Exe, z.Seite) { UseShellExecute = false }); } catch (Exception ex) { Log.Fehler("Browser öffnen", ex); }
+            try { Clipboard.SetText(z.Seite); } catch { }
+            try { Process.Start(new ProcessStartInfo(z.Exe, "--new-window") { UseShellExecute = false }); } catch (Exception ex) { Log.Fehler("Browser öffnen", ex); }
             if (karte != null) karte.Schliessen();
-            karte = new BrowserKarte(z == null ? "your browser" : z.Name);
+            karte = new BrowserKarte(z);
             karte.Show();
         }
 
+        public static bool IstVerbunden(Einstellungen cfg, string name) { return ("," + cfg.BrowserNamen + ",").Contains("," + name + ","); }
+
         /// <summary>Die Erweiterung hat sich gemeldet.</summary>
-        public static void Verbunden(Einstellungen cfg)
+        public static void Verbunden(Einstellungen cfg, string name)
         {
-            if (!cfg.BrowserVerbunden || !cfg.Browser) { cfg.BrowserVerbunden = true; cfg.Browser = true; cfg.Speichern(); }
-            if (karte != null) karte.Fertig();
+            if (!cfg.Browser || !IstVerbunden(cfg, name))
+            {
+                cfg.Browser = true;
+                if (!IstVerbunden(cfg, name)) cfg.BrowserNamen = (cfg.BrowserNamen + "," + name).Trim(',');
+                cfg.Speichern();
+            }
+            if (karte != null && karte.BrowserName == name) { karte.Fertig(); karte = null; }
         }
 
         // ---------- Pfad ins Ordner-Fenster des Browsers eintragen ----------
 
         [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc f, IntPtr l);
-        [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr h, EnumProc f, IntPtr l);
         delegate bool EnumProc(IntPtr h, IntPtr l);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder s, int n);
         [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
         [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
-        [DllImport("user32.dll")] static extern IntPtr GetParent(IntPtr h);
-        [DllImport("user32.dll")] static extern int GetDlgCtrlID(IntPtr h);
+        [DllImport("user32.dll")] static extern IntPtr GetDlgItem(IntPtr h, int id);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr SendMessage(IntPtr h, int msg, IntPtr w, string l);
-        [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr h, int msg, IntPtr w, IntPtr l);
-        const int WM_SETTEXT = 0x000C, EM_SETSEL = 0x00B1;
+        const int WM_SETTEXT = 0x000C;
 
         static string Klasse(IntPtr h) { var sb = new StringBuilder(64); GetClassName(h, sb, 64); return sb.ToString(); }
 
-        static readonly string[] browserProzesse = { "chrome", "msedge", "brave", "vivaldi", "chromium" };
-
-        /// <summary>Offenes Ordner-Fenster eines Browsers suchen und den Pfad eintragen. true = eingetragen.</summary>
-        public static bool PfadEintragen(HashSet<IntPtr> schon)
+        /// <summary>
+        /// Offenes Ordner-Fenster des Browsers suchen und den Pfad eintragen. Nur das Ordner-Fenster hat ein Edit 1152 direkt im
+        /// Dialog; „Öffnen“ (1148) und „Speichern“ (1001) bleiben unberührt. Noch nicht fertig aufgebaut → nächstes Mal wieder.
+        /// </summary>
+        public static bool PfadEintragen(HashSet<IntPtr> schon, string prozessName)
         {
             bool ok = false;
             EnumWindows((h, l) =>
             {
-                if (ok || schon.Contains(h) || !IsWindowVisible(h) || Klasse(h) != "#32770") return true;
+                if (schon.Contains(h) || !IsWindowVisible(h) || Klasse(h) != "#32770") return true;
                 uint pid; GetWindowThreadProcessId(h, out pid);
-                string prozess;
-                try { prozess = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant(); } catch { return true; }
-                if (!browserProzesse.Contains(prozess)) return true;
+                try { using (var p = Process.GetProcessById((int)pid)) if (p.ProcessName.ToLowerInvariant() != prozessName) return true; } catch { return true; }
+                IntPtr feld = GetDlgItem(h, 1152);
+                if (feld == IntPtr.Zero || Klasse(feld) != "Edit" || !IsWindowVisible(feld)) return true;
                 schon.Add(h);
-                IntPtr feld = IntPtr.Zero, ersatz = IntPtr.Zero;
-                EnumChildWindows(h, (c, l2) =>
-                {
-                    if (Klasse(c) != "Edit" || !IsWindowVisible(c)) return true;
-                    IntPtr p = GetParent(c);
-                    if (Klasse(p) == "ComboBox" && GetDlgCtrlID(p) == 1148) { feld = c; return false; }   // „Ordner:“/„Dateiname:“
-                    if (ersatz == IntPtr.Zero && Klasse(p) == "ComboBox") ersatz = c;
-                    return true;
-                }, IntPtr.Zero);
-                if (feld == IntPtr.Zero) feld = ersatz;
-                if (feld != IntPtr.Zero)
-                {
-                    SendMessage(feld, WM_SETTEXT, IntPtr.Zero, Ordner);
-                    SendMessage(feld, EM_SETSEL, IntPtr.Zero, new IntPtr(-1));
-                    ok = true;
-                    return false;
-                }
-                return true;
+                SendMessage(feld, WM_SETTEXT, IntPtr.Zero, Ordner);
+                ok = true;
+                return false;
             }, IntPtr.Zero);
             return ok;
         }
@@ -272,8 +253,13 @@ namespace Workbench
         readonly DateTime seit = DateTime.UtcNow;
         bool zu;
 
-        public BrowserKarte(string browserName)
+        public readonly string BrowserName;
+        readonly string prozess;
+
+        public BrowserKarte(Browser.Ziel ziel)
         {
+            BrowserName = ziel.Name;
+            prozess = Path.GetFileNameWithoutExtension(ziel.Exe).ToLowerInvariant();
             WindowStyle = WindowStyle.None;
             AllowsTransparency = true;
             Background = Brushes.Transparent;
@@ -290,7 +276,7 @@ namespace Workbench
             var k = new Grid { Margin = new Thickness(0, 0, 0, 10) };
             var titel = new StackPanel { Orientation = Orientation.Horizontal };
             titel.Children.Add(UI.Logo(18));
-            kopf = new TextBlock { Text = "Add to " + browserName, FontSize = 14, FontWeight = FontWeights.SemiBold, Foreground = Farbe.Text, Margin = new Thickness(9, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            kopf = new TextBlock { Text = "Add to " + ziel.Name, FontSize = 14, FontWeight = FontWeights.SemiBold, Foreground = Farbe.Text, Margin = new Thickness(9, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
             titel.Children.Add(kopf);
             k.Children.Add(titel);
             var x = UI.IconKnopf("M6 6l12 12M18 6L6 18", "Close", Farbe.Text3);
@@ -299,8 +285,8 @@ namespace Workbench
             k.Children.Add(x);
             sp.Children.Add(k);
 
-            string[] schritte = { "Turn on Developer mode", "Click Load unpacked", "Click Select Folder" };
-            string[] hilfe = { "A switch on the extensions page", "Appears once Developer mode is on", "Workbench fills in the folder for you" };
+            string[] schritte = { "Paste into the address bar", "Turn on Developer mode", "Click Load unpacked", "Click Select Folder" };
+            string[] hilfe = { ziel.Seite + " is on your clipboard", "A switch on the extensions page", "Appears once Developer mode is on", "Workbench fills in the folder for you" };
             for (int i = 0; i < schritte.Length; i++)
             {
                 var z = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(2, 3, 0, 3), ToolTip = hilfe[i], Background = Brushes.Transparent };
@@ -311,8 +297,8 @@ namespace Workbench
                 punkte.Add(p); texte.Add(t);
                 sp.Children.Add(z);
             }
-            var pfad = new TextBlock { Text = Browser.Ordner, FontSize = 11, Foreground = Farbe.Text3, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(30, 2, 0, 0), Cursor = System.Windows.Input.Cursors.Hand, ToolTip = "Copy" };
-            pfad.MouseLeftButtonUp += delegate { try { Clipboard.SetText(Browser.Ordner); } catch { } };
+            var pfad = new TextBlock { Text = ziel.Seite, FontSize = 11, Foreground = Farbe.Text3, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(30, 2, 0, 0), Cursor = System.Windows.Input.Cursors.Hand, ToolTip = "Copy" };
+            pfad.MouseLeftButtonUp += delegate { try { Clipboard.SetText(ziel.Seite); } catch { } };
             sp.Children.Add(pfad);
 
             var karte = new Border
@@ -342,7 +328,7 @@ namespace Workbench
             suche.Tick += delegate
             {
                 if ((DateTime.UtcNow - seit).TotalMinutes > 15) { suche.Stop(); return; }
-                if (Browser.PfadEintragen(gesehen)) Schritt(2);
+                if (Browser.PfadEintragen(gesehen, prozess)) Schritt(3);
             };
             suche.Start();
         }
@@ -374,7 +360,7 @@ namespace Workbench
 
         public void Fertig()
         {
-            Schritt(3);
+            Schritt(4);
             kopf.Text = "Connected";
             suche.Stop();
             var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
