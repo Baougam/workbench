@@ -634,6 +634,7 @@ namespace Workbench
         KreisPunkt kreisAn;
         bool kreisGehalten;
         TextBlock kreisName;
+        Border kreisPille;
         string kreisFuer;
 
         const string IkonTropfen = "M12 3.5c3 4 5.5 7 5.5 10a5.5 5.5 0 0 1-11 0c0-3 2.5-6 5.5-10z";
@@ -707,7 +708,7 @@ namespace Workbench
         {
             if (!dinge.ContainsKey(name)) return;
             if (farben) KreisFarben(name); else KreisOeffnen(name, false);
-            if (kreisPunkte != null && kreisPunkte.Count > 1) { kreisAn = kreisPunkte[1]; kreisName.Text = kreisAn.Name; }
+            if (kreisPunkte != null && kreisPunkte.Count > 1) { kreisAn = kreisPunkte[1]; NamePille(kreisAn); }
         }
 
         void KreisOeffnen(string k, bool gehalten)
@@ -778,9 +779,12 @@ namespace Workbench
                 tr.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(m.Y - y, 0, d) { BeginTime = beginn, EasingFunction = ease });
                 g.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(140)) { BeginTime = beginn });
             }
-            kreisName = new TextBlock { FontSize = 11.5, Foreground = Farbe.B("#CCFFFFFF"), IsHitTestVisible = false, TextAlignment = TextAlignment.Center, Width = 140 };
-            Canvas.SetLeft(kreisName, m.X - 70); Canvas.SetTop(kreisName, m.Y + r + 26);
-            kreis.Children.Add(kreisName);
+            // Name als kleine Pille direkt neben dem angepeilten Symbol – nach außen, nie über dem Dateinamen
+            kreisName = new TextBlock { FontSize = 12, Foreground = Farbe.Text, IsHitTestVisible = false };
+            kreisPille = new Border { Child = kreisName, Background = Farbe.B("#F2262A33"), BorderBrush = Farbe.B("#24FFFFFF"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(9, 3, 9, 4), IsHitTestVisible = false, Visibility = Visibility.Collapsed };
+            kreis.Children.Add(kreisPille);
+            // solange der Kreis offen ist, keine Tooltips der Symbole darunter
+            ToolTipService.SetIsEnabled(flaeche, false);
         }
 
         Point kreisMitte;
@@ -808,7 +812,7 @@ namespace Workbench
             if (kreisAn != null) Wachsen(kreisAn, 1);
             kreisAn = naechster;
             if (kreisAn != null) Wachsen(kreisAn, 1.16);
-            kreisName.Text = kreisAn == null ? "" : kreisAn.Name;
+            NamePille(kreisAn);
         }
 
         static void Wachsen(KreisPunkt p, double f)
@@ -826,8 +830,29 @@ namespace Workbench
             tun();
         }
 
+        void NamePille(KreisPunkt p)
+        {
+            if (kreisPille == null) return;
+            if (p == null || string.IsNullOrEmpty(p.Name)) { kreisPille.Visibility = Visibility.Collapsed; return; }
+            kreisName.Text = p.Name;
+            kreisPille.Visibility = Visibility.Visible;
+            kreisPille.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            double w = kreisPille.DesiredSize.Width, h = kreisPille.DesiredSize.Height;
+            double bx = Canvas.GetLeft(p.El) + 20, by = Canvas.GetTop(p.El) + 20;
+            double dx = bx - kreisMitte.X, dy = by - kreisMitte.Y, len = Math.Max(1, Math.Sqrt(dx * dx + dy * dy));
+            double ux = dx / len, uy = dy / len;
+            double x = bx + ux * 30, y = by + uy * 30;
+            // links/rechts vom Symbol ausrichten, oben/unten mittig
+            if (ux > 0.35) x = bx + 26; else if (ux < -0.35) x = bx - 26 - w; else x = bx - w / 2;
+            if (Math.Abs(ux) <= 0.35) y = uy < 0 ? by - 26 - h : by + 26; else y = by - h / 2;
+            x = Math.Max(4, Math.Min(ActualWidth - w - 4, x));
+            y = Math.Max(4, Math.Min(ActualHeight - h - 4, y));
+            Canvas.SetLeft(kreisPille, x); Canvas.SetTop(kreisPille, y);
+        }
+
         void KreisZu()
         {
+            ToolTipService.SetIsEnabled(flaeche, true);
             kreisGehalten = false;
             kreis.ReleaseMouseCapture();
             kreisPunkte = null; kreisAn = null;
