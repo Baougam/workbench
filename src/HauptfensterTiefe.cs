@@ -226,9 +226,15 @@ namespace Workbench
             int nDat = dateienOben.Count(x => Passt(x.Name)) + wurzel0.Mehr;
             double datGewicht = nDat > 0 ? Math.Sqrt(nDat) + 1 : 0;
             var flaeche = new Rect(0, 0, w, h);
-            List<int> starts;
-            if (SeitePasst(ordnerAlle, 0, ordnerAlle.Count, datGewicht, flaeche)) starts = new List<int> { 0 };
-            else { flaeche = new Rect(Rand, 0, Math.Max(200, w - 2 * Rand), h); starts = SeitenStarts(ordnerAlle, datGewicht, flaeche); }
+            // lieber voll als verteilt: erst kleinere Boxen zulassen (aufklappen macht sie groß), höchstens 2 Seiten – 3+ nur im Notfall
+            List<int> starts = null;
+            var innen = new Rect(Rand, 0, Math.Max(200, w - 2 * Rand), h);
+            foreach (var m in Mindest)
+            {
+                if (SeitePasst(ordnerAlle, 0, ordnerAlle.Count, datGewicht, flaeche, m)) { starts = new List<int> { 0 }; break; }
+                var st2 = SeitenStarts(ordnerAlle, datGewicht, innen, m);
+                if (st2.Count <= 2 || m == Mindest[Mindest.Length - 1]) { starts = st2; flaeche = innen; break; }
+            }
             seitenAnzahl = starts.Count;
             int seite; seiteVon.TryGetValue(b.Id, out seite);
             seite = Math.Max(0, Math.Min(seitenAnzahl - 1, seite)); seiteVon[b.Id] = seite;
@@ -285,21 +291,23 @@ namespace Workbench
             }
         }
 
-        const double Rand = 58, MinBreite = 150, MinHoehe = 104;
+        const double Rand = 58;
+        /// <summary>Mindestgröße je Box, von bequem bis knapp (Name + „+N“ passt immer noch).</summary>
+        static readonly Size[] Mindest = { new Size(118, 80), new Size(100, 68), new Size(86, 58), new Size(74, 50) };
 
         /// <summary>Passen diese Ordner (plus Dateigruppe) so, dass jede Box mindestens MinBreite × MinHoehe hat?</summary>
-        static bool SeitePasst(List<TKnoten> ordner, int von, int n, double datGewicht, Rect r)
+        static bool SeitePasst(List<TKnoten> ordner, int von, int n, double datGewicht, Rect r, Size min)
         {
             var g = new List<double>();
             if (datGewicht > 0) g.Add(datGewicht);
             for (int i = von; i < von + n; i++) g.Add(Math.Sqrt(Anzahl(ordner[i])) + 1.5);
             if (g.Count == 0) return true;
-            foreach (var x in Kacheln(g, r)) if (x.Width < MinBreite || x.Height < MinHoehe) return false;
+            foreach (var x in Kacheln(g, r)) if (x.Width < min.Width || x.Height < min.Height) return false;
             return true;
         }
 
         /// <summary>Seitenanfänge: je Seite so viele Ordner wie gut lesbar passen (Halbierungssuche – schnell auch bei 400 Ordnern).</summary>
-        static List<int> SeitenStarts(List<TKnoten> ordner, double datGewicht, Rect r)
+        static List<int> SeitenStarts(List<TKnoten> ordner, double datGewicht, Rect r, Size min)
         {
             var starts = new List<int> { 0 };
             int i = 0;
@@ -307,7 +315,7 @@ namespace Workbench
             {
                 double dg = starts.Count == 1 ? datGewicht : 0;
                 int lo = 1, hi = ordner.Count - i;
-                while (lo < hi) { int mid = (lo + hi + 1) / 2; if (SeitePasst(ordner, i, mid, dg, r)) lo = mid; else hi = mid - 1; }
+                while (lo < hi) { int mid = (lo + hi + 1) / 2; if (SeitePasst(ordner, i, mid, dg, r, min)) lo = mid; else hi = mid - 1; }
                 i += lo;
                 if (i < ordner.Count) starts.Add(i);
             }

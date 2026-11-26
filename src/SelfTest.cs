@@ -420,11 +420,11 @@ namespace Workbench
 
                 Blaetter.D = Blaetter.Standard(false);
                 var viele = new List<string>();
-                for (int i = 0; i < 80; i++) { string d = Path.Combine(Paths.Dauerhaft, "Viele " + i.ToString("00")); Directory.CreateDirectory(d); File.WriteAllText(Path.Combine(d, "f" + i + ".txt"), "x"); viele.Add(d); }
+                for (int i = 0; i < 300; i++) { string d = Path.Combine(Paths.Dauerhaft, "Viele " + i.ToString("000")); Directory.CreateDirectory(d); File.WriteAllText(Path.Combine(d, "f" + i + ".txt"), "x"); viele.Add(d); }
                 var w = new Hauptfenster(E, 1, true);
                 w.Wurzel.Measure(new Size(1060, 700)); w.Wurzel.Arrange(new Rect(0, 0, 1060, 700));
                 w.TiefeAendern(1);
-                string erste = Path.Combine(viele[0], "f0.txt"), letzte = Path.Combine(viele[79], "f79.txt");
+                string erste = Path.Combine(viele[0], "f0.txt"), letzte = Path.Combine(viele[299], "f299.txt");
                 Pumpen(1500, () => w.SymboleTest.ContainsKey(erste));
                 Ok(w.SymboleTest.ContainsKey(erste) && !w.SymboleTest.ContainsKey(letzte), "Volle Ebene: erste Seite zeigt nur, was gut lesbar passt");
                 bool weiter = false;

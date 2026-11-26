@@ -189,7 +189,7 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
   (max. 60 Stände) und beim ersten Bedarf geladen. Gemerktes gilt sofort als Platzhalter, wird still nachgelesen; neu
   gezeichnet wird nur, wenn sich wirklich etwas geändert hat (`Zeichen`-Vergleich). `TiefeVergessen` leert nicht mehr,
   sondern markiert nur „nachsehen“.
-- **Seiten**: erst wenn eine Box kleiner als 150×104 px würde (`SeitePasst`, Halbierungssuche `SeitenStarts`). Dann eigener Randstreifen (58 px) für einen deutlichen Bernstein-Pfeil mit „+N“; beim ersten Erscheinen je Ebene stupst er zweimal nach rechts, danach still. Unten Punkte.
+- **Seiten**: lieber voll als verteilt (Wunsch). Mindestgrößen-Stufen `Mindest` 118×80 → 74×50: die erste Stufe, bei der alles auf eine Seite oder höchstens 2 Seiten passt, gilt; 3+ Seiten nur bei der kleinsten Stufe (`SeitePasst`, Halbierungssuche `SeitenStarts`). Dann eigener Randstreifen (58 px) für einen deutlichen Bernstein-Pfeil mit „+N“; beim ersten Erscheinen je Ebene stupst er zweimal nach rechts, danach still. Unten Punkte.
   ←/→ und Wischen seitlich blättern in der Tiefe (`SeiteWechseln`), sonst wie bisher zurück/vor. Oberste Ebene liest bis 400 Ordner.
 - **Update per Klick** (`src/Update.cs`): prüft VERSION auf GitHub (≤ 1×/20 h), lädt die neue exe still nach
   `%LOCALAPPDATA%\Workbench\Workbench.neu.exe` (Prüfung MZ + Größe). Erst dann erscheint „update x.y“ unten rechts.
