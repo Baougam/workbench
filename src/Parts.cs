@@ -24,7 +24,16 @@ namespace Workbench
         static readonly LinkedList<string> cacheReihe = new LinkedList<string>();
         static readonly Dictionary<string, LinkedListNode<string>> cacheKnoten = new Dictionary<string, LinkedListNode<string>>();
         static Thread[] arbeiter;
-        const int CacheMax = 900;
+        const int CacheMax = 3000;                       // Einträge (auch „kein Bild“ zählt, kostet aber nichts)
+        const long WarmMax = 14L << 20, KaltMax = 10L << 20;   // entpackt höchstens 14 MB, gepackt höchstens 10 MB
+        static long warmBytes, kaltBytes;
+        static readonly Dictionary<string, byte[]> kalt = new Dictionary<string, byte[]>();
+        static readonly LinkedList<string> kaltReihe = new LinkedList<string>();
+
+        /// <summary>Bildschirm-Skalierung (1 = 100 %, 1,5 = 150 %): Vorschaubilder genau so groß laden, wie sie gezeigt werden.</summary>
+        public static double Skala = 1.5;
+
+        static long Bytes(BitmapSource b) { return b == null ? 0 : (long)b.PixelWidth * b.PixelHeight * 4; }
 
         /// <summary>Schlüssel ohne Dateizugriff (früher: eine Windows-Abfrage je Symbol mitten im Aufbau). Geprüft wird still im Hintergrund.</summary>
         static string Schluessel(string pfad, int px) { return pfad.ToLowerInvariant() + "|" + px; }
@@ -66,13 +75,86 @@ namespace Workbench
 
         static bool AusCache(string k, out BitmapSource bs)
         {
+            byte[] png = null;
             lock (cache)
             {
-                if (!cache.TryGetValue(k, out bs)) return false;
-                LinkedListNode<string> n;
-                if (cacheKnoten.TryGetValue(k, out n)) { cacheReihe.Remove(n); cacheReihe.AddLast(n); }
+                if (cache.TryGetValue(k, out bs))
+                {
+                    LinkedListNode<string> n;
+                    if (cacheKnoten.TryGetValue(k, out n)) { cacheReihe.Remove(n); cacheReihe.AddLast(n); }
+                    return true;
+                }
+                if (kalt.TryGetValue(k, out png)) { kalt.Remove(k); kaltReihe.Remove(k); kaltBytes -= png.Length; }
+            }
+            if (png == null) return false;
+            // aus dem gepackten Vorrat: winziges Bild, in Bruchteilen einer Millisekunde entpackt
+            try
+            {
+                var bi = new BitmapImage();
+                bi.BeginInit(); bi.CacheOption = BitmapCacheOption.OnLoad; bi.StreamSource = new MemoryStream(png); bi.EndInit(); bi.Freeze();
+                bs = bi;
+                long t; lock (cache) cacheZeit.TryGetValue(k, out t);
+                Einlagern(k, bs, t);
                 return true;
             }
+            catch { return false; }
+        }
+
+        /// <summary>Entpackt merken; was zu viel wird, wandert gepackt (PNG, ≈ 5–10× kleiner) in den kalten Vorrat – nicht weg.</summary>
+        static void Einlagern(string k, BitmapSource b, long t)
+        {
+            var raus = new List<KeyValuePair<string, BitmapSource>>();
+            lock (cache)
+            {
+                if (cache.ContainsKey(k)) Vergessen(k);
+                cache[k] = b; cacheZeit[k] = t; warmBytes += Bytes(b);
+                cacheKnoten[k] = cacheReihe.AddLast(k);
+                while ((warmBytes > WarmMax || cache.Count > CacheMax) && cacheReihe.First != null)
+                {
+                    string alt = cacheReihe.First.Value;
+                    BitmapSource ab; cache.TryGetValue(alt, out ab);
+                    if (ab != null) raus.Add(new KeyValuePair<string, BitmapSource>(alt, ab));
+                    long tz; cacheZeit.TryGetValue(alt, out tz);
+                    Vergessen(alt);
+                    cacheZeit[alt] = tz;   // Zeit für den kalten Vorrat behalten
+                }
+            }
+            if (raus.Count > 0) Auftrag(() => { foreach (var kv in raus) Packen(kv.Key, kv.Value); });   // packen nie auf der Oberfläche
+        }
+
+        static void Packen(string k, BitmapSource b)
+        {
+            try
+            {
+                var enc = new PngBitmapEncoder();
+                enc.Frames.Add(BitmapFrame.Create(b));
+                byte[] png;
+                using (var ms = new MemoryStream()) { enc.Save(ms); png = ms.ToArray(); }
+                lock (cache)
+                {
+                    if (cache.ContainsKey(k) || kalt.ContainsKey(k)) return;
+                    kalt[k] = png; kaltReihe.AddLast(k); kaltBytes += png.Length;
+                    while (kaltBytes > KaltMax && kaltReihe.First != null)
+                    {
+                        string alt = kaltReihe.First.Value; kaltReihe.RemoveFirst();
+                        byte[] ap; if (kalt.TryGetValue(alt, out ap)) { kaltBytes -= ap.Length; kalt.Remove(alt); cacheZeit.Remove(alt); }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>Fenster länger versteckt: entpackte Bilder freigeben (der gepackte Vorrat bleibt – beim Öffnen sofort wieder da).</summary>
+        public static void Ruhen()
+        {
+            var raus = new List<KeyValuePair<string, BitmapSource>>();
+            lock (cache)
+            {
+                foreach (var kv in cache) if (kv.Value != null) raus.Add(kv);
+                foreach (var kv in raus) { long tz; cacheZeit.TryGetValue(kv.Key, out tz); Vergessen(kv.Key); cacheZeit[kv.Key] = tz; }
+            }
+            if (raus.Count > 0) Auftrag(() => { foreach (var kv in raus) Packen(kv.Key, kv.Value); });
+            lock (grau) grau.Clear();
         }
 
         /// <summary>Still im Hintergrund: hat sich die Datei seit dem Laden geändert, wird das Bild beim nächsten Mal neu geholt.</summary>
@@ -83,12 +165,14 @@ namespace Workbench
             {
                 long t = 0;
                 try { t = File.GetLastWriteTimeUtc(pfad).Ticks; } catch { }
-                lock (cache) { long alt; if (cacheZeit.TryGetValue(k, out alt) && alt != t) Vergessen(k); }
+                lock (cache) { long alt; if (cacheZeit.TryGetValue(k, out alt) && alt != t) { Vergessen(k); byte[] p; if (kalt.TryGetValue(k, out p)) { kalt.Remove(k); kaltReihe.Remove(k); kaltBytes -= p.Length; } } }
             });
         }
 
         static void Vergessen(string k)
         {
+            BitmapSource b;
+            if (cache.TryGetValue(k, out b)) warmBytes -= Bytes(b);
             cache.Remove(k); cacheZeit.Remove(k);
             LinkedListNode<string> n;
             if (cacheKnoten.TryGetValue(k, out n)) { cacheReihe.Remove(n); cacheKnoten.Remove(k); }
@@ -114,13 +198,7 @@ namespace Workbench
         {
             long t = 0;
             if (pfad != null) try { t = File.GetLastWriteTimeUtc(pfad).Ticks; } catch { }
-            lock (cache)
-            {
-                if (cache.ContainsKey(k)) Vergessen(k);
-                cache[k] = b; cacheZeit[k] = t;
-                cacheKnoten[k] = cacheReihe.AddLast(k);
-                while (cache.Count > CacheMax && cacheReihe.First != null) Vergessen(cacheReihe.First.Value);
-            }
+            Einlagern(k, b, t);
         }
 
         static readonly object startSperre = new object();
@@ -170,7 +248,7 @@ namespace Workbench
                 g.Children.Add(o);
                 return g;
             }
-            int px = (int)Math.Ceiling(Math.Max(breite, hoehe) * 2);
+            int px = (int)Math.Ceiling(Math.Max(breite, hoehe) * Skala);
             // schon geladen? Dann sofort zeigen – kein Platzhalter, kein Überblenden, nichts springt.
             BitmapSource fertigesBild;
             string fk = Schluessel(pfad, px) + (nurSymbol ? "|s" : "");
@@ -209,7 +287,7 @@ namespace Workbench
             var marke = Glyphe(pfad, Math.Round(groesse * 0.78), groesse * 0.94, false, false);
             marke.HorizontalAlignment = HorizontalAlignment.Center; marke.VerticalAlignment = VerticalAlignment.Center;
             g.Children.Add(marke);
-            int px = (int)Math.Ceiling(groesse * 2);
+            int px = (int)Math.Ceiling(groesse * Skala);
             string k = Schluessel(pfad, px) + "|t";
             Action<BitmapSource> setzen = bs =>
             {
@@ -259,7 +337,7 @@ namespace Workbench
             {
                 var rahmen = new Border { Width = b, Height = b, CornerRadius = new CornerRadius(10), Background = Farbe.B("#1AFFFFFF"), VerticalAlignment = VerticalAlignment.Center, BorderBrush = Farbe.B("#26FFFFFF"), BorderThickness = new Thickness(1) };
                 g.Children.Add(rahmen);
-                Laden(pfad, (int)(b * 2), false, bs => { if (bs != null) rahmen.Background = new ImageBrush(bs) { Stretch = Stretch.UniformToFill }; });
+                Laden(pfad, (int)Math.Ceiling(b * Skala), false, bs => { if (bs != null) rahmen.Background = new ImageBrush(bs) { Stretch = Stretch.UniformToFill }; });
                 return g;
             }
             var form = Form(b, h);

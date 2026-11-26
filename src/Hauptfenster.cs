@@ -159,6 +159,9 @@ namespace Workbench
                 PreviewMouseWheel += Rad;
                 TextInput += Tippen;
                 IsVisibleChanged += delegate { if (IsVisible && veraltet) Neuzeichnen(); };
+                RuheBeobachten();
+                Loaded += delegate { try { Vorschau.Skala = Math.Max(1, VisualTreeHelper.GetDpi(this).DpiScaleX); } catch { } };
+                DpiChanged += (s, a) => { Vorschau.Skala = Math.Max(1, a.NewDpi.DpiScaleX); };
                 Loaded += delegate { KorbLesen(); };
                 buehne.MouseLeftButtonDown += (s, a) =>
                 {

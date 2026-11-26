@@ -98,7 +98,7 @@ namespace Workbench
                 Zeit = DateTime.UtcNow, Geaendert = ge, Stand = datenStand, Tief = tief
             };
             Vorn(key);
-            while (gebautReihe.Count > 8) { gebaut.Remove(gebautReihe[0]); gebautReihe.RemoveAt(0); }
+            while (gebautReihe.Count > 5) { gebaut.Remove(gebautReihe[0]); gebautReihe.RemoveAt(0); }
         }
 
         void Vorn(string key) { gebautReihe.Remove(key); gebautReihe.Add(key); }
@@ -120,6 +120,35 @@ namespace Workbench
             foreach (var kv in g.Sym) symbole[kv.Key] = kv.Value;
             aktuellerTisch = g.Tisch; tiefenAnzeige = g.TiefAnz; seitenAnzahl = g.Seiten; spaltenJetzt = g.Spalten;
             letzteBoxen.Clear();
+        }
+
+        // ---------- Ruhe: länger versteckt → Speicher an Windows (und das Spiel) zurückgeben ----------
+
+        DispatcherTimer ruheUhr;
+        [System.Runtime.InteropServices.DllImport("kernel32.dll")] static extern bool SetProcessWorkingSetSize(IntPtr p, IntPtr min, IntPtr max);
+
+        void RuheBeobachten()
+        {
+            if (bild) return;
+            ruheUhr = new DispatcherTimer { Interval = TimeSpan.FromSeconds(90) };
+            ruheUhr.Tick += delegate { ruheUhr.Stop(); if (!IsVisible) Ruhen(); };
+            IsVisibleChanged += delegate { if (IsVisible) ruheUhr.Stop(); else { ruheUhr.Stop(); ruheUhr.Start(); } };
+        }
+
+        /// <summary>
+        /// Nach 90 s unsichtbar: fertige Ansichten und entpackte Bilder weg (gepackter Vorrat, gelesene Ordner und Ebenen bleiben),
+        /// .NET räumt einmal gründlich auf, Windows bekommt den freien Arbeitsspeicher zurück. Einmalig, danach wieder Stille.
+        /// </summary>
+        void Ruhen()
+        {
+            gebaut.Clear(); gebautReihe.Clear(); angezeigt = null;
+            // die gerade sichtbare Ansicht bleibt stehen – Öffnen ist dann sofort da, ohne leeren Moment
+            Vorschau.Ruhen();
+            System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
+            GC.Collect(2, GCCollectionMode.Forced, true, true);
+            GC.WaitForPendingFinalizers();
+            try { SetProcessWorkingSetSize(System.Diagnostics.Process.GetCurrentProcess().Handle, new IntPtr(-1), new IntPtr(-1)); } catch { }
+            Log.Info("Ruhe: Speicher freigegeben");
         }
 
         /// <summary>Etwas hat sich geändert (Dateien, Fristen …): alles Vorgebaute verwerfen.</summary>

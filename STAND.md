@@ -220,3 +220,11 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 - **Übergang auf der Grafikkarte**: alte und neue Ansicht während der Bewegung mit `BitmapCache`, danach wieder scharf.
 - **Wähler baut vor**: hält man im Stufen-Wähler kurz auf einer Ebene (90 ms), wird sie unsichtbar fertig gebaut (`StufenVorbauen`); kommt das Lesen später, wird nach dem Lesen gebaut. Loslassen = nur einsetzen.
 - Leerlauf: 0,01 % CPU, 49 MB.
+
+## Speicher sparen ohne spürbaren Unterschied (2026-11-27)
+
+- Vorschaubilder in **zwei Stufen**: warm (entpackt, höchstens 14 MB, LRU nach Bytes) und kalt (gepackt als PNG, höchstens 10 MB). Was aus warm fällt, wird im Hintergrund gepackt statt verworfen; ein kalter Treffer wird in Bruchteilen einer Millisekunde entpackt.
+- Vorschaubilder in **echter Bildschirm-Skalierung** (`Vorschau.Skala` aus DPI) statt immer doppelt.
+- Gemerkte fertige Ansichten: höchstens 5 statt 8.
+- **Ruhe**: 90 s unsichtbar → gemerkte Ansichten und entpackte Bilder frei (gepackter Vorrat, gelesene Ordner und Ebenen bleiben), einmal gründlich aufräumen (GC mit LOH-Verdichtung), Arbeitsspeicher an Windows zurück. Die gerade sichtbare Ansicht bleibt stehen, Öffnen bleibt sofort.
+- Prototyp 3D-Raumansicht (drei Varianten) als Artifact: https://claude.ai/artifact/K2y1jamkVrQvo5F9YS1qfh – Entscheidung offen.
