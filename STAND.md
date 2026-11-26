@@ -200,3 +200,5 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 - **Einrasten** (2026-11-26): Touchpad/Zusammenziehen (Delta < 120 oder Strg) – nach jedem Ebenenschritt 230 ms Rast (`stufenRast`), Schwelle 120. Platte blitzt (StrokeThickness) und Zahl federt beim Einrasten. Mausrad-Rasten unverändert.
 - **Leiste links**: beim Darüberfahren erscheinen I, II, III neben den Strichen, Klick springt direkt (auch mehrere Ebenen).
 - **Suche**: Kreuz rechts im Feld, sobald Text drin ist – leert und behält den Fokus.
+
+- **Zoom-Umbau zurückgenommen** (Nutzer: Modell in der Mitte war klarer, Übergänge wurden unruhig). Stand wieder: Stufen-Wähler + Einrasten + Umschalt+Rad = Tiefe.
