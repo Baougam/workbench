@@ -153,7 +153,10 @@ namespace Workbench
         /// Workbench-eigenes Datei-Zeichen für die Karte: ruhiges Dokument mit Eselsohr in der Farbe des Typs und der Endung –
         /// statt des Symbols der App, mit der die Datei geöffnet wird. Bilder und Videos zeigen ihr echtes Vorschaubild.
         /// </summary>
-        public static FrameworkElement Glyphe(string pfad, double b, double h)
+        public static FrameworkElement Glyphe(string pfad, double b, double h) { return Glyphe(pfad, b, h, false); }
+
+        /// <summary>nurMarke: auch bei Bildern kein Vorschaubild laden (Cloud: nie etwas herunterladen; kleine Symbole: schnell).</summary>
+        public static FrameworkElement Glyphe(string pfad, double b, double h, bool nurMarke)
         {
             var g = new Grid { Width = b, Height = h };
             if (Directory.Exists(pfad))
@@ -164,7 +167,7 @@ namespace Workbench
                 return g;
             }
             string ext = Path.GetExtension(pfad).ToLowerInvariant();
-            if (Array.IndexOf(bildEndungen, ext) >= 0)
+            if (!nurMarke && Array.IndexOf(bildEndungen, ext) >= 0)
             {
                 var rahmen = new Border { Width = b, Height = b, CornerRadius = new CornerRadius(10), Background = Farbe.B("#1AFFFFFF"), VerticalAlignment = VerticalAlignment.Center, BorderBrush = Farbe.B("#26FFFFFF"), BorderThickness = new Thickness(1) };
                 g.Children.Add(rahmen);

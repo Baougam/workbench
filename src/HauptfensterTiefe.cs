@@ -202,7 +202,7 @@ namespace Workbench
 
         readonly Dictionary<string, string> offenVon = new Dictionary<string, string>();   // Blatt → ausgefahrener Ordner
         readonly Dictionary<string, Rect> letzteBoxen = new Dictionary<string, Rect>(StringComparer.OrdinalIgnoreCase);
-        Size tiefeGroesse;
+        Size tiefeGroesse, tiefeGemessen;
 
         /// <summary>
         /// Die aufgeklappte Fläche: jeder Ordner eine Box, zusammen genau so groß wie das Blatt (Kacheln nach Inhalt gewichtet).
@@ -220,12 +220,19 @@ namespace Workbench
                 return huelle;
             }
             tiefeMax[b.Id] = Math.Max(tiefe + (st.Tiefer ? 1 : 0), tiefe);
-            double w = buehne.ActualWidth > 100 ? buehne.ActualWidth - 30 : 1000, h = buehne.ActualHeight > 100 ? buehne.ActualHeight - 30 : 620;
+            double w = tiefeGemessen.Width > 100 ? tiefeGemessen.Width : (buehne.ActualWidth > 100 ? buehne.ActualWidth - 30 : 1000);
+            double h = tiefeGemessen.Height > 100 ? tiefeGemessen.Height : (buehne.ActualHeight > 100 ? buehne.ActualHeight - 30 : 620);
             tiefeGroesse = new Size(w, h);
             var c = new Canvas { Width = w, Height = h, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(14, 2, 0, 0) };
             huelle.Children.Add(c);
             // einmal nachmessen, falls Leisten Platz nehmen
-            if (!bild) huelle.SizeChanged += (s, a) => { if (Math.Abs(a.NewSize.Width - 14 - w) > 24 || Math.Abs(a.NewSize.Height - 2 - h) > 24) { buehne.Dispatcher.BeginInvoke(new Action(() => { if (ImOrdner && Tiefe(Akt) > 0) Neuzeichnen(); })); } };
+            if (!bild) huelle.SizeChanged += (s, a) =>
+            {
+                var echt = new Size(Math.Max(100, a.NewSize.Width - 18), Math.Max(100, a.NewSize.Height - 6));
+                if (Math.Abs(echt.Width - w) < 24 && Math.Abs(echt.Height - h) < 24) return;   // passt – nichts tun (keine Schleife)
+                tiefeGemessen = echt;
+                buehne.Dispatcher.BeginInvoke(new Action(() => { if (ImOrdner && Tiefe(Akt) > 0) Neuzeichnen(); }));
+            };
             string offen; offenVon.TryGetValue(b.Id, out offen);
             var neu = new Dictionary<string, Rect>(StringComparer.OrdinalIgnoreCase);
             Fuellen(b, st.Wurzel, c, new Rect(0, 0, w, h), 0, offen, neu, true);
@@ -357,7 +364,7 @@ namespace Workbench
         {
             var k = new Border { Width = breite - 2, Padding = new Thickness(1, 2, 1, 2), CornerRadius = new CornerRadius(7), Background = Brushes.Transparent, BorderBrush = Brushes.Transparent, BorderThickness = new Thickness(1), ToolTip = System.IO.Path.GetFileName(p) };
             var st = new StackPanel();
-            var bildEl = (cloud || s < 34) && !Directory.Exists(p) ? Vorschau.Glyphe(p, Math.Round(s * 0.78), s * 0.94) : Vorschau.Echt(p, s);   // klein = schnelle Typ-Marke
+            var bildEl = (cloud || s < 34) && !Directory.Exists(p) ? Vorschau.Glyphe(p, Math.Round(s * 0.78), s * 0.94, true) : Vorschau.Echt(p, s);   // klein = schnelle Typ-Marke
             bildEl.HorizontalAlignment = HorizontalAlignment.Center;
             st.Children.Add(bildEl);
             if (name) st.Children.Add(new TextBlock { Text = System.IO.Path.GetFileNameWithoutExtension(p), FontSize = 10, Foreground = Farbe.B("#A6FFFFFF"), TextTrimming = TextTrimming.CharacterEllipsis, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 3, 0, 0) });
