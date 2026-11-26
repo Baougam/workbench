@@ -130,7 +130,7 @@ namespace Workbench
                 var namen = new List<string>(); var ziele = new List<int>();
                 var wolke = Cloud.Aktuell(E.Cfg);
                 for (int i = 0; i < Blaetter.Liste.Count; i++)
-                    if (Blaetter.Liste[i].Art != "empty") { namen.Add(Blaetter.NameVon(Blaetter.Liste[i], wolke)); ziele.Add(i); }
+                    { namen.Add(Blaetter.NameVon(Blaetter.Liste[i], wolke)); ziele.Add(i); }
                 namen.Add("Graph"); ziele.Add(Hauptfenster.Netzansicht);
                 for (int i = 0; i < namen.Count; i++)
                     jl.JumpItems.Add(new System.Windows.Shell.JumpTask { Title = namen[i], Arguments = "--zeige " + ziele[i], ApplicationPath = exe, IconResourcePath = exe, IconResourceIndex = 0 });

@@ -171,3 +171,4 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 - Mac (2026-11-26): `mac/Sources/Sheets.swift` (Sheet-Modell `sheets.json`, RecentFiles über Spotlight, RailTile, SheetReorder,
   NewSheetView, BoardView, Bar/BarItem/WithBars); `MainModel` jetzt `sheet` (Index) + `settings`; Ordner-Verlauf je Sheet-Id.
   Reiter ziehen = umsortieren, Rechtsklick = entfernen. Nur per CI kompiliert, ungetestet. Netz gibt es auf dem Mac weiterhin nicht.
+- Home (2026-11-26, Nutzerwunsch): Art `home` mit `Module` (recent, shelf, expiring, downloads, screens, folder, note), `src/HauptfensterHome.cs`. + fächert sich in Bausteine auf; Bausteine ziehen = umsortieren, Rechtsklick = Wide/Narrow, Choose folder, Remove. Das + der Schiene öffnet direkt die Blatt-Arten (Home, Desktop, Folder, Board, Screenshots, Cloud) – kein leeres Zwischenblatt mehr; alte `empty` werden zu `home` (Version 3).

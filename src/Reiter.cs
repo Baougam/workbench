@@ -19,6 +19,9 @@ namespace Workbench
         public const string Board = "M5.5 5.5h5v5h-5zM13.5 5.5h5v5h-5zM5.5 13.5h5v5h-5zM13.5 13.5h5v5h-5z";
         public const string Ausschnitt = "M5 9.5V5h4.5M14.5 5H19v4.5M19 14.5V19h-4.5M9.5 19H5v-4.5";
         public const string Plus = "M12 6.5v11M6.5 12h11";
+        public const string Haus = "M4.5 11.5L12 5l7.5 6.5M6.5 10v8.5h11V10";
+        public const string Notiz = "M6.5 4.5h11v15h-11zM9.5 9h5M9.5 12.5h5M9.5 16h3";
+        public const string Download = "M12 4.5v10M8 11l4 4 4-4M5.5 19h13";
         public const string Ablage = "M4 13.5h4.5l1.5 2.5h4l1.5-2.5H20M4 13.5l2.2-6.5h11.6l2.2 6.5V18H4z";
 
         public static string Fuer(BlattDef b)
@@ -29,7 +32,8 @@ namespace Workbench
                 case "temp": return Sanduhr;
                 case "cloud": return Wolke;
                 case "board": return Board;
-                case "empty": return Plus;
+                case "empty": return Haus;
+                case "home": return Haus;
             }
             if (!string.IsNullOrEmpty(b.Symbol)) return b.Symbol;
             return Ordner;

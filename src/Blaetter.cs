@@ -20,6 +20,17 @@ namespace Workbench
         public string Symbol = "";                          // Ikon für das Blatt in der Schiene (leer = nach Art)
         public List<string> Leisten = new List<string>();   // „recent@top“, „shelf@bottom“ …
         public List<string> Inhalt = new List<string>();    // nur Board: Pfade
+        public List<Modul> Module = new List<Modul>();      // nur Home: Bausteine in Reihenfolge
+    }
+
+    /// <summary>Ein Baustein auf Home: recent, shelf, expiring, downloads, screens, folder (Pfad), note (Text).</summary>
+    public class Modul
+    {
+        public string Id = Guid.NewGuid().ToString("N").Substring(0, 8);
+        public string Art = "";
+        public string Pfad = "";
+        public string Text = "";
+        public bool Breit;
     }
 
     public class BlaetterDaten
@@ -52,9 +63,9 @@ namespace Workbench
                     if (D != null && D.Liste != null && D.Liste.Count > 0)
                     {
                         if (D.Ablage == null) D.Ablage = new List<string>();
-                        foreach (var b in D.Liste) { if (b.Leisten == null) b.Leisten = new List<string>(); if (b.Inhalt == null) b.Inhalt = new List<string>(); }
+                        foreach (var b in D.Liste) { if (b.Leisten == null) b.Leisten = new List<string>(); if (b.Inhalt == null) b.Inhalt = new List<string>(); if (b.Module == null) b.Module = new List<Modul>(); }
                         if (!D.Liste.Any(b => b.Art == "temp")) D.Liste.Insert(0, new BlattDef { Art = "temp", Name = "Expiring" });
-                        if (D.Version < 2) Umstellen();
+                        if (D.Version < 3) Umstellen();
                         return;
                     }
                 }
@@ -79,9 +90,9 @@ namespace Workbench
         /// <summary>Neu: Expiring und ein leeres Blatt in der Mitte. Bisher: die alten drei Ebenen bleiben, wie sie waren.</summary>
         public static BlaetterDaten Standard(bool neu)
         {
-            var d = new BlaetterDaten { Version = 2 };
+            var d = new BlaetterDaten { Version = 3 };
             d.Liste.Add(new BlattDef { Art = "temp", Name = "Expiring" });
-            if (neu) d.Liste.Add(new BlattDef { Art = "empty" });
+            if (neu) d.Liste.Add(new BlattDef { Art = "home", Name = "Home" });
             else
             {
                 d.Liste.Add(new BlattDef { Art = "folder", Pfad = Paths.Dauerhaft, Name = "Permanent" });
@@ -96,13 +107,15 @@ namespace Workbench
         /// </summary>
         static void Umstellen()
         {
-            D.Version = 2;
-            foreach (var b in D.Liste)
-            {
-                if (b.Art != "folder" || !Paths.Gleich(b.Pfad, Paths.Dauerhaft) || b.Leisten.Count > 0 || Bisher()) continue;
-                b.Art = "empty"; b.Pfad = ""; b.Name = ""; b.Symbol = "";
-                Frisch = true;
-            }
+            if (D.Version < 2)
+                foreach (var b in D.Liste)
+                {
+                    if (b.Art != "folder" || !Paths.Gleich(b.Pfad, Paths.Dauerhaft) || b.Leisten.Count > 0 || Bisher()) continue;
+                    b.Art = "empty"; b.Pfad = ""; b.Name = ""; b.Symbol = "";
+                }
+            // 3: das leere + wird zu Home (die Art des Blattes wählt man jetzt direkt am + der Schiene)
+            foreach (var b in D.Liste) if (b.Art == "empty") { b.Art = "home"; b.Name = "Home"; }
+            D.Version = 3;
             Speichern();
         }
 
@@ -137,7 +150,7 @@ namespace Workbench
         {
             if (b == null) return "";
             if (b.Art == "temp") return "Expiring";
-            if (b.Art == "empty") return "New sheet";
+            if (b.Art == "empty" || b.Art == "home") return "Home";
             if (b.Art == "board") return string.IsNullOrEmpty(b.Name) ? "Board" : b.Name;
             if (b.Art == "cloud" && string.IsNullOrEmpty(b.Pfad)) return wolke != null ? wolke.Name : "Cloud";
             if (!string.IsNullOrEmpty(b.Name)) return b.Name;

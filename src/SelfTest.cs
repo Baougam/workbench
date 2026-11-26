@@ -301,12 +301,21 @@ namespace Workbench
                 var w = new Hauptfenster(E, 0, true);
                 w.Wurzel.Measure(new Size(1060, 700)); w.Wurzel.Arrange(new Rect(0, 0, 1060, 700));
                 int bVorher = Blaetter.Liste.Count;
-                w.BlattNeu();
-                Ok(Blaetter.Liste.Count == bVorher + 1 && Blaetter.Liste.Last().Art == "empty" && w.Ansicht == bVorher, "+ legt ein leeres Blatt an und zeigt es");
-                w.BlattNeu();
-                Ok(Blaetter.Liste.Count == bVorher + 1, "ein zweites leeres Blatt gibt es nicht");
+                w.BlattHinzu(new BlattDef { Art = "board", Name = "Board" });
+                Ok(Blaetter.Liste.Count == bVorher + 1 && Blaetter.Liste.Last().Art == "board" && w.Ansicht == bVorher, "+ legt das gewählte Blatt direkt an und zeigt es");
                 var bb = Blaetter.Liste.Last();
-                w.Waehlen(bb, "board", "", "Board", "");
+                // Home mit Bausteinen
+                var home = new BlattDef { Art = "home", Name = "Home" };
+                w.BlattHinzu(home);
+                foreach (var art in new[] { "recent", "shelf", "expiring", "downloads", "screens", "note" }) w.ModulNeu(home, art);
+                home.Module.Last().Text = "hello";
+                w.Wurzel.UpdateLayout();
+                Ok(home.Module.Count == 6 && home.Module[0].Breit, "Home nimmt Bausteine auf");
+                Blaetter.Speichern(); Blaetter.Laden();
+                var home2 = Blaetter.Liste.First(x => x.Id == home.Id);
+                Ok(home2.Module.Count == 6 && home2.Module.Last().Text == "hello", "Bausteine und Notiz überstehen Neustart");
+                home = home2; bb = Blaetter.Liste.First(x => x.Id == bb.Id);
+                w.BlattWeg(Blaetter.Liste.IndexOf(home));
                 string a1 = Path.Combine(Paths.Daten, "board-a.txt"), a2 = Path.Combine(Paths.Downloads, "board-b.txt");
                 File.WriteAllText(a1, "a"); File.WriteAllText(a2, "b");
                 w.BoardHinzu(bb, new[] { a1, a2, a1 });
@@ -476,8 +485,16 @@ namespace Workbench
                 // neues Blatt (+ aufgefächert), Blatt mit Leisten, Board
                 var w = new Hauptfenster(E, 0, true);
                 w.KorbFuerBild(korb);
-                w.BlattNeu();
+                var home = new BlattDef { Art = "home", Name = "Home" };
+                w.BlattHinzu(home);
                 Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "12-neu.png"));
+                Blaetter.Parken(E.S.D.Eintraege.Select(x => x.Pfad).Where(File.Exists).Take(3).ToList());
+                foreach (var art in new[] { "recent", "expiring", "note", "shelf", "downloads" }) w.ModulNeu(home, art);
+                home.Module[2].Text = "Call the landlord\nSend the invoice";
+                w.Zeige(Blaetter.Liste.IndexOf(home));
+                Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "12b-home.png"));
+                w.BlattWeg(Blaetter.Liste.IndexOf(home));
+                w.BlattHinzu(new BlattDef { Art = "empty" });
                 var dh = Blaetter.Liste[1];
                 Blaetter.LeisteSetzen(dh, "recent", "top");
                 Blaetter.LeisteSetzen(dh, "shelf", "bottom");

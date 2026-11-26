@@ -31,7 +31,6 @@ namespace Workbench
         public static int StartAnsicht()
         {
             int m = Blaetter.Mitte;
-            if (Blaetter.Liste[m].Art == "empty" && !Blaetter.Frisch) return Befristet;
             return m;
         }
 
@@ -81,7 +80,7 @@ namespace Workbench
             reiter.Clear();
             plusReiter = null;
             var l = Blaetter.Liste;
-            bool plus = l.Count < Blaetter.Max && !l.Any(b => b.Art == "empty");
+            bool plus = l.Count < Blaetter.Max;
             regler.Height = 32 + (l.Count - 1 + (plus ? 1 : 0)) * Abstand;
             for (int i = 0; i < l.Count; i++)
             {
@@ -128,7 +127,7 @@ namespace Workbench
                 var pk = new Button { Style = (Style)Application.Current.FindResource("Leer"), Width = 52, Height = 32, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, l.Count * Abstand, 0, 0), ToolTip = "New sheet" };
                 ToolTipService.SetPlacement(pk, PlacementMode.Right);
                 ToolTipService.SetInitialShowDelay(pk, 300);
-                pk.Click += delegate { BlattNeu(); };
+                pk.Click += delegate { BlattMenue(pk); };
                 pk.MouseEnter += delegate { if (plusReiter != null) plusReiter.Ueber = true; };
                 pk.MouseLeave += delegate { if (plusReiter != null) plusReiter.Ueber = false; };
                 regler.Children.Add(pk);
@@ -317,9 +316,9 @@ namespace Workbench
             FrameworkElement v;
             if (b.Art == "temp") v = FlaecheBefristet();
             else if (b.Art == "board") v = FlaecheBoard(b);
-            else if (b.Art == "empty") v = FlaecheNeu(b);
+            else if (b.Art == "empty" || b.Art == "home") v = FlaecheHome(b);
             else v = FlaecheOrdner(b);
-            return b.Art == "empty" ? v : MitLeisten(b, v);
+            return MitLeisten(b, v);
         }
 
         /// <summary>Welches Blatt zeigt diesen Ordner? (längste passende Wurzel; Zeit-Ordner = Expiring; sonst -1)</summary>
