@@ -228,3 +228,12 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 - Gemerkte fertige Ansichten: höchstens 5 statt 8.
 - **Ruhe**: 90 s unsichtbar → gemerkte Ansichten und entpackte Bilder frei (gepackter Vorrat, gelesene Ordner und Ebenen bleiben), einmal gründlich aufräumen (GC mit LOH-Verdichtung), Arbeitsspeicher an Windows zurück. Die gerade sichtbare Ansicht bleibt stehen, Öffnen bleibt sofort.
 - Prototyp 3D-Raumansicht (drei Varianten) als Artifact: https://claude.ai/artifact/K2y1jamkVrQvo5F9YS1qfh – Entscheidung offen.
+
+## Raumansicht 3D (2026-11-27, `src/HauptfensterRaum.cs`)
+
+- **Umschalt + Ziehen auf dem Hintergrund** eines Ordner-Blatts kippt die Fläche in 3D (Variante „Ebenen-Stadt“, vom Nutzer gewählt nach Prototyp https://claude.ai/artifact/K2y1jamkVrQvo5F9YS1qfh).
+- Nahtlos: flach liegen die Platten exakt auf den Kacheln der Tiefen-Fläche (gleiche `Kacheln`, Rechteck kommt aus dem Tag des Tiefen-Canvas); Ebenen-Abstand wächst mit dem Kippen von 0 an, die Fläche darunter blendet aus. Loslassen rastet ein: flach (zurück zur normalen Fläche), schräg, Seite.
+- Darüberfahren/Klick: Zweig bleibt kräftig, Rest blass, Pfad oben links. **Doppelklick (oder Enter) fliegt hinein** und öffnet den Ordner. Esc: erst Auswahl weg, dann flach.
+- Ordnerart: kleine Marke mit der überwiegenden Endung (JPG, PDF, MIX …), Dateien als farbige Punkte (Farbe der Endung). Lose Dateien als leise Platte ohne Namen.
+- Daten: `TiefeLesen(akt, 3)` – gemerkt/auf Platte, im Hintergrund still nachgelesen; neue Daten → `RaumNeueDaten` baut die Platten neu. Ein einziges Zeichen-Element (OnRender), `CompositionTarget.Rendering` nur solange sich etwas bewegt.
+- Bilder: `2e-raum-schraeg.png`, `2f-raum-seite.png` (`RaumFuerBild`).

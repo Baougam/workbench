@@ -163,6 +163,12 @@ namespace Workbench
                 Loaded += delegate { try { Vorschau.Skala = Math.Max(1, VisualTreeHelper.GetDpi(this).DpiScaleX); } catch { } };
                 DpiChanged += (s, a) => { Vorschau.Skala = Math.Max(1, a.NewDpi.DpiScaleX); };
                 Loaded += delegate { KorbLesen(); };
+                // Umschalt + Ziehen auf dem Hintergrund: die Fläche kippt in den Raum (3D)
+                buehne.PreviewMouseLeftButtonDown += (s, a) =>
+                {
+                    if ((Keyboard.Modifiers & ModifierKeys.Shift) == 0 || a.ClickCount > 1 || !IstBlatt(ansicht) || !AufHintergrund(a.OriginalSource)) return;
+                    if (RaumStarten(a)) a.Handled = true;
+                };
                 buehne.MouseLeftButtonDown += (s, a) =>
                 {
                     if (!(a.Source == buehne || a.OriginalSource is ScrollViewer || a.OriginalSource is WrapPanel || a.OriginalSource is Grid || a.OriginalSource is Canvas)) return;
@@ -1315,6 +1321,7 @@ namespace Workbench
 
         void Tasten(object s, KeyEventArgs a)
         {
+            if (raum != null && (a.Key == Key.Escape || a.Key == Key.Enter)) return;   // die Raumansicht entscheidet selbst
             bool strg = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
             bool imText = Keyboard.FocusedElement is TextBox;
             if (strg && a.Key >= Key.D1 && a.Key <= Key.D9 && IstBlatt(a.Key - Key.D1)) { Zeige(a.Key - Key.D1); a.Handled = true; }

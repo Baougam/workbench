@@ -275,6 +275,7 @@ namespace Workbench
         {
             if (!IstBlatt(neu) && neu != Korb && neu != Einst && neu != Netzansicht) neu = Befristet;
             bool wechsel = neu != ansicht;
+            if (wechsel) RaumZu(true);
             // ein verlassenes Blatt springt auf seine Oberfläche zurück – klarer Ausgangspunkt, und der Wechsel bleibt leicht
             if (wechsel && IstBlatt(ansicht)) { var alt = Blaetter.Liste[ansicht]; tiefeVon.Remove(alt.Id); offenVon.Remove(alt.Id); seiteVon.Remove(alt.Id); }
             int richtung = IstBlatt(neu) && IstBlatt(ansicht) ? Math.Sign(neu - ansicht) : 0;
@@ -463,6 +464,7 @@ namespace Workbench
 
         void Betreten(BlattDef b, string ordner)
         {
+            if (raum != null) RaumZu(true);
             string jetzt = AktOrdner(b);
             if (jetzt != null && !Paths.Gleich(jetzt, ordner)) { Stapel(zurueckVon, b).Push(jetzt); Stapel(vorVon, b).Clear(); }
             ordnerVon[b.Id] = ordner;

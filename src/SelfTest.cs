@@ -586,6 +586,12 @@ namespace Workbench
                     w.Rahmen(new Point(1000, 690), new Point(1001, 691));
                     w.KreisFuerBild("Projects");                  // Kreismenü (gedrückt halten)
                     Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "2b-kreis.png"));
+                    w.TiefeAendern(1);
+                    Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "2d-tiefe.png"));
+                    w.RaumFuerBild(0.55, -0.22, null);
+                    Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "2e-raum-schraeg.png"));
+                    w.RaumFuerBild(1, -0.3, "Projects");
+                    Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "2f-raum-seite.png"));
                 }
                 if (a == 5)
                 {

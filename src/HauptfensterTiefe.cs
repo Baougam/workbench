@@ -175,6 +175,7 @@ namespace Workbench
                     if (gleich) return;   // gemerkter Stand war richtig – nichts neu zeichnen
                     var b = Akt;
                     if (stufenOffen && b != null && Paths.Gleich(AktOrdner(b), ordner) && stufenZiel == tiefe) StufenVorbauen();
+                    RaumNeueDaten(ordner, tiefe);
                     if (b != null && ImOrdner && Paths.Gleich(AktOrdner(b), ordner) && Tiefe(b) == tiefe) { Neuzeichnen(); if (vorher == null && buehne.Children.Count > 0) buehne.Children[0].BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220))); }
                 })));
             }
@@ -287,6 +288,7 @@ namespace Workbench
             int von = starts[seite], bis = seite + 1 < starts.Count ? starts[seite + 1] : ordnerAlle.Count;
             var teil = new TKnoten { Pfad = wurzel0.Pfad, Name = wurzel0.Name, Ordner = true, Mehr = seite == 0 ? wurzel0.Mehr : 0,
                 Kinder = (seite == 0 ? dateienOben : new List<TKnoten>()).Concat(ordnerAlle.Skip(von).Take(bis - von)).ToList() };
+            c.Tag = flaeche;   // Raumansicht: hier liegen die Kacheln
             Fuellen(b, teil, c, flaeche, 0, offen, neu, true);
             if (seitenAnzahl > 1) huelle.Children.Add(SeitenAnzeige(b, seite, tiefe, ordnerAlle.Count - bis));
             // FLIP: was schon da war, gleitet von seinem alten Platz an den neuen
