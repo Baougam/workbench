@@ -76,9 +76,10 @@ namespace Workbench
             public TextBlock Schild;
             public bool SchildImmer, Heiss;
             public double Eigen, Summe, H, Ruhe = 1;
+            public double DX, DY, ZX, ZY, S = 1, ZS = 1;   // Ausweichen vor der Maus (weich nachgeführt)
             public readonly List<Knoten> Nachbarn = new List<Knoten>();
         }
-        class Kante { public Knoten A, B; public bool Eigen; public string Farbe; public Line Strich; }
+        class Kante { public Knoten A, B; public bool Eigen; public string Farbe; public Line Strich, Fluss; }
 
         readonly List<Knoten> knoten = new List<Knoten>();
         readonly List<Kante> kanten = new List<Kante>();
@@ -339,6 +340,8 @@ namespace Workbench
         {
             knoten.AddRange(r.K);
             kanten.AddRange(r.E);
+            // oft Genutztes nach vorn: wärmere Ordner etwas größer
+            foreach (var k in knoten) if (k.Art == 1) k.R *= 1 + 0.7 * k.H;
             foreach (var e in kanten)
             {
                 // Ader: je wärmer der Ordner am Ende, desto dicker und heller der Weg zu ihm – kalte bleiben fein, nie unsichtbar
@@ -361,7 +364,7 @@ namespace Workbench
                     welt.Children.Add(k.Schein);
                 }
             }
-            foreach (var k in knoten)
+            foreach (var k in knoten.OrderBy(x => x.Art == 0 ? 2.0 : x.H).ToList())   // Wärmstes oben
             {
                 Brush fuellung = !string.IsNullOrEmpty(k.Farbe) ? Farbe.B(k.Farbe) : k.Art == 0 ? Farbe.B("#FFF6EAD4") : k.Heiss ? Farbe.B("#FFF6DDB0") : k.Art == 1 ? Farbe.B("#D9E9ECF2") : k.Art == 3 ? Farbe.B("#B3F4B860") : Farbe.B("#80E9ECF2");
                 Shape s = k.Art == 3 ? (Shape)new Rectangle { RadiusX = 1.5, RadiusY = 1.5 } : new Ellipse();
@@ -401,8 +404,99 @@ namespace Workbench
             SchilderNachZoom();
             OrteMerken();
             if (sofort) { welt.Opacity = 1; return; }
-            // weich erscheinen
+            // weich erscheinen – und einmal kurz zeigen, wo die Hauptwege laufen
             welt.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(380)) { EasingFunction = UI.Weich });
+            FlussAn(HeisseWege(), TimeSpan.FromSeconds(4.5));
+        }
+
+        // ---------- Lichtfluss auf den Adern (nur kurz: beim Öffnen und beim Darüberfahren – nie dauerhaft) ----------
+
+        readonly HashSet<Kante> fliessend = new HashSet<Kante>();
+        DispatcherTimer flussStop;
+
+        /// <summary>Die Wege von den wärmsten Ordnern bis zur Wurzel.</summary>
+        List<Kante> HeisseWege()
+        {
+            var l = new List<Kante>();
+            foreach (var k in knoten.Where(x => x.Heiss)) l.AddRange(WegZurWurzel(k));
+            return l.Distinct().ToList();
+        }
+
+        List<Kante> WegZurWurzel(Knoten k)
+        {
+            var l = new List<Kante>();
+            var x = k;
+            for (int i = 0; i < 20 && x != null && x.Eltern != null; i++)
+            {
+                var e = kanten.FirstOrDefault(z => !z.Eigen && z.A == x.Eltern && z.B == x);
+                if (e != null) l.Add(e);
+                x = x.Eltern;
+            }
+            return l;
+        }
+
+        void FlussAn(List<Kante> wege, TimeSpan? dauer)
+        {
+            if (sofort) return;
+            foreach (var e in wege)
+            {
+                if (e.Fluss == null)
+                {
+                    e.Fluss = new Line { Stroke = Farbe.B("#E6F6DDB0"), StrokeThickness = Math.Max(1.6, e.Strich.StrokeThickness * 0.9), StrokeDashArray = new DoubleCollection { 0, 4 }, StrokeDashCap = PenLineCap.Round, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, IsHitTestVisible = false, Opacity = 0 };
+                    welt.Children.Insert(kanten.Count, e.Fluss);
+                    e.Fluss.X1 = e.A.X + e.A.DX; e.Fluss.Y1 = e.A.Y + e.A.DY; e.Fluss.X2 = e.B.X + e.B.DX; e.Fluss.Y2 = e.B.Y + e.B.DY;
+                }
+                if (!fliessend.Add(e)) continue;
+                // von außen zur Wurzel: die Punkte wandern Richtung Wurzel
+                e.Fluss.BeginAnimation(Shape.StrokeDashOffsetProperty, new DoubleAnimation(0, -8, TimeSpan.FromMilliseconds(900)) { RepeatBehavior = RepeatBehavior.Forever });
+                e.Fluss.BeginAnimation(OpacityProperty, new DoubleAnimation(0.85, TimeSpan.FromMilliseconds(250)));
+            }
+            if (flussStop != null) flussStop.Stop();
+            if (dauer.HasValue)
+            {
+                if (flussStop == null) { flussStop = new DispatcherTimer(); flussStop.Tick += delegate { flussStop.Stop(); if (hover == null) FlussAus(); }; }
+                flussStop.Interval = dauer.Value;
+                flussStop.Start();
+            }
+        }
+
+        void FlussAus()
+        {
+            foreach (var e in fliessend.ToList())
+            {
+                var e2 = e;
+                var a = new DoubleAnimation(0, TimeSpan.FromMilliseconds(400));
+                a.Completed += delegate { if (!fliessend.Contains(e2)) e2.Fluss.BeginAnimation(Shape.StrokeDashOffsetProperty, null); };   // danach steht alles still
+                e.Fluss.BeginAnimation(OpacityProperty, a);
+            }
+            fliessend.Clear();
+        }
+
+        // ---------- Weiches Ausweichen vor der Maus ----------
+
+        bool gleitet;
+
+        void GleitenStarten()
+        {
+            if (gleitet || sofort) return;
+            gleitet = true;
+            CompositionTarget.Rendering += Gleiten;
+        }
+
+        /// <summary>Jedes Bild ein Stück näher ans Ziel. Steht alles, hört es auf – ohne Bewegung keine Last.</summary>
+        void Gleiten(object s, EventArgs e)
+        {
+            bool fertig = true;
+            foreach (var k in knoten)
+            {
+                double dx = k.ZX - k.DX, dy = k.ZY - k.DY, ds = k.ZS - k.S;
+                if (Math.Abs(dx) < 0.05 && Math.Abs(dy) < 0.05 && Math.Abs(ds) < 0.004) { k.DX = k.ZX; k.DY = k.ZY; k.S = k.ZS; }
+                else { k.DX += dx * 0.14; k.DY += dy * 0.14; k.S += ds * 0.18; fertig = false; }
+                var st = k.Form.RenderTransform as ScaleTransform;
+                if (st != null && st.ScaleX != k.S) st.ScaleX = st.ScaleY = k.S;
+            }
+            Zeichnen();
+            if (fertig) { gleitet = false; CompositionTarget.Rendering -= Gleiten; }
         }
 
         /// <summary>Namen nur für Wichtiges: Wurzeln, Gefärbtes und die wärmsten Ordner – und nur, wo sie sich nicht überdecken.</summary>
@@ -438,20 +532,23 @@ namespace Workbench
                 double dx = k.X - p.X, dy = k.Y - p.Y;
                 double f = 0;
                 if (Math.Abs(dx) < r && Math.Abs(dy) < r) { double d = Math.Sqrt(dx * dx + dy * dy); if (d < r) { f = 1 - d / r; f *= f; } }
-                var st = k.Form.RenderTransform as ScaleTransform;
-                double s = 1 + 0.5 * f;
-                if (st != null && Math.Abs(st.ScaleX - s) > 0.01) st.ScaleX = st.ScaleY = s;
+                // sanft ausweichen und ein wenig wachsen – nachgeführt in Gleiten()
+                double weg = 14 / zoom.ScaleX * f, d2 = Math.Max(1, Math.Sqrt(dx * dx + dy * dy));
+                k.ZX = f > 0 && k.Art != 0 ? dx / d2 * weg : 0; k.ZY = f > 0 && k.Art != 0 ? dy / d2 * weg : 0;
+                k.ZS = 1 + 0.45 * f;
                 if (k.Schild != null && !k.SchildImmer && schilderFrei)
                 {
                     double o = f > 0.2 ? Math.Min(1, (f - 0.2) * 2.2) : 0;
                     if (Math.Abs(k.Schild.Opacity - o) > 0.04) { k.Schild.BeginAnimation(OpacityProperty, null); k.Schild.Opacity = o; }
                 }
             }
+            GleitenStarten();
         }
 
         void NaeheAus()
         {
-            foreach (var k in knoten) { var st = k.Form.RenderTransform as ScaleTransform; if (st != null && st.ScaleX != 1) st.ScaleX = st.ScaleY = 1; }
+            foreach (var k in knoten) { k.ZX = 0; k.ZY = 0; k.ZS = 1; }
+            GleitenStarten();
             if (hover == null && !SucheAktiv) SchilderNachZoom();
         }
 
@@ -474,6 +571,8 @@ namespace Workbench
         void Hervorheben(Knoten k)
         {
             hover = k;
+            if (k != null) { FlussAus(); FlussAn(WegZurWurzel(k), null); }
+            else FlussAus();
             if (k == null && SucheAktiv) { Markieren(false); return; }   // Suche bleibt sichtbar
             var dauer = TimeSpan.FromMilliseconds(160);
             foreach (var x in knoten)
@@ -492,9 +591,17 @@ namespace Workbench
 
         void SchilderNachZoom()
         {
-            foreach (var x in knoten)
-                if (x.Schild != null && !x.SchildImmer) x.Schild.BeginAnimation(OpacityProperty, new DoubleAnimation(zoom.ScaleX >= 1.1 ? 1 : 0, TimeSpan.FromMilliseconds(180)));
+            var belegt = knoten.Where(k => k.SchildImmer && k.Schild != null).Select(SchildFlaeche).ToList();
+            foreach (var x in knoten.Where(k => k.Schild != null && !k.SchildImmer).OrderByDescending(k => k.H))
+            {
+                bool zeigen = false;
+                if (zoom.ScaleX >= 1.1) { var r = SchildFlaeche(x); if (!belegt.Any(b => b.IntersectsWith(r))) { belegt.Add(r); zeigen = true; } }
+                x.Schild.BeginAnimation(OpacityProperty, new DoubleAnimation(zeigen ? 1 : 0, TimeSpan.FromMilliseconds(180)));
+            }
         }
+
+        static Rect SchildFlaeche(Knoten k) { return new Rect(k.X + k.R + 6, k.Y - 8, k.Name.Length * (k.Art == 0 ? 7.6 : 6.3) + 4, 16); }
+
 
         // ---------- Suche oben links ----------
         // Tippen = passende Punkte (mit Weg zur Wurzel) hervorheben · Enter = zum nächsten Treffer fliegen ·
@@ -702,12 +809,18 @@ namespace Workbench
 
         void Zeichnen()
         {
-            foreach (var e in kanten) { e.Strich.X1 = e.A.X; e.Strich.Y1 = e.A.Y; e.Strich.X2 = e.B.X; e.Strich.Y2 = e.B.Y; }
+            foreach (var e in kanten)
+            {
+                double x1 = e.A.X + e.A.DX, y1 = e.A.Y + e.A.DY, x2 = e.B.X + e.B.DX, y2 = e.B.Y + e.B.DY;
+                e.Strich.X1 = x1; e.Strich.Y1 = y1; e.Strich.X2 = x2; e.Strich.Y2 = y2;
+                if (e.Fluss != null) { e.Fluss.X1 = x2; e.Fluss.Y1 = y2; e.Fluss.X2 = x1; e.Fluss.Y2 = y1; }
+            }
             foreach (var k in knoten)
             {
-                Canvas.SetLeft(k.Form, k.X - k.R); Canvas.SetTop(k.Form, k.Y - k.R);
-                if (k.Schein != null) { Canvas.SetLeft(k.Schein, k.X - k.R * 3.5); Canvas.SetTop(k.Schein, k.Y - k.R * 3.5); }
-                if (k.Schild != null) { Canvas.SetLeft(k.Schild, k.X + k.R + 6); Canvas.SetTop(k.Schild, k.Y - 8); }
+                double x = k.X + k.DX, y = k.Y + k.DY;
+                Canvas.SetLeft(k.Form, x - k.R); Canvas.SetTop(k.Form, y - k.R);
+                if (k.Schein != null) { Canvas.SetLeft(k.Schein, x - k.R * 3.5); Canvas.SetTop(k.Schein, y - k.R * 3.5); }
+                if (k.Schild != null) { Canvas.SetLeft(k.Schild, x + k.R * k.S + 6); Canvas.SetTop(k.Schild, y - 8); }
             }
         }
 

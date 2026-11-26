@@ -45,6 +45,8 @@ namespace Workbench
     {
         public List<BlattDef> Liste = new List<BlattDef>();
         public List<string> Ablage = new List<string>();    // geparkte Dateien (Verweise, für alle Blätter gleich)
+        public List<string> Angeheftet = new List<string>(); // Pinned-Leiste (Verweise)
+        public Dictionary<string, int> Reihen = new Dictionary<string, int>();   // „blattId|art“ → 1/2
         public int Version;                                 // 2 = Mitte ist das eigene Blatt (leeres Permanent wurde zum +)
     }
 
@@ -71,6 +73,8 @@ namespace Workbench
                     if (D != null && D.Liste != null && D.Liste.Count > 0)
                     {
                         if (D.Ablage == null) D.Ablage = new List<string>();
+                        if (D.Angeheftet == null) D.Angeheftet = new List<string>();
+                        if (D.Reihen == null) D.Reihen = new Dictionary<string, int>();
                         foreach (var b in D.Liste) { if (b.Leisten == null) b.Leisten = new List<string>(); if (b.Inhalt == null) b.Inhalt = new List<string>(); if (b.Module == null) b.Module = new List<Modul>(); if (b.LeistenGroesse == null) b.LeistenGroesse = new Dictionary<string, int>(); foreach (var m in b.Module) { if (m.Inhalt == null) m.Inhalt = new List<string>(); if (m.W < 1) { m.W = m.Breit ? 4 : 2; m.H = m.Art == "recent" || m.Art == "screens" ? 1 : 2; } } }
                         if (!D.Liste.Any(b => b.Art == "temp")) D.Liste.Insert(0, new BlattDef { Art = "temp", Name = "Expiring" });
                         if (D.Version < 3) Umstellen();
@@ -183,6 +187,9 @@ namespace Workbench
 
         public static int LeisteGroesse(BlattDef b, string art) { int g; return b.LeistenGroesse != null && b.LeistenGroesse.TryGetValue(art, out g) ? Math.Max(0, Math.Min(2, g)) : 1; }
         public static void LeisteGroesseSetzen(BlattDef b, string art, int g) { if (b.LeistenGroesse == null) b.LeistenGroesse = new Dictionary<string, int>(); b.LeistenGroesse[art] = g; Speichern(); }
+
+        public static int LeisteReihen(BlattDef b, string art) { int r; return D.Reihen != null && D.Reihen.TryGetValue(b.Id + "|" + art, out r) ? Math.Max(1, Math.Min(2, r)) : 1; }
+        public static void LeisteReihenSetzen(BlattDef b, string art, int r) { if (D.Reihen == null) D.Reihen = new Dictionary<string, int>(); D.Reihen[b.Id + "|" + art] = r; Speichern(); }
 
         public static void LeisteWeg(BlattDef b, string art) { b.Leisten.RemoveAll(l => l.StartsWith(art + "@")); Speichern(); }
 

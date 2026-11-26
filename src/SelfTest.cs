@@ -356,6 +356,33 @@ namespace Workbench
             catch (Exception ex) { Ok(false, "Blätter: " + ex); }
             Blaetter.D = Blaetter.Standard(false);
 
+            // 12c) Werkzeuge: verkleinern, JPG, PDF, Zip, Entpacken, SHA-256
+            try
+            {
+                string wo = Path.Combine(Paths.Daten, "werkzeug"); Directory.CreateDirectory(wo);
+                string png = Path.Combine(wo, "bild.png");
+                var rt = new RenderTargetBitmap(2400, 1600, 96, 96, PixelFormats.Pbgra32);
+                var dv = new DrawingVisual(); using (var dc = dv.RenderOpen()) dc.DrawRectangle(Brushes.Orange, null, new Rect(0, 0, 2400, 1600));
+                rt.Render(dv);
+                var enc = new PngBitmapEncoder(); enc.Frames.Add(BitmapFrame.Create(rt)); using (var st = File.Create(png)) enc.Save(st);
+                var r1 = Werkzeuge.Ausfuehren("shrink", new[] { png });
+                var kl = r1.Dateien.Count == 1 ? BitmapFrame.Create(new Uri(r1.Dateien[0]), BitmapCreateOptions.None, BitmapCacheOption.OnLoad) : null;
+                Ok(kl != null && Math.Max(kl.PixelWidth, kl.PixelHeight) == 1600, "Werkzeug: Bild verkleinern");
+                var r2 = Werkzeuge.Ausfuehren("jpg", new[] { png });
+                Ok(r2.Dateien.Count == 1 && r2.Dateien[0].EndsWith(".jpg") && File.Exists(r2.Dateien[0]), "Werkzeug: in JPG");
+                var r3 = Werkzeuge.Ausfuehren("pdf", new[] { png, r2.Dateien[0] });
+                string pdfKopf = r3.Dateien.Count == 1 ? new string(File.ReadAllText(r3.Dateien[0]).Take(8).ToArray()) : "";
+                Ok(pdfKopf.StartsWith("%PDF-1.4") && new FileInfo(r3.Dateien[0]).Length > 1000, "Werkzeug: Bilder zu PDF");
+                var r4 = Werkzeuge.Ausfuehren("zip", new[] { png, r2.Dateien[0] });
+                Ok(r4.Dateien.Count == 1 && File.Exists(r4.Dateien[0]), "Werkzeug: zippen");
+                var r5 = Werkzeuge.Ausfuehren("unzip", new[] { r4.Dateien[0] });
+                Ok(r5.Dateien.Count == 1 && File.Exists(Path.Combine(r5.Dateien[0], "bild.png")), "Werkzeug: entpacken");
+                var r6 = Werkzeuge.Ausfuehren("hash", new[] { png });
+                Ok(r6.Kopieren != null && r6.Kopieren.Length > 64 && r6.Kopieren.Contains("bild.png"), "Werkzeug: SHA-256");
+                Ok(File.Exists(png), "Werkzeuge lassen das Original in Ruhe");
+            }
+            catch (Exception ex) { Ok(false, "Werkzeuge: " + ex.Message); }
+
             // 13) Mehrere markieren: Rahmen aufziehen, alles markieren, gemeinsam löschen
             try
             {

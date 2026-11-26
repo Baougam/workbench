@@ -23,6 +23,7 @@ namespace Workbench
         public const string Notiz = "M6.5 4.5h11v15h-11zM9.5 9h5M9.5 12.5h5M9.5 16h3";
         public const string Download = "M12 4.5v10M8 11l4 4 4-4M5.5 19h13";
         public const string Nadel = "M9 4.5h6M10 4.5v5.5l-3 3.5h10l-3-3.5V4.5M12 14v5.5";
+        public const string Werkzeug = "M14.5 5.5a4 4 0 0 0-5 5L4.5 15.5a1.8 1.8 0 0 0 2.5 2.5l5-5a4 4 0 0 0 5-5l-2.5 2.5-2-.5-.5-2z";
         public const string Ablage = "M4 13.5h4.5l1.5 2.5h4l1.5-2.5H20M4 13.5l2.2-6.5h11.6l2.2 6.5V18H4z";
 
         public static string Fuer(BlattDef b)

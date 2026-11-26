@@ -779,9 +779,9 @@ namespace Workbench
 
         // ================= Leisten: Recent und Ablage, andockbar oben/unten/rechts =================
 
-        static readonly string[] LeistenArten = { "recent", "shelf" };
-        static string LeisteZeichen(string art) { return art == "recent" ? Ikon.Uhr : ReiterZeichen.Ablage; }
-        static string LeisteName(string art) { return art == "recent" ? "Recent" : "Shelf"; }
+        static readonly string[] LeistenArten = { "recent", "tools", "shelf", "downloads", "pinned", "expiring", "screens" };
+        static string LeisteZeichen(string art) { return art == "tools" ? ReiterZeichen.Werkzeug : ModulZeichen(art); }
+        static string LeisteName(string art) { return art == "tools" ? "Tools" : ModulName(art); }
 
         FrameworkElement MitLeisten(BlattDef b, FrameworkElement inhalt)
         {
@@ -874,7 +874,7 @@ namespace Workbench
             {
                 string a2 = art;
                 var k = new Button { Style = (Style)Application.Current.FindResource("Btn"), Height = 32, Padding = new Thickness(quer ? 12 : 8, 0, quer ? 14 : 8, 0), Margin = new Thickness(4), ToolTip = LeisteName(art) };
-                k.Content = quer ? Mit2(Ikon.Plus, LeisteName(art)) : UI.Icon(LeisteZeichen(art), 15, Farbe.B("#CCFFFFFF"), 1.6);
+                k.Content = quer ? Mit2(LeisteZeichen(art), LeisteName(art)) : UI.Icon(LeisteZeichen(art), 15, Farbe.B("#CCFFFFFF"), 1.6);
                 k.Click += delegate { Blaetter.LeisteSetzen(b, a2, kante); Neuzeichnen(); };
                 sp.Children.Add(k);
             }
@@ -908,13 +908,13 @@ namespace Workbench
         FrameworkElement LeisteBauen(BlattDef b, string art, string kante, FrameworkElement feld, Action<string> kanteZeigen)
         {
             bool quer = kante != "right";
-            int gr = Blaetter.LeisteGroesse(b, art);
+            int gr = Blaetter.LeisteGroesse(b, art), reihen = art == "tools" ? 1 : Blaetter.LeisteReihen(b, art);
             double s = LeistenPx[gr];
             var rahmen = new Border
             {
                 CornerRadius = new CornerRadius(14), Background = Farbe.B(homeBearbeiten ? "#10FFFFFF" : "#00FFFFFF"), BorderBrush = Farbe.B(homeBearbeiten ? "#2EFFFFFF" : "#00FFFFFF"), BorderThickness = new Thickness(1),
                 Margin = quer ? new Thickness(0, kante == "top" ? 0 : 6, 0, kante == "top" ? 6 : 0) : new Thickness(6, 0, 0, 0),
-                Height = quer ? s + 46 : double.NaN, Width = quer ? double.NaN : s + 38, Tag = "leiste:" + art,
+                Height = quer ? (s + 40) * reihen + 6 : double.NaN, Width = quer ? double.NaN : (s + 34) * reihen + 6, Tag = "leiste:" + art,
             };
             var dp = new DockPanel();
             Border griff = null;
@@ -938,9 +938,20 @@ namespace Workbench
                     for (int i = 0; i < 3; i++)
                     {
                         int i2 = i;
-                        var c = new ToggleButton { Style = (Style)Application.Current.FindResource("Chip"), Content = n[i], IsChecked = gr == i, Height = 28, Padding = new Thickness(10, 0, 10, 0), Margin = new Thickness(2) };
+                        var c = new ToggleButton { Style = (Style)Application.Current.FindResource("Chip"), Content = n[i], IsChecked = gr == i, Height = 28, Padding = new Thickness(10, 0, 10, 0), Margin = new Thickness(2), ToolTip = "Size" };
                         c.Click += delegate { pop.IsOpen = false; Blaetter.LeisteGroesseSetzen(b, art, i2); Neuzeichnen(); };
                         sp.Children.Add(c);
+                    }
+                    if (art != "tools")
+                    {
+                        sp.Children.Add(new Border { Width = 1, Height = 18, Background = Farbe.B("#26FFFFFF"), Margin = new Thickness(6, 0, 6, 0) });
+                        for (int i = 1; i <= 2; i++)
+                        {
+                            int i2 = i;
+                            var c = new ToggleButton { Style = (Style)Application.Current.FindResource("Chip"), Content = i == 1 ? "1 row" : "2 rows", IsChecked = reihen == i, Height = 28, Padding = new Thickness(10, 0, 10, 0), Margin = new Thickness(2) };
+                            c.Click += delegate { pop.IsOpen = false; Blaetter.LeisteReihenSetzen(b, art, i2); Neuzeichnen(); };
+                            sp.Children.Add(c);
+                        }
                     }
                     pop.Child = Pille(sp);
                     pop.IsOpen = true;
@@ -952,13 +963,14 @@ namespace Workbench
                 dp.Children.Add(knoepfe);
             }
 
-            var reihe = new StackPanel { Orientation = quer ? Orientation.Horizontal : Orientation.Vertical, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = quer ? HorizontalAlignment.Left : HorizontalAlignment.Center, Margin = quer ? new Thickness(14, 0, 40, 0) : new Thickness(0, 10, 0, 40) };
+            var reihe = new WrapPanel { Orientation = quer ? Orientation.Vertical : Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = quer ? HorizontalAlignment.Left : HorizontalAlignment.Center, Margin = quer ? new Thickness(14, 0, 60, 0) : new Thickness(0, 10, 0, 60) };
+            if (quer) reihe.Height = (s + 40) * reihen; else reihe.Width = (s + 34) * reihen;
             var sv = new ScrollViewer { Content = reihe, HorizontalScrollBarVisibility = quer ? ScrollBarVisibility.Hidden : ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = quer ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Hidden, Focusable = false, Tag = "leiste" };
             // weich auslaufen – an beiden Enden
             var maske = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = quer ? new Point(1, 0) : new Point(0, 1) };
             maske.GradientStops.Add(new GradientStop(Colors.Transparent, 0));
-            maske.GradientStops.Add(new GradientStop(Colors.Black, 0.03));
-            maske.GradientStops.Add(new GradientStop(Colors.Black, 0.9));
+            maske.GradientStops.Add(new GradientStop(Colors.Black, 0.07));
+            maske.GradientStops.Add(new GradientStop(Colors.Black, 0.72));
             maske.GradientStops.Add(new GradientStop(Colors.Transparent, 1));
             sv.OpacityMask = maske;
             var mitte = new Grid();
@@ -987,9 +999,11 @@ namespace Workbench
             Action fuellen = () =>
             {
                 reihe.Children.Clear();
-                var liste = art == "recent" ? Zuletzt.Liste(E).Take(30).ToList() : Blaetter.D.Ablage.Where(p => File.Exists(p) || Directory.Exists(p)).ToList();
+                if (art == "tools") { foreach (var w in Werkzeuge.Alle) reihe.Children.Add(Werkzeugkachel(w, s)); return; }
+                var liste = LeistenInhalt(art);
                 foreach (var p in liste) reihe.Children.Add(Kachel(p, art, s, quer));
-                if (art == "shelf" && liste.Count == 0)
+                if (art == "pinned" && liste.Count == 0) reihe.Children.Add(new TextBlock { Width = 0 });
+                if ((art == "shelf" || art == "pinned") && liste.Count == 0)
                 {
                     var slot = new Grid { Width = quer ? s * 2 : s, Height = quer ? s : s * 1.6, Margin = new Thickness(4), ToolTip = "Drop files here to park them", Background = Brushes.Transparent };
                     slot.Children.Add(new System.Windows.Shapes.Rectangle { StrokeDashArray = new DoubleCollection { 3, 3 }, Stroke = Farbe.B("#26FFFFFF"), RadiusX = 10, RadiusY = 10 });
@@ -1000,7 +1014,7 @@ namespace Workbench
             };
             fuellen();
             if (art == "recent") recentFuellen = () => { if (rahmen.IsLoaded || bild) fuellen(); };
-            if (art == "shelf")
+            if (art == "shelf" || art == "pinned")
             {
                 rahmen.AllowDrop = true;
                 rahmen.DragOver += (s2, a) => { a.Effects = a.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Link : DragDropEffects.None; a.Handled = true; };
@@ -1012,11 +1026,12 @@ namespace Workbench
                     rahmen.Background = Farbe.B(homeBearbeiten ? "#10FFFFFF" : "#00FFFFFF");
                     var pfade = a.Data.GetData(DataFormats.FileDrop) as string[];
                     if (pfade == null) return;
-                    Blaetter.Parken(pfade);
+                    if (art == "pinned") { foreach (var p in pfade) if (!Blaetter.D.Angeheftet.Any(x => Paths.Gleich(x, p))) Blaetter.D.Angeheftet.Add(p); Blaetter.Speichern(); }
+                    else Blaetter.Parken(pfade);
                     a.Effects = DragDropEffects.Link;
                     fuellen();
                 };
-                ablageFuellen = fuellen;
+                if (art == "shelf") ablageFuellen = fuellen;
             }
 
             // Griff ziehen (nur beim Anpassen): an eine andere Kante oder heraus (in die Mitte) = Leiste weg
@@ -1077,6 +1092,95 @@ namespace Workbench
             };
             t.Start();
         }
+
+        List<string> LeistenInhalt(string art)
+        {
+            switch (art)
+            {
+                case "recent": return Zuletzt.Liste(E).Take(40).ToList();
+                case "shelf": return Blaetter.D.Ablage.Where(p => File.Exists(p) || Directory.Exists(p)).ToList();
+                case "pinned": return Blaetter.D.Angeheftet.Where(p => File.Exists(p) || Directory.Exists(p)).ToList();
+                case "expiring": return E.S.D.Eintraege.Where(x => x.Ablauf.HasValue && (File.Exists(x.Pfad) || Directory.Exists(x.Pfad))).OrderBy(x => x.Ablauf.Value).Take(40).Select(x => x.Pfad).ToList();
+                case "downloads": return Neueste(Paths.Downloads, 40, false);
+                case "screens": return Neueste(Blaetter.Screenshots, 30, true);
+            }
+            return new List<string>();
+        }
+
+        /// <summary>Ein Werkzeug: Datei draufziehen = anwenden. Klick ohne Datei = Dateien wählen.</summary>
+        FrameworkElement Werkzeugkachel(Werkzeuge.Art w, double s)
+        {
+            var k = new Border { CornerRadius = new CornerRadius(12), Margin = new Thickness(3), Padding = new Thickness(8, 8, 8, 6), Background = Farbe.B("#0AFFFFFF"), BorderBrush = Farbe.B("#14FFFFFF"), BorderThickness = new Thickness(1), Cursor = Cursors.Hand, ToolTip = w.Hilfe, AllowDrop = true };
+            ToolTipService.SetInitialShowDelay(k, 300);
+            var st = new StackPanel { Width = Math.Max(48, s + 8) };
+            var ic = UI.Icon(w.Zeichen, Math.Max(18, s * 0.5), Farbe.B("#D9FFFFFF"), 1.5);
+            ic.HorizontalAlignment = HorizontalAlignment.Center; ic.Margin = new Thickness(0, Math.Max(2, s * 0.12), 0, 0);
+            st.Children.Add(ic);
+            st.Children.Add(new TextBlock { Text = w.Name, FontSize = 11, Foreground = Farbe.B("#A6FFFFFF"), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) });
+            k.Child = st;
+            Brush ruhe = Farbe.B("#0AFFFFFF");
+            k.MouseEnter += delegate { k.Background = Farbe.B("#18FFFFFF"); };
+            k.MouseLeave += delegate { k.Background = ruhe; };
+            k.DragEnter += (s2, a) => { if (a.Data.GetDataPresent(DataFormats.FileDrop)) { k.Background = Farbe.B("#33F4B860"); k.BorderBrush = Farbe.AkzentRand; } };
+            k.DragLeave += delegate { k.Background = ruhe; k.BorderBrush = Farbe.B("#14FFFFFF"); };
+            k.DragOver += (s2, a) => { a.Effects = a.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None; a.Handled = true; };
+            k.Drop += (s2, a) =>
+            {
+                a.Handled = true;
+                k.Background = ruhe; k.BorderBrush = Farbe.B("#14FFFFFF");
+                var pfade = a.Data.GetData(DataFormats.FileDrop) as string[];
+                if (pfade != null) Anwenden(w, pfade);
+            };
+            k.MouseLeftButtonDown += (s2, a) => a.Handled = true;
+            k.MouseLeftButtonUp += (s2, a) =>
+            {
+                a.Handled = true;
+                var d = new Microsoft.Win32.OpenFileDialog { Multiselect = true, Title = w.Name };
+                if (d.ShowDialog(this) == true) Anwenden(w, d.FileNames);
+            };
+            return k;
+        }
+
+        /// <summary>Im Hintergrund ausführen; Ergebnis in die Ablage und ein kurzer Hinweis unten.</summary>
+        void Anwenden(Werkzeuge.Art w, string[] pfade)
+        {
+            Hinweis(w.Name + " …", null);
+            var ui = Dispatcher;
+            System.Threading.Tasks.Task.Factory.StartNew(() => { try { return Werkzeuge.Ausfuehren(w.Id, pfade); } catch (Exception ex) { Log.Fehler("Werkzeug " + w.Id, ex); return new Werkzeuge.Ergebnis { Text = "Couldn't do that" }; } })
+                .ContinueWith(t =>
+                {
+                    var r = t.Result;
+                    if (r.Kopieren != null) try { Clipboard.SetText(r.Kopieren); } catch { }
+                    if (r.Dateien.Count > 0) { Blaetter.Parken(r.Dateien); if (ablageFuellen != null) ablageFuellen(); }
+                    Hinweis(r.Text, r.Dateien.FirstOrDefault());
+                }, System.Threading.Tasks.TaskScheduler.FromCurrentSynchronizationContext());
+        }
+
+        Border hinweis;
+        DispatcherTimer hinweisZu;
+        /// <summary>Kleine Pille unten: was passiert ist. Klick = im Explorer zeigen. Verschwindet von selbst.</summary>
+        void Hinweis(string text, string pfad)
+        {
+            if (hinweis == null)
+            {
+                hinweis = new Border { Background = Farbe.B("#F5191C23"), BorderBrush = Farbe.B("#26FFFFFF"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(18), Padding = new Thickness(14, 8, 16, 8), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(60, 0, 0, 34), Opacity = 0, Cursor = Cursors.Hand };
+                wurzel.Children.Add(hinweis);
+                hinweisZu = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
+                hinweisZu.Tick += delegate { hinweisZu.Stop(); hinweis.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(300))); hinweis.IsHitTestVisible = false; };
+            }
+            var sp = new StackPanel { Orientation = Orientation.Horizontal };
+            sp.Children.Add(UI.Icon(pfad != null ? Ikon.Haken : ReiterZeichen.Werkzeug, 14, pfad != null ? Farbe.Akzent : Farbe.B("#B3FFFFFF"), 1.8));
+            sp.Children.Add(new TextBlock { Text = text, FontSize = 12.5, Foreground = Farbe.Text, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
+            hinweis.Child = sp;
+            hinweis.Tag = pfad;
+            hinweis.IsHitTestVisible = pfad != null;
+            hinweis.MouseLeftButtonUp -= HinweisKlick;
+            hinweis.MouseLeftButtonUp += HinweisKlick;
+            hinweis.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(150)));
+            hinweisZu.Stop(); hinweisZu.Start();
+        }
+
+        void HinweisKlick(object s, MouseButtonEventArgs a) { var p = hinweis.Tag as string; if (p != null) ImOrdnerZeigen(p); }
 
         Action recentFuellen, ablageFuellen;
         void ZuletztNeu() { if (recentFuellen != null) recentFuellen(); }

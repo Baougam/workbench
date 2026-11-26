@@ -32,6 +32,7 @@ namespace Workbench
             new[] { "screens", ReiterZeichen.Ausschnitt, "Screenshots" },
             new[] { "folder", ReiterZeichen.Ordner, "Folder" },
             new[] { "note", ReiterZeichen.Notiz, "Note" },
+            new[] { "tools", ReiterZeichen.Werkzeug, "Tools" },
         };
 
         static string ModulZeichen(string art) { var a = ModulArten.FirstOrDefault(x => x[0] == art); return a != null ? a[1] : Ikon.Plus; }
@@ -126,7 +127,7 @@ namespace Workbench
             {
                 case "focus": m("expiring", 0, 0, 6, 3); break;
                 case "daily": m("recent", 0, 0, 6, 1); m("expiring", 0, 1, 3, 2); m("downloads", 3, 1, 3, 2); break;
-                case "desk": m("pinned", 0, 0, 3, 2); m("note", 3, 0, 3, 2); m("screens", 0, 2, 6, 1); break;
+                case "desk": m("pinned", 0, 0, 3, 2); m("note", 3, 0, 3, 2); m("tools", 0, 2, 6, 1); break;
             }
             foreach (var x in b.Module.Where(x => x.Art == "recent" || x.Art == "screens")) x.Groesse = 1;
         }
@@ -503,6 +504,7 @@ namespace Workbench
                 return tb;
             }
             double s = SymbolPx[Math.Max(0, Math.Min(2, m.Groesse))];
+            if (m.Art == "tools") { var wt = new WrapPanel(); foreach (var w in Werkzeuge.Alle) wt.Children.Add(Werkzeugkachel(w, s)); return wt; }
             double breite = Px(m.W) - 20, hoehe = Px(m.H) - 36;
             int proZeile = m.Liste ? 1 : Math.Max(1, (int)(breite / (s + 26)));
             int zeilen = Math.Max(1, (int)(hoehe / (m.Liste ? 30 : s + 30)));

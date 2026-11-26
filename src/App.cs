@@ -53,7 +53,7 @@ namespace Workbench
             Sprungliste();
 
             Log.Info("Gestartet " + Program.Version + (hintergrund ? " (Hintergrund)" : ""));
-            if (!hintergrund) Zeigen(Hauptfenster.StartAnsicht());
+            if (!hintergrund && !gezeigt) Zeigen(Hauptfenster.StartAnsicht());
             else
             {
                 // Fenster schon still vorbereiten, wenn der PC zur Ruhe gekommen ist – dann öffnet es später sofort.
@@ -162,8 +162,11 @@ namespace Workbench
             frage.Show();
         }
 
+        bool gezeigt;
+
         public void Zeigen(int ansicht)
         {
+            gezeigt = true;
             if (fenster == null) Bauen(ansicht < 0 ? Hauptfenster.StartAnsicht() : ansicht);
             else if (ansicht >= 0) fenster.Zeige(ansicht);
             if (fenster.WindowState == WindowState.Minimized) fenster.WindowState = WindowState.Normal;
