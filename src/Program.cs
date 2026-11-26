@@ -8,7 +8,7 @@ namespace Workbench
 {
     static class Program
     {
-        public const string Version = "0.1.0";
+        public const string Version = "0.2.0";
         public const string MutexName = "Local\\Workbench.Instanz";
         public const string ZeigenName = "Local\\Workbench.Zeigen";
         public const string BeendenName = "Local\\Workbench.Beenden";
@@ -59,6 +59,12 @@ namespace Workbench
 
                 bool neu;
                 var mutex = new Mutex(true, MutexName, out neu);
+                // nach einem Update: kurz warten, bis die alte Version Platz gemacht hat
+                for (int i = 0; !neu && modus == "--nach-update" && i < 50; i++)
+                {
+                    mutex.Dispose(); Thread.Sleep(150);
+                    mutex = new Mutex(true, MutexName, out neu);
+                }
                 if (!neu)
                 {
                     AllowSetForegroundWindow(-1);   // die laufende Workbench darf ihr Fenster nach vorn holen

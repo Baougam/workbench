@@ -2,7 +2,7 @@
 
 *Zuerst lesen. Nach jeder Änderung aktualisieren und mit committen.*
 
-## Stand 2026-11-24 – Version 0.1.0
+## Stand 2026-11-26 – Version 0.2.0 (erste Fassung 0.1.0 vom 2026-11-24)
 
 Erste lauffähige Version. Selbsttest: 34/34 OK (`.\build.ps1 -Test`). Aussehen geprüft über `.\build.ps1 -Bilder`
 und einen kurzen Live-Start im Testordner (Download-Karte unten rechts, Vorschlag greift nach Zeitablauf).
@@ -178,3 +178,21 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 - Netz: Ausweichen vor der Maus weich nachgefuehrt (`Gleiten` per Rendering, stoppt bei Stillstand), waermere Ordner groesser und obenauf, Lichtfluss (gestrichelte Linie, DashOffset) auf den heissen Adern 4,5 s nach dem Oeffnen und auf dem Weg zur Wurzel beim Darueberfahren – nie dauerhaft. Namen auch beim Zoomen ohne Ueberlappung. Leerlauf gemessen: 0–0,2 % eines Kerns. Sprungliste --zeige beim Kaltstart repariert.
 - Ankommen = Home (2026-11-26, Nutzer: Dashboard fehlte, weil seine Mitte ein Board war): `StartAnsicht` = erstes Home. Version 4: wer kein Home hat, bekommt eins an Stelle 2. Standard-Vorlage `start` (Workbench): Recent oben, Expiring + Downloads (Liste) nebeneinander, Tools unten – ueber die volle Spaltenzahl (`Vorlage(b, name, n)`; solange `Vorschlag`, passt sie sich der Fensterbreite an). Vorlagen-Leiste: Workbench/Focus/Daily/Desk/Blank + Haken; Blank bleibt leer.
 - Tiefe (2026-11-26, Nutzeridee): Ordner-Blaetter koennen alle Ordner gleichzeitig aufklappen (`src/HauptfensterTiefe.cs`): Boxen per squarified Treemap, passen immer ins Bild, Klick = ausfahren (FLIP-Gleiten), Doppelklick Name = hinein, Ordnerfarbe tönt die Box, Inhalt passt sich an (+N). Uebergang: Schnappschuss fliegt gross/durchsichtig weg, neue Ebene von hinten, Bernstein-Scanlinie (nur waehrend Wechsel). Ebenen-Waehler `src/HauptfensterStufen.cs`: Umschalt+Rad / Zusammenziehen / Umschalt+Pfeil zeigt Stufenmodell (isometrische Platten + Anzahl), Loslassen (Umschalt los, Touchpad 0,5 s Ruhe) fliegt hin, Esc bricht ab. Naechste Tiefe wird im Leerlauf vorgelesen. Cloud: nur Typ-Marken (nie herunterladen). Behoben: Endlosschleife SizeChanged (120 % CPU). Leerlauf Ebene 0: 0 %; Ebene 1 nach Cloud-Fix noch nicht neu gemessen.
+
+## Tiefe schneller, Seiten, Update per Klick (2026-11-26, Version 0.2.0)
+
+- **Ebenen-Wähler**: griechische Zeichen statt „Level n / Surface“ (α = Oberfläche, β, γ …, `Griechisch(i)`).
+  Gewählte Platte hebt sich (BackEase) mit Bernstein-Verlauf; Anzahl rechts klein. Scanlinie beim Wechsel entfernt (Wunsch).
+- **Schnell lesen** (`src/Schnell.cs`): FindFirstFileEx (Basic + LARGE_FETCH), Versteckt/System aus den Find-Daten,
+  Hilfsdateien nur nach Namen (`Engine.IstHilfsName`), `HatInhalt` für die Frage „geht es tiefer?“.
+- **Gemerkte Ebenen**: `tiefeCache` wird nach 4 s Ruhe im Hintergrund nach `%LOCALAPPDATA%\Workbench\tiefe.bin` geschrieben
+  (max. 60 Stände) und beim ersten Bedarf geladen. Gemerktes gilt sofort als Platzhalter, wird still nachgelesen; neu
+  gezeichnet wird nur, wenn sich wirklich etwas geändert hat (`Zeichen`-Vergleich). `TiefeVergessen` leert nicht mehr,
+  sondern markiert nur „nachsehen“.
+- **Seiten**: zu viele Ordner auf einer Ebene → Seiten (≈ eine Box je 210×150 px). Rechts/links runde Pfeile, unten Punkte.
+  ←/→ und Wischen seitlich blättern in der Tiefe (`SeiteWechseln`), sonst wie bisher zurück/vor. Oberste Ebene liest bis 400 Ordner.
+- **Update per Klick** (`src/Update.cs`): prüft VERSION auf GitHub (≤ 1×/20 h), lädt die neue exe still nach
+  `%LOCALAPPDATA%\Workbench\Workbench.neu.exe` (Prüfung MZ + Größe). Erst dann erscheint „update x.y“ unten rechts.
+  Klick: laufende exe → `.alt` umbenennen, neue an ihren Platz, Start mit `--nach-update` (wartet auf den Mutex), alte beendet sich.
+  `.alt` wird beim nächsten Start gelöscht. **Bei jedem Release: `Program.Version` und `VERSION` gemeinsam erhöhen.**
+- Leerlauf nach Start gemessen: 0,01 % CPU.

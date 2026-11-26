@@ -9,6 +9,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 
 namespace Workbench
 {
@@ -53,6 +54,7 @@ namespace Workbench
             tiefeSperre = DateTime.UtcNow.AddMilliseconds(360);
             auswahl = null;
             offenVon.Remove(b.Id);
+            seiteVon.Remove(b.Id);
             letzteBoxen.Clear();
             var alt = bild ? null : Schnappschuss();
             Neuzeichnen();
@@ -106,26 +108,6 @@ namespace Workbench
                 st.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(von, 1, dauer) { EasingFunction = ez });
                 el.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(300)) { BeginTime = TimeSpan.FromMilliseconds(60) });
             }
-            // Scan-Linie: fein, bernstein, mit weichem Nachleuchten
-            double h = buehne.ActualHeight;
-            if (h > 10)
-            {
-                var pos = buehne.TransformToAncestor(wurzel).Transform(new Point(0, 0));
-                var linie = new Border { Height = 46, Width = buehne.ActualWidth, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, IsHitTestVisible = false, Margin = new Thickness(pos.X, pos.Y, 0, 0) };
-                var g = new LinearGradientBrush { StartPoint = new Point(0, richtung > 0 ? 0 : 1), EndPoint = new Point(0, richtung > 0 ? 1 : 0) };
-                g.GradientStops.Add(new GradientStop(Color.FromArgb(0, 244, 184, 96), 0));
-                g.GradientStops.Add(new GradientStop(Color.FromArgb(40, 244, 184, 96), 0.9));
-                g.GradientStops.Add(new GradientStop(Color.FromArgb(200, 255, 222, 170), 0.97));
-                g.GradientStops.Add(new GradientStop(Color.FromArgb(0, 244, 184, 96), 1));
-                g.Freeze();
-                linie.Background = g;
-                var tt = new TranslateTransform();
-                linie.RenderTransform = tt;
-                wurzel.Children.Add(linie);
-                var lauf = new DoubleAnimation(richtung > 0 ? -46 : h, richtung > 0 ? h : -46, TimeSpan.FromMilliseconds(420)) { EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut } };
-                lauf.Completed += delegate { wurzel.Children.Remove(linie); };
-                tt.BeginAnimation(TranslateTransform.YProperty, lauf);
-            }
         }
 
         /// <summary>Am Ende angekommen: die Anzeige nickt kurz statt nichts zu tun.</summary>
@@ -142,6 +124,7 @@ namespace Workbench
         {
             string k = ordner + "|" + tiefe;
             TStand st;
+            TiefeLaden();
             tiefeCache.TryGetValue(k, out st);
             if ((st == null || (DateTime.UtcNow - st.Zeit).TotalSeconds > 20) && tiefeLaedt.Add(k))
             {
@@ -158,9 +141,13 @@ namespace Workbench
                 {
                     tiefeLaedt.Remove(k);
                     if (t.Exception != null) return;
+                    TStand vorher; tiefeCache.TryGetValue(k, out vorher);
                     tiefeCache[k] = t.Result;
+                    bool gleich = vorher != null && Zeichen(vorher.Wurzel) == Zeichen(t.Result.Wurzel) && vorher.Tiefer == t.Result.Tiefer;
+                    TiefeMerken();
+                    if (gleich) return;   // gemerkter Stand war richtig – nichts neu zeichnen
                     var b = Akt;
-                    if (b != null && ImOrdner && Paths.Gleich(AktOrdner(b), ordner) && Tiefe(b) == tiefe) { Neuzeichnen(); if (buehne.Children.Count > 0) buehne.Children[0].BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220))); }
+                    if (b != null && ImOrdner && Paths.Gleich(AktOrdner(b), ordner) && Tiefe(b) == tiefe) { Neuzeichnen(); if (vorher == null && buehne.Children.Count > 0) buehne.Children[0].BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220))); }
                 })));
             }
             return st;
@@ -171,22 +158,17 @@ namespace Workbench
             var k = new TKnoten { Pfad = pfad, Name = Path.GetFileName(pfad.TrimEnd('\\')), Ordner = true, Kinder = new List<TKnoten>() };
             if (ebene > tiefe) return k;
             List<string> dirs, files;
-            try
-            {
-                dirs = Directory.EnumerateDirectories(pfad).Where(x => !Engine.IstHilfsdatei(x)).OrderBy(x => x, StringComparer.CurrentCultureIgnoreCase).ToList();
-                files = Directory.EnumerateFiles(pfad).Where(x => !Engine.IstHilfsdatei(x)).OrderBy(x => x, StringComparer.CurrentCultureIgnoreCase).ToList();
-            }
-            catch { return k; }
-            int n = 0;
+            if (!Schnell.Lesen(pfad, out dirs, out files)) return k;
+            int n = 0, grenze = ebene == 0 ? 400 : 40;   // oben: alle Ordner (dafür gibt es Seiten)
             foreach (var d in dirs)
             {
-                if (budget <= 0 || n >= 40) { k.Mehr++; continue; }
+                if (budget <= 0 || n >= grenze) { k.Mehr++; continue; }
                 budget--; n++;
                 if (ebene < tiefe) k.Kinder.Add(Scannen(d, ebene + 1, tiefe, ref budget, ref tiefer));
                 else
                 {
                     k.Kinder.Add(new TKnoten { Pfad = d, Name = Path.GetFileName(d), Ordner = true });
-                    if (!tiefer) { try { tiefer = Directory.EnumerateFileSystemEntries(d).Any(); } catch { } }
+                    if (!tiefer) tiefer = Schnell.HatInhalt(d);
                 }
             }
             foreach (var f in files)
@@ -203,6 +185,8 @@ namespace Workbench
         readonly Dictionary<string, string> offenVon = new Dictionary<string, string>();   // Blatt → ausgefahrener Ordner
         readonly Dictionary<string, Rect> letzteBoxen = new Dictionary<string, Rect>(StringComparer.OrdinalIgnoreCase);
         Size tiefeGroesse, tiefeGemessen;
+        readonly Dictionary<string, int> seiteVon = new Dictionary<string, int>();
+        int seitenAnzahl = 1;
 
         /// <summary>
         /// Die aufgeklappte Fläche: jeder Ordner eine Box, zusammen genau so groß wie das Blatt (Kacheln nach Inhalt gewichtet).
@@ -235,7 +219,17 @@ namespace Workbench
             };
             string offen; offenVon.TryGetValue(b.Id, out offen);
             var neu = new Dictionary<string, Rect>(StringComparer.OrdinalIgnoreCase);
-            Fuellen(b, st.Wurzel, c, new Rect(0, 0, w, h), 0, offen, neu, true);
+            // Seiten: höchstens so viele Ordner, dass jede Box gut lesbar bleibt
+            var wurzel0 = st.Wurzel;
+            var ordnerAlle = wurzel0.Kinder.Where(x => x.Ordner && x.Kinder != null).ToList();
+            int proSeite = Math.Max(4, (int)(w * h / (210.0 * 150.0)));
+            seitenAnzahl = Math.Max(1, (int)Math.Ceiling(ordnerAlle.Count / (double)proSeite));
+            int seite; seiteVon.TryGetValue(b.Id, out seite);
+            seite = Math.Max(0, Math.Min(seitenAnzahl - 1, seite)); seiteVon[b.Id] = seite;
+            var teil = new TKnoten { Pfad = wurzel0.Pfad, Name = wurzel0.Name, Ordner = true, Mehr = seite == 0 ? wurzel0.Mehr : 0,
+                Kinder = (seite == 0 ? wurzel0.Kinder.Where(x => !(x.Ordner && x.Kinder != null)) : Enumerable.Empty<TKnoten>()).Concat(ordnerAlle.Skip(seite * proSeite).Take(proSeite)).ToList() };
+            Fuellen(b, teil, c, new Rect(0, 0, w, h), 0, offen, neu, true);
+            if (seitenAnzahl > 1) huelle.Children.Add(SeitenAnzeige(b, seite));
             // FLIP: was schon da war, gleitet von seinem alten Platz an den neuen
             if (!bild && letzteBoxen.Count > 0)
                 foreach (UIElement el in c.Children)
@@ -282,6 +276,46 @@ namespace Workbench
                 if (liste != null) { Dateien(b, liste, d.Mehr, c, ri, ebene); continue; }
                 Box(b, (TKnoten)teile[i], c, ri, ebene + 1, offen, merk);
             }
+        }
+
+        /// <summary>Mehr als eine Seite: leiser Pfeil am Rand (mit Anzahl) und Punkte unten. ← → oder zwei Finger seitlich.</summary>
+        FrameworkElement SeitenAnzeige(BlattDef b, int seite)
+        {
+            var g = new Grid { IsHitTestVisible = true };
+            Func<bool, Button> pfeil = rechts =>
+            {
+                var k = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 34, Height = 34, Content = UI.Icon(rechts ? Ikon.Rechts : Ikon.Links, 15, Farbe.B("#E6FFFFFF"), 2), HorizontalAlignment = rechts ? HorizontalAlignment.Right : HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, Margin = rechts ? new Thickness(0, 0, -4, 0) : new Thickness(8, 0, 0, 0), Background = Farbe.B("#D9191C23"), ToolTip = rechts ? (seitenAnzahl - seite - 1) + " more" : "Back" };
+                k.Click += delegate { SeiteWechseln(rechts ? 1 : -1); };
+                return k;
+            };
+            if (seite < seitenAnzahl - 1) g.Children.Add(pfeil(true));
+            if (seite > 0) g.Children.Add(pfeil(false));
+            var punkte = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 2), IsHitTestVisible = false };
+            for (int i = 0; i < seitenAnzahl; i++) punkte.Children.Add(new Border { Width = i == seite ? 14 : 5, Height = 5, CornerRadius = new CornerRadius(2.5), Background = Farbe.B(i == seite ? "#CCF4B860" : "#40FFFFFF"), Margin = new Thickness(3, 0, 3, 0) });
+            g.Children.Add(punkte);
+            return g;
+        }
+
+        /// <summary>Nächste/vorige Seite – gleitet seitlich. true = es gab etwas zu blättern.</summary>
+        public bool SeiteWechseln(int d)
+        {
+            var b = Akt;
+            if (b == null || !ImOrdner || Tiefe(b) == 0 || seitenAnzahl <= 1) return false;
+            int s; seiteVon.TryGetValue(b.Id, out s);
+            int neu = Math.Max(0, Math.Min(seitenAnzahl - 1, s + d));
+            if (neu == s) { Wackeln(d); return true; }
+            seiteVon[b.Id] = neu;
+            letzteBoxen.Clear();
+            Neuzeichnen();
+            if (!bild && buehne.Children.Count > 0)
+            {
+                var el = buehne.Children[0];
+                var tt = new TranslateTransform();
+                el.RenderTransform = tt;
+                tt.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(d * 60, 0, TimeSpan.FromMilliseconds(260)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+                el.BeginAnimation(OpacityProperty, new DoubleAnimation(0.3, 1, TimeSpan.FromMilliseconds(220)));
+            }
+            return true;
         }
 
         static int Anzahl(TKnoten k) { return k.Kinder == null ? 1 : k.Kinder.Sum(x => x.Ordner && x.Kinder != null ? Anzahl(x) : 1) + k.Mehr; }
@@ -449,7 +483,7 @@ namespace Workbench
             {
                 int i2 = i;
                 bool an = i == jetzt;
-                var feld = new Border { Width = 22, Height = 13, Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = i == 0 ? "Surface" : "Level " + i + (i == 1 ? "  (Shift+wheel)" : "") };
+                var feld = new Border { Width = 22, Height = 13, Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = Griechisch(i) + (i == 0 ? "  surface" : "") + (i == 1 ? "   ·   Shift+wheel" : "") };
                 ToolTipService.SetInitialShowDelay(feld, 250);
                 ToolTipService.SetPlacement(feld, System.Windows.Controls.Primitives.PlacementMode.Right);
                 var strich = new Border { Width = an ? 14 : 8, Height = an ? 2.5 : 1.5, CornerRadius = new CornerRadius(1), Background = Farbe.B(an ? "#FFF4B860" : "#4DFFFFFF"), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 0) };
@@ -463,6 +497,94 @@ namespace Workbench
             return sp;
         }
 
-        void TiefeVergessen() { tiefeCache.Clear(); }
+        /// <summary>Etwas hat sich geändert: alles gilt als „nachsehen“, bleibt aber als Platzhalter stehen (kein leeres Bild).</summary>
+        void TiefeVergessen() { foreach (var st in tiefeCache.Values) st.Zeit = DateTime.MinValue; }
+
+        static string Zeichen(TKnoten k)
+        {
+            var sb = new System.Text.StringBuilder();
+            Action<TKnoten> lauf = null;
+            lauf = x => { sb.Append(x.Pfad).Append('|').Append(x.Mehr).Append('\n'); if (x.Kinder != null) foreach (var y in x.Kinder) lauf(y); };
+            lauf(k);
+            return sb.ToString();
+        }
+
+        // ---------- Gemerkte Ebenen: auf der Platte, damit die Tiefe nach dem Start sofort stimmt ----------
+
+        bool tiefeGeladen;
+        DispatcherTimer tiefeSpeicher;
+        static string TiefeDatei { get { return Path.Combine(Paths.Daten, "tiefe.bin"); } }
+
+        void TiefeLaden()
+        {
+            if (tiefeGeladen) return;
+            tiefeGeladen = true;
+            if (bild || Paths.Test) return;
+            try
+            {
+                if (!File.Exists(TiefeDatei)) return;
+                using (var r = new BinaryReader(File.OpenRead(TiefeDatei), System.Text.Encoding.UTF8))
+                {
+                    if (r.ReadInt32() != 1) return;
+                    int n = r.ReadInt32();
+                    for (int i = 0; i < n; i++)
+                    {
+                        string k = r.ReadString();
+                        var st = new TStand { Tiefer = r.ReadBoolean(), Zeit = DateTime.MinValue, Wurzel = KnotenLesen(r) };   // gilt sofort, wird still nachgeprüft
+                        if (!tiefeCache.ContainsKey(k)) tiefeCache[k] = st;
+                    }
+                }
+            }
+            catch { }
+        }
+
+        static TKnoten KnotenLesen(BinaryReader r)
+        {
+            var k = new TKnoten { Pfad = r.ReadString(), Ordner = r.ReadBoolean(), Mehr = r.ReadInt32() };
+            k.Name = Path.GetFileName(k.Pfad.TrimEnd('\\'));
+            int n = r.ReadInt32();
+            if (n >= 0) { k.Kinder = new List<TKnoten>(n); for (int i = 0; i < n; i++) k.Kinder.Add(KnotenLesen(r)); }
+            return k;
+        }
+
+        static void KnotenSchreiben(BinaryWriter w, TKnoten k)
+        {
+            w.Write(k.Pfad ?? ""); w.Write(k.Ordner); w.Write(k.Mehr);
+            w.Write(k.Kinder == null ? -1 : k.Kinder.Count);
+            if (k.Kinder != null) foreach (var x in k.Kinder) KnotenSchreiben(w, x);
+        }
+
+        /// <summary>Gesammelt nach kurzer Ruhe schreiben, im Hintergrund – nie mitten im Wechsel.</summary>
+        void TiefeMerken()
+        {
+            if (bild || Paths.Test) return;
+            if (tiefeSpeicher == null)
+            {
+                tiefeSpeicher = new DispatcherTimer(DispatcherPriority.ApplicationIdle) { Interval = TimeSpan.FromSeconds(4) };
+                tiefeSpeicher.Tick += delegate
+                {
+                    tiefeSpeicher.Stop();
+                    var stand = tiefeCache.Where(x => x.Value != null && x.Value.Wurzel != null).OrderByDescending(x => x.Value.Zeit).Take(60).ToList();
+                    Task.Factory.StartNew(() =>
+                    {
+                        try
+                        {
+                            string tmp = TiefeDatei + ".neu";
+                            using (var w = new BinaryWriter(File.Create(tmp), System.Text.Encoding.UTF8))
+                            {
+                                w.Write(1); w.Write(stand.Count);
+                                foreach (var x in stand) { w.Write(x.Key); w.Write(x.Value.Tiefer); KnotenSchreiben(w, x.Value.Wurzel); }
+                            }
+                            if (File.Exists(TiefeDatei)) File.Replace(tmp, TiefeDatei, null); else File.Move(tmp, TiefeDatei);
+                        }
+                        catch { }
+                    }, TaskCreationOptions.LongRunning);
+                };
+            }
+            tiefeSpeicher.Stop(); tiefeSpeicher.Start();
+        }
+
+        static readonly string[] griechisch = { "α", "β", "γ", "δ", "ε", "ζ", "η", "θ", "ι" };
+        static string Griechisch(int i) { return i >= 0 && i < griechisch.Length ? griechisch[i] : i.ToString(); }
     }
 }

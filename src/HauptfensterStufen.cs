@@ -58,12 +58,17 @@ namespace Workbench
                 };
                 c.Children.Insert(0, p);   // obere Ebenen liegen vorn
                 platten.Add(p);
-                string name = i == 0 ? "Surface" : "Level " + i;
                 int n = AnzahlAufEbene(b, i);
-                var t = new TextBlock { Text = name + (n > 0 ? "   " + n : ""), FontSize = 12, Foreground = Farbe.B("#99FFFFFF"), FontFamily = UI.Schrift };
-                Canvas.SetLeft(t, 272); Canvas.SetTop(t, y + 18);
+                var t = new TextBlock { Text = Griechisch(i), FontSize = 20, Foreground = Farbe.B("#99FFFFFF"), FontFamily = new FontFamily("Cambria, Georgia, Segoe UI") };
+                Canvas.SetLeft(t, 10); Canvas.SetTop(t, y + 12);
                 c.Children.Add(t);
                 stufenText.Add(t);
+                if (n > 0)
+                {
+                    var z = new TextBlock { Text = n.ToString(), FontSize = 11, Foreground = Farbe.B("#66FFFFFF"), FontFamily = UI.Schrift };
+                    Canvas.SetLeft(z, 272); Canvas.SetTop(z, y + 19);
+                    c.Children.Add(z);
+                }
             }
             stufen.Children.Add(c);
             wurzel.Children.Add(stufen);
@@ -98,7 +103,13 @@ namespace Workbench
             for (int i = 0; i < platten.Count; i++)
             {
                 bool ziel = i == stufenZiel, hier = i == jetzt;
-                platten[i].Fill = Farbe.B(ziel ? "#59F4B860" : hier ? "#26FFFFFF" : "#0FFFFFFF");
+                var tt = platten[i].RenderTransform as TranslateTransform;
+                if (tt == null) { tt = new TranslateTransform(); platten[i].RenderTransform = tt; }
+                tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(ziel ? -6 : 0, TimeSpan.FromMilliseconds(160)) { EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.4 } });
+                var tl = stufenText[i].RenderTransform as TranslateTransform;
+                if (tl == null) { tl = new TranslateTransform(); stufenText[i].RenderTransform = tl; }
+                tl.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(ziel ? -6 : 0, TimeSpan.FromMilliseconds(160)));
+                platten[i].Fill = ziel ? (Brush)new LinearGradientBrush(Color.FromArgb(150, 244, 184, 96), Color.FromArgb(40, 244, 184, 96), 90) : Farbe.B(hier ? "#26FFFFFF" : "#0FFFFFFF");
                 platten[i].Stroke = Farbe.B(ziel ? "#FFF4B860" : hier ? "#80FFFFFF" : "#40FFFFFF");
                 platten[i].StrokeThickness = ziel ? 1.6 : 1;
                 stufenText[i].Foreground = Farbe.B(ziel ? "#FFF4B860" : hier ? "#CCFFFFFF" : "#73FFFFFF");

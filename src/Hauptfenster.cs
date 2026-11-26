@@ -347,10 +347,10 @@ namespace Workbench
             var sp = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 26, 2) };
             sp.Children.Add(new TextBlock { Text = "v" + Program.Version, FontSize = 10.5, Foreground = Farbe.B("#40FFFFFF") });
             string neu = Update.Neu(E.Cfg);
-            updateLink = new TextBlock { Text = "update " + neu, FontSize = 10.5, Foreground = Farbe.B("#99F4B860"), Margin = new Thickness(8, 0, 0, 0), Cursor = Cursors.Hand, ToolTip = "Download the new version", Visibility = neu != null ? Visibility.Visible : Visibility.Collapsed };
+            updateLink = new TextBlock { Text = "update " + neu, FontSize = 10.5, Foreground = Farbe.B("#99F4B860"), Margin = new Thickness(8, 0, 0, 0), Cursor = Cursors.Hand, ToolTip = "Restart into the new version", Visibility = neu != null ? Visibility.Visible : Visibility.Collapsed };
             updateLink.MouseEnter += delegate { updateLink.Foreground = Farbe.Akzent; updateLink.TextDecorations = TextDecorations.Underline; };
             updateLink.MouseLeave += delegate { updateLink.Foreground = Farbe.B("#99F4B860"); updateLink.TextDecorations = null; };
-            updateLink.MouseLeftButtonUp += delegate { Oeffnen(Update.Seite); };
+            updateLink.MouseLeftButtonUp += delegate { updateLink.Text = "updating…"; Update.Anwenden(); };
             sp.Children.Add(updateLink);
             return sp;
         }
@@ -1223,8 +1223,8 @@ namespace Workbench
             string neu = Update.Neu(c);
             if (neu != null)
             {
-                var link = new TextBlock { Text = neu + " available", FontSize = 11.5, Foreground = Farbe.Akzent, Margin = new Thickness(10, 0, 0, 0), Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center, ToolTip = Update.Seite };
-                link.MouseLeftButtonUp += delegate { Oeffnen(Update.Seite); };
+                var link = new TextBlock { Text = "Update to " + neu, FontSize = 11.5, Foreground = Farbe.Akzent, Margin = new Thickness(10, 0, 0, 0), Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center, ToolTip = "Restart into the new version" };
+                link.MouseLeftButtonUp += delegate { link.Text = "updating…"; Update.Anwenden(); };
                 fuss.Children.Add(link);
             }
             var unten = new Grid { MinHeight = 44 };
@@ -1317,8 +1317,8 @@ namespace Workbench
             else if (ImOrdner && (Keyboard.Modifiers & ModifierKeys.Shift) != 0 && (a.Key == Key.Down || a.Key == Key.Up)) { StufenSchritt(a.Key == Key.Down ? 1 : -1); a.Handled = true; }
             else if (a.Key == Key.Down || a.Key == Key.PageDown) { Schritt(1); a.Handled = true; }
             else if (a.Key == Key.Up || a.Key == Key.PageUp) { Schritt(-1); a.Handled = true; }
-            else if (a.Key == Key.Left || (a.SystemKey == Key.Left)) { Zurueck(); a.Handled = true; }
-            else if (a.Key == Key.Right || (a.SystemKey == Key.Right)) { Vor(); a.Handled = true; }
+            else if (a.Key == Key.Left || (a.SystemKey == Key.Left)) { if (!SeiteWechseln(-1)) Zurueck(); a.Handled = true; }
+            else if (a.Key == Key.Right || (a.SystemKey == Key.Right)) { if (!SeiteWechseln(1)) Vor(); a.Handled = true; }
             else if (a.Key == Key.Back && ImOrdner)
             {
                 var c = Akt;
@@ -1393,7 +1393,7 @@ namespace Workbench
             wischSumme += delta;
             if (Math.Abs(wischSumme) >= 160)
             {
-                if (wischSumme < 0) Zurueck(); else Vor();     // Finger nach rechts = zurück (wie im Browser)
+                if (!SeiteWechseln(wischSumme < 0 ? -1 : 1)) { if (wischSumme < 0) Zurueck(); else Vor(); }     // in der Tiefe: Seiten; sonst Finger nach rechts = zurück
                 wischSumme = 0;
                 wischSperre = DateTime.UtcNow.AddMilliseconds(520);
             }

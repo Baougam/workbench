@@ -110,6 +110,18 @@ namespace Workbench
 
         // ---------- Ereignisse aus dem Dateisystem ----------
 
+        /// <summary>Nur nach dem Namen (ohne Dateizugriff) – für schnelles Lesen, wenn die Attribute schon bekannt sind.</summary>
+        public static bool IstHilfsName(string n)
+        {
+            if (string.IsNullOrEmpty(n)) return true;
+            string l = n.ToLowerInvariant();
+            if (l.StartsWith("~$") || l.StartsWith("~wr") || l.StartsWith(".~")) return true;
+            if (l == "desktop.ini" || l == "thumbs.db") return true;
+            string[] endungen = { ".crdownload", ".part", ".partial", ".download", ".opdownload", ".tmp", ".temp", ".!ut", ".aria2", ".tmp.part", ".~tmp", ".!qb", ".crswap", ".bc!", ".dlpart" };
+            foreach (var e in endungen) if (l.EndsWith(e)) return true;
+            return false;
+        }
+
         public static bool IstHilfsdatei(string pfad)
         {
             string n = Path.GetFileName(pfad);

@@ -405,6 +405,35 @@ namespace Workbench
             }
             catch (Exception ex) { Ok(false, "Tiefe: " + ex.Message); }
 
+            // 12e) Schnelles Lesen + Seiten, wenn eine Ebene zu voll ist
+            try
+            {
+                string sv = Path.Combine(Paths.Dauerhaft, "Schnell");
+                Directory.CreateDirectory(Path.Combine(sv, "Ordner"));
+                File.WriteAllText(Path.Combine(sv, "sichtbar.txt"), "a");
+                string vers = Path.Combine(sv, "versteckt.txt"); File.WriteAllText(vers, "b"); File.SetAttributes(vers, FileAttributes.Hidden);
+                File.WriteAllText(Path.Combine(sv, "halb.crdownload"), "c");
+                List<string> od, df;
+                Ok(Schnell.Lesen(sv, out od, out df) && od.Count == 1 && df.Count == 1 && df[0].EndsWith("sichtbar.txt"), "Schnelles Lesen: Ordner + Datei, Verstecktes und Halbfertiges bleiben draußen");
+                Ok(Schnell.HatInhalt(sv) && !Schnell.HatInhalt(Path.Combine(sv, "Ordner")), "Schnelles Lesen: leer/nicht leer");
+                Directory.Delete(sv, true);
+
+                Blaetter.D = Blaetter.Standard(false);
+                var viele = new List<string>();
+                for (int i = 0; i < 40; i++) { string d = Path.Combine(Paths.Dauerhaft, "Viele " + i.ToString("00")); Directory.CreateDirectory(d); File.WriteAllText(Path.Combine(d, "f" + i + ".txt"), "x"); viele.Add(d); }
+                var w = new Hauptfenster(E, 1, true);
+                w.Wurzel.Measure(new Size(1060, 700)); w.Wurzel.Arrange(new Rect(0, 0, 1060, 700));
+                w.TiefeAendern(1);
+                string erste = Path.Combine(viele[0], "f0.txt"), letzte = Path.Combine(viele[39], "f39.txt");
+                Pumpen(1500, () => w.SymboleTest.ContainsKey(erste));
+                Ok(w.SymboleTest.ContainsKey(erste) && !w.SymboleTest.ContainsKey(letzte), "Volle Ebene: erste Seite zeigt nur, was gut lesbar passt");
+                bool weiter = false;
+                for (int i = 0; i < 6 && !w.SymboleTest.ContainsKey(letzte); i++) weiter |= w.SeiteWechseln(1);
+                Ok(weiter && w.SymboleTest.ContainsKey(letzte), "Volle Ebene: weiterblättern zeigt den Rest");
+                foreach (var d in viele) Directory.Delete(d, true);
+            }
+            catch (Exception ex) { Ok(false, "Seiten: " + ex.Message); }
+
             // 13) Mehrere markieren: Rahmen aufziehen, alles markieren, gemeinsam löschen
             try
             {

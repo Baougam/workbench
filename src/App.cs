@@ -63,6 +63,7 @@ namespace Workbench
             }
             // Update: höchstens einmal am Tag still nachsehen
             var upd = new DispatcherTimer(DispatcherPriority.ApplicationIdle) { Interval = TimeSpan.FromSeconds(45) };
+            Update.Aufraeumen(E.Cfg);
             upd.Tick += delegate { upd.Interval = TimeSpan.FromHours(6); Update.Pruefen(E.Cfg); };
             upd.Start();
         }
