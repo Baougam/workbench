@@ -106,6 +106,19 @@ namespace Workbench
                 knopf.MouseEnter += delegate { reiter[nr].Ueber = true; };
                 knopf.MouseLeave += delegate { reiter[nr].Ueber = false; };
                 Ordnen(knopf, nr);
+                knopf.MouseRightButtonUp += (s, a) =>
+                {
+                    a.Handled = true;
+                    var m = new List<KeyValuePair<string, Action>>();
+                    string w = WurzelVon(b);
+                    if (w != null && Directory.Exists(w)) m.Add(new KeyValuePair<string, Action>("Show in Explorer", () => Oeffnen(w)));
+                    if (b.Art != "temp")
+                    {
+                        if (m.Count > 0) m.Add(new KeyValuePair<string, Action>("-", null));
+                        m.Add(new KeyValuePair<string, Action>("Remove sheet", () => BlattWeg(nr)));
+                    }
+                    if (m.Count > 0) UI.Menue(knopf, m, true);
+                };
                 regler.Children.Add(knopf);
             }
             if (plus)

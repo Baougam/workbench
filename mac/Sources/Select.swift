@@ -70,14 +70,16 @@ extension MainModel {
 struct SelectionBar: View {
     @ObservedObject var m = MainModel.shared
     var body: some View {
-        if m.selection.count > 1 && m.layer != .settings {
+        if m.selection.count > 1 && !m.settings {
             HStack(spacing: 4) {
                 Text("\(m.selection.count)").font(.system(size: 13, weight: .semibold)).foregroundColor(.amber).padding(.horizontal, 10)
-                if m.layer != .permanent { RoundIcon(system: "infinity", help: "Move to Permanent") { m.move(Array(m.selection), to: Paths.permanent) } }
-                if m.layer != .cloud, let c = Cloud.current(Store.shared.settings) {
-                    RoundIcon(system: "cloud", help: "Move to " + c.name) { m.move(Array(m.selection), to: URL(fileURLWithPath: c.path)) }
+                if m.current?.kind == "board" {
+                    RoundIcon(system: "xmark", help: "Remove from board") { m.removeFromBoard(Array(m.selection)) }
+                } else {
+                    if m.current?.kind == "temp" { RoundIcon(system: "infinity", help: "Keep permanently") { m.move(Array(m.selection), to: Paths.permanent) } }
+                    ForEach(m.otherFolders(m.current)) { o in RoundIcon(system: o.icon, help: "Move to " + o.title) { m.move(Array(m.selection), to: URL(fileURLWithPath: o.root!)) } }
+                    RoundIcon(system: "trash", help: "Move to Trash") { m.trash(Array(m.selection)) }
                 }
-                RoundIcon(system: "trash", help: "Move to Trash") { m.trash(Array(m.selection)) }
             }
             .padding(6)
             .background(Capsule().fill(Color.card))
@@ -155,10 +157,10 @@ final class EdgeHold: ObservableObject {
         let p = w.convertPoint(fromScreen: NSEvent.mouseLocation)
         let size = v.bounds.size
         guard p.x >= 60, p.x <= size.width, p.y >= 0, p.y <= size.height else { return 0 }
-        let layer = MainModel.shared.layer.rawValue
-        guard layer < 3 else { return 0 }
-        if p.y > size.height - 76 { return layer > 0 ? -1 : 0 }
-        if p.y < 64 { return layer < 2 ? 1 : 0 }
+        let m = MainModel.shared
+        guard !m.settings else { return 0 }
+        if p.y > size.height - 76 { return m.sheet > 0 ? -1 : 0 }
+        if p.y < 64 { return m.sheet < m.sheets.count - 1 ? 1 : 0 }
         return 0
     }
 }

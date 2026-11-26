@@ -166,3 +166,8 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
   → aufsummiert = Adern (Dicke/Helligkeit), Punkte 38–100 % Deckkraft, Top 3 bernstein, Namen nur Wurzeln/Gefärbtes/14 wärmste ohne
   Überlappung. Maus in der Nähe: Punkte wachsen, Namen tauchen auf (nur bei Mausbewegung, keine Animation).
 - Mac: noch offen (Blätter, Leisten, Reiter, Netz gibt es dort noch nicht).
+- Rechtsklick auf einen Reiter: „Show in Explorer“ / „Remove sheet“ (Expiring nicht). `BlaetterDaten.Version` 2: einmalig wird ein
+  leeres, unverändertes Permanent-Blatt zum + (Mitte gehört dem Nutzer, Start dort). `Bisher()` zählt nur noch Inhalt von Permanent.
+- Mac (2026-11-26): `mac/Sources/Sheets.swift` (Sheet-Modell `sheets.json`, RecentFiles über Spotlight, RailTile, SheetReorder,
+  NewSheetView, BoardView, Bar/BarItem/WithBars); `MainModel` jetzt `sheet` (Index) + `settings`; Ordner-Verlauf je Sheet-Id.
+  Reiter ziehen = umsortieren, Rechtsklick = entfernen. Nur per CI kompiliert, ungetestet. Netz gibt es auf dem Mac weiterhin nicht.

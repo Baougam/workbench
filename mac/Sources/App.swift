@@ -48,7 +48,7 @@ struct Tour: View {
     struct S { let title: String; let text: String }
     static let steps: [S] = [
         S(title: "Welcome to Workbench", text: "Downloads that clean up after themselves, and a desktop that stays tidy."),
-        S(title: "Three layers", text: "Expiring, Permanent and Cloud. Swipe up or down with two fingers to switch, or use the arrow keys."),
+        S(title: "Sheets", text: "Each sheet is one place. Swipe up or down to switch. Drag a sheet on the left to reorder it."),
         S(title: "After every download", text: "A small card like this one asks how long you need the file. Pick a time with one click — or ignore it, and Workbench picks a sensible default."),
         S(title: "Expiring", text: "New downloads show up here. Each icon drains as time runs out. Then the file moves to the Trash."),
         S(title: "Your desktop", text: "Permanent is a desktop that stays tidy. Drag files in, double-click a folder to open it."),
@@ -103,8 +103,7 @@ struct Tour: View {
     }
 
     func prepare(_ s: Int) {
-        if s == 1 || s == 3 { m.show(.expiring) }
-        if s == 4 { m.show(.permanent) }
+        if s == 1 || s == 3 { m.show(Sheets.shared.tempIndex) }
         if s == 2 { AppDelegate.shared?.exampleCard() }
     }
 }
@@ -134,6 +133,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self?.showCard([e], info: true)
         }
         engine.start()
+        Sheets.shared.load()
+        MainModel.shared.sheet = Sheets.shared.startIndex
         Browsers.listen()
         if !UserDefaults.standard.bool(forKey: "loginItemSet") {
             LoginItem.set(Store.shared.settings.startAtLogin)
@@ -184,7 +185,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc func openFromMenu() { showWindow() }
-    @objc func openSettings() { showWindow(); MainModel.shared.show(.settings) }
+    @objc func openSettings() { showWindow(); MainModel.shared.showSettings(true) }
 
     func showWindow() {
         if window == nil {
@@ -226,8 +227,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let m = MainModel.shared
         if m.tour != nil { return false }
         let cmd = e.modifierFlags.contains(.command)
-        if cmd && e.charactersIgnoringModifiers == "a" && m.layer != .settings { m.selectAll(); return true }
-        if (e.keyCode == 117 || (e.keyCode == 51 && cmd)) && !m.selection.isEmpty && m.layer != .settings { m.trash(Array(m.selection)); return true }   // ⌦ or ⌘⌫
+        if cmd && e.charactersIgnoringModifiers == "a" && !m.settings { m.selectAll(); return true }
+        if (e.keyCode == 117 || (e.keyCode == 51 && cmd)) && !m.selection.isEmpty && !m.settings { if m.current?.kind == "board" { m.removeFromBoard(Array(m.selection)) } else { m.trash(Array(m.selection)) }; return true }   // ⌦ or ⌘⌫
         if e.keyCode == 53 && !m.selection.isEmpty { m.selection = []; return true }
         switch e.keyCode {
         case 125: m.step(1); return true            // ↓
@@ -240,7 +241,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func scroll(_ e: NSEvent) -> Bool {
         let m = MainModel.shared
-        if m.tour != nil || m.layer == .settings { return false }
+        if m.tour != nil || m.settings { return false }
         if !e.hasPreciseScrollingDeltas {
             // classic mouse wheel: one notch = one layer, with a short pause
             guard Date().timeIntervalSince(lastWheel) > 0.45, abs(e.scrollingDeltaY) > 0.5 else { return true }

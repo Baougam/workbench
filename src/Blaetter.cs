@@ -26,6 +26,7 @@ namespace Workbench
     {
         public List<BlattDef> Liste = new List<BlattDef>();
         public List<string> Ablage = new List<string>();    // geparkte Dateien (Verweise, für alle Blätter gleich)
+        public int Version;                                 // 2 = Mitte ist das eigene Blatt (leeres Permanent wurde zum +)
     }
 
     /// <summary>Die Blätter des Nutzers: %LOCALAPPDATA%\Workbench\blaetter.json.</summary>
@@ -53,6 +54,7 @@ namespace Workbench
                         if (D.Ablage == null) D.Ablage = new List<string>();
                         foreach (var b in D.Liste) { if (b.Leisten == null) b.Leisten = new List<string>(); if (b.Inhalt == null) b.Inhalt = new List<string>(); }
                         if (!D.Liste.Any(b => b.Art == "temp")) D.Liste.Insert(0, new BlattDef { Art = "temp", Name = "Expiring" });
+                        if (D.Version < 2) Umstellen();
                         return;
                     }
                 }
@@ -69,8 +71,7 @@ namespace Workbench
         {
             try
             {
-                if (Directory.Exists(Paths.Dauerhaft) && Directory.EnumerateFileSystemEntries(Paths.Dauerhaft).Any(p => !Engine.IstHilfsdatei(p))) return true;
-                return File.Exists(Path.Combine(Paths.Daten, "anordnung.json"));
+                return Directory.Exists(Paths.Dauerhaft) && Directory.EnumerateFileSystemEntries(Paths.Dauerhaft).Any(p => !Engine.IstHilfsdatei(p));
             }
             catch { return false; }
         }
@@ -78,7 +79,7 @@ namespace Workbench
         /// <summary>Neu: Expiring und ein leeres Blatt in der Mitte. Bisher: die alten drei Ebenen bleiben, wie sie waren.</summary>
         public static BlaetterDaten Standard(bool neu)
         {
-            var d = new BlaetterDaten();
+            var d = new BlaetterDaten { Version = 2 };
             d.Liste.Add(new BlattDef { Art = "temp", Name = "Expiring" });
             if (neu) d.Liste.Add(new BlattDef { Art = "empty" });
             else
@@ -87,6 +88,22 @@ namespace Workbench
                 d.Liste.Add(new BlattDef { Art = "cloud", Name = "Cloud" });
             }
             return d;
+        }
+
+        /// <summary>
+        /// Einmalig: ein leeres, unverändertes „Permanent“ aus der alten Einteilung wird zum + – die Mitte gehört dem Nutzer.
+        /// Liegt dort etwas, bleibt alles, wie es ist.
+        /// </summary>
+        static void Umstellen()
+        {
+            D.Version = 2;
+            foreach (var b in D.Liste)
+            {
+                if (b.Art != "folder" || !Paths.Gleich(b.Pfad, Paths.Dauerhaft) || b.Leisten.Count > 0 || Bisher()) continue;
+                b.Art = "empty"; b.Pfad = ""; b.Name = ""; b.Symbol = "";
+                Frisch = true;
+            }
+            Speichern();
         }
 
         public static void Speichern()

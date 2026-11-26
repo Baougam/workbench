@@ -2,12 +2,10 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
-enum Layer: Int { case expiring = 0, permanent = 1, cloud = 2, settings = 4 }
-
 final class MainModel: ObservableObject {
     static let shared = MainModel()
-    @Published var layer: Layer = .expiring
-    @Published var lastLayer: Layer = .expiring
+    @Published var sheet = 0                          // index into Sheets.shared.list
+    @Published var settings = false
     @Published var search = ""
     @Published var selection: Set<String> = []
     var selected: String? {
@@ -16,60 +14,91 @@ final class MainModel: ObservableObject {
     }
     @Published var marquee: CGRect?
     var frames: [String: CGRect] = [:]                  // visible tiles in sheet coordinates
-    @Published var folder: [Int: String] = [:]          // current subfolder per layer (1, 2)
+    var sheetSize: CGSize = .zero
+    @Published var folder: [String: String] = [:]       // sheet id → current subfolder
     @Published var tour: Int? = nil
     @Published var slideFrom: CGFloat = 0
-    var back: [Int: [String]] = [1: [], 2: []]
-    var forward: [Int: [String]] = [1: [], 2: []]
+    @Published var draggingSheet: Int?
+    var back: [String: [String]] = [:]
+    var forward: [String: [String]] = [:]
 
-    func show(_ l: Layer) {
-        guard l != layer else { return }
-        let dir: CGFloat = (l.rawValue < 3 && layer.rawValue < 3) ? (l.rawValue > layer.rawValue ? 1 : -1) : 0
-        slideFrom = dir * 40
+    var sheets: [Sheet] { Sheets.shared.list }
+    var current: Sheet? { settings || sheet >= sheets.count ? nil : sheets[sheet] }
+    var key: String { settings ? "settings" : (current?.id ?? "") }
+
+    func show(_ i: Int) {
+        guard i >= 0, i < sheets.count, i != sheet || settings else { return }
+        slideFrom = settings ? 0 : (i > sheet ? 40 : -40)
         withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) {
-            layer = l
-            if l.rawValue < 3 { lastLayer = l }
+            settings = false
+            sheet = i
             selected = nil
             search = ""
         }
     }
 
+    func showSettings(_ on: Bool) {
+        slideFrom = 0
+        withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { settings = on; selected = nil }
+    }
+
     func step(_ d: Int) {
-        let from = layer.rawValue < 3 ? layer.rawValue : lastLayer.rawValue
-        let to = max(0, min(2, from + d))
-        if let l = Layer(rawValue: to), l != layer { show(l); if tour == 1 { tour = 2 } }     // trying it yourself counts in the tour
+        let to = max(0, min(sheets.count - 1, sheet + d))
+        if to != sheet || settings { show(to); if tour == 1 { tour = 2 } }     // trying it yourself counts in the tour
     }
 
-    func root(_ l: Int) -> String? {
-        if l == 1 { return Paths.permanent.path }
-        if l == 2 { return Cloud.current(Store.shared.settings)?.path }
-        return nil
+    func addSheet() {
+        let s = Sheets.shared
+        if let i = s.list.firstIndex(where: { $0.kind == "empty" }) { show(i); return }
+        guard s.list.count < Sheets.max else { return }
+        s.list.append(Sheet(kind: "empty"))
+        s.save()
+        show(s.list.count - 1)
     }
 
-    func currentFolder(_ l: Int) -> String? {
-        guard let r = root(l) else { return nil }
-        if let f = folder[l], f.hasPrefix(r), Paths.fm.fileExists(atPath: f) { return f }
+    func removeSheet(_ i: Int) {
+        let s = Sheets.shared
+        guard i < s.list.count, s.list[i].kind != "temp" else { return }
+        let cur = current?.id
+        s.list.remove(at: i)
+        s.save()
+        sheet = s.list.firstIndex { $0.id == cur } ?? max(0, min(i, s.list.count - 1))
+        objectWillChange.send()
+    }
+
+    func currentFolder(_ s: Sheet) -> String? {
+        guard let r = s.root else { return nil }
+        if let f = folder[s.id], f.hasPrefix(r), Paths.fm.fileExists(atPath: f) { return f }
         return r
     }
 
-    func enter(_ l: Int, _ path: String) {
-        if let cur = currentFolder(l), cur != path { back[l, default: []].append(cur); forward[l] = [] }
-        withAnimation(.easeOut(duration: 0.2)) { folder[l] = path; selected = nil }
+    func enter(_ s: Sheet, _ path: String) {
+        if let cur = currentFolder(s), cur != path { back[s.id, default: []].append(cur); forward[s.id] = [] }
+        withAnimation(.easeOut(duration: 0.2)) { folder[s.id] = path; selected = nil }
     }
 
     func goBack() {
-        let l = layer.rawValue
-        guard l == 1 || l == 2, let p = back[l]?.popLast(), let cur = currentFolder(l) else { return }
-        forward[l, default: []].append(cur)
-        withAnimation(.easeOut(duration: 0.2)) { folder[l] = p; selection = [] }
+        guard let s = current, s.isFolder, let p = back[s.id]?.popLast(), let cur = currentFolder(s) else { return }
+        forward[s.id, default: []].append(cur)
+        withAnimation(.easeOut(duration: 0.2)) { folder[s.id] = p; selection = [] }
     }
 
     func goForward() {
-        let l = layer.rawValue
-        guard l == 1 || l == 2, let p = forward[l]?.popLast(), let cur = currentFolder(l) else { return }
-        back[l, default: []].append(cur)
-        withAnimation(.easeOut(duration: 0.2)) { folder[l] = p; selection = [] }
+        guard let s = current, s.isFolder, let p = forward[s.id]?.popLast(), let cur = currentFolder(s) else { return }
+        back[s.id, default: []].append(cur)
+        withAnimation(.easeOut(duration: 0.2)) { folder[s.id] = p; selection = [] }
     }
+
+    func removeFromBoard(_ paths: [String]) {
+        let s = Sheets.shared
+        guard sheet < s.list.count, s.list[sheet].kind == "board" else { return }
+        s.list[sheet].items.removeAll { paths.contains($0) }
+        s.save()
+        selection = []
+    }
+
+    /// Other folder sheets to move things to (at most three).
+    func otherFolders(_ s: Sheet?) -> [Sheet] { Array(sheets.filter { $0.id != s?.id && $0.isFolder && $0.root != nil }.prefix(3)) }
 }
 
 /// Your own desktop wallpaper – loaded tiny and scaled up softly (free blur), darkened.
@@ -116,18 +145,13 @@ struct MainView: View {
         .preferredColorScheme(.dark)
     }
 
-    var title: String {
-        switch m.layer {
-        case .expiring: return "Expiring"
-        case .permanent: return "Permanent"
-        case .cloud: return Cloud.current(store.settings)?.name ?? "Cloud"
-        case .settings: return "Settings"
-        }
-    }
+    @ObservedObject var sheets = Sheets.shared
+
+    var title: String { m.settings ? "Settings" : (m.current?.kind == "empty" ? "" : (m.current?.title ?? "")) }
 
     var topBar: some View {
         HStack(spacing: 10) {
-            if (m.layer == .permanent || m.layer == .cloud), !(m.back[m.layer.rawValue] ?? []).isEmpty || !(m.forward[m.layer.rawValue] ?? []).isEmpty {
+            if let s = m.current, s.isFolder, !(m.back[s.id] ?? []).isEmpty || !(m.forward[s.id] ?? []).isEmpty {
                 HStack(spacing: 2) {
                     RoundIcon(system: "chevron.left", help: "Back", color: .text3) { m.goBack() }
                     RoundIcon(system: "chevron.right", help: "Forward", color: .text3) { m.goForward() }
@@ -141,13 +165,13 @@ struct MainView: View {
     }
 
     var breadcrumb: String {
-        guard m.layer == .permanent || m.layer == .cloud, let r = m.root(m.layer.rawValue), let cur = m.currentFolder(m.layer.rawValue), cur != r else { return title }
+        guard let s = m.current, s.isFolder, let r = s.root, let cur = m.currentFolder(s), cur != r else { return title }
         return title + "  ›  " + cur.dropFirst(r.count + 1).replacingOccurrences(of: "/", with: "  ›  ")
     }
 
     /// The current layer is a sheet; the edges of the layers below peek out on top.
     var sheet: some View {
-        let below = m.layer.rawValue < 3 ? 2 - m.layer.rawValue : 0
+        let below = m.settings ? 0 : min(2, m.sheets.count - 1 - m.sheet)
         return ZStack(alignment: .top) {
             if below >= 2 { RoundedRectangle(cornerRadius: 16).fill(Color.white.opacity(0.03)).overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08))).frame(height: 30).padding(.horizontal, 36) }
             if below >= 1 { RoundedRectangle(cornerRadius: 16).fill(Color.white.opacity(0.05)).overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.12))).frame(height: 30).padding(.horizontal, 18).padding(.top, 6) }
@@ -158,7 +182,7 @@ struct MainView: View {
             }
             .padding(.top, 12)
             .offset(y: dragY)
-            .id(m.layer)
+            .id(m.key)
             .transition(.asymmetric(insertion: .offset(y: m.slideFrom).combined(with: .opacity), removal: .opacity))
             .gesture(pressDrag)
             if let r = m.marquee {
@@ -172,6 +196,7 @@ struct MainView: View {
             VStack { Spacer(); SelectionBar() }.padding(.bottom, 14)
         }
         .coordinateSpace(name: "sheet")
+        .background(GeometryReader { g in Color.clear.onAppear { MainModel.shared.sheetSize = g.size }.onChange(of: g.size) { MainModel.shared.sheetSize = $0 } })
         .onPreferenceChange(TileFrames.self) { f in MainModel.shared.frames = f }
     }
 
@@ -181,7 +206,7 @@ struct MainView: View {
             .onChanged { v in
                 if press == nil {
                     var p = Press()
-                    if m.layer == .settings || m.frames.values.contains(where: { $0.contains(v.startLocation) }) { p.mode = 2 }
+                    if m.settings || m.current?.kind == "empty" || m.frames.values.contains(where: { $0.contains(v.startLocation) }) { p.mode = 2 }
                     if NSEvent.modifierFlags.contains(.command) { p.keep = m.selection }
                     press = p
                 }
@@ -211,11 +236,14 @@ struct MainView: View {
     }
 
     @ViewBuilder var content: some View {
-        switch m.layer {
-        case .expiring: ExpiringView()
-        case .permanent: FolderView(layer: 1)
-        case .cloud: FolderView(layer: 2)
-        case .settings: SettingsView()
+        if m.settings { SettingsView() }
+        else if let s = m.current {
+            switch s.kind {
+            case "temp": WithBars(index: m.sheet) { ExpiringView() }
+            case "board": WithBars(index: m.sheet) { BoardView(index: m.sheet) }
+            case "empty": NewSheetView(index: m.sheet)
+            default: WithBars(index: m.sheet) { FolderView(sheet: s) }
+            }
         }
     }
 }
@@ -255,48 +283,52 @@ struct VersionLabel: View {
     }
 }
 
-// MARK: - Rail: the layer switcher as a little sheet stack
+// MARK: - Rail: one landscape tile per sheet, + appears when you point at them
 
 struct Rail: View {
     @ObservedObject var m = MainModel.shared
-    @State private var hover: Int?
+    @ObservedObject var sheets = Sheets.shared
     @State private var dropOver: Int?
-    var names: [String] { ["Expiring", "Permanent", Cloud.current(Store.shared.settings)?.name ?? "Cloud"] }
+    @State private var hover = false
 
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
-            VStack(spacing: 5) {
-                ForEach(0..<3, id: \.self) { i in
-                    let active = (m.layer.rawValue < 3 ? m.layer.rawValue : m.lastLayer.rawValue) == i
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(active ? Color(hex: 0xF6EAD4) : Color(hex: 0x1C2028))
-                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(active || dropOver == i ? Color.amber : Color.white.opacity(0.24), lineWidth: 1))
-                        .shadow(color: active && m.layer.rawValue < 3 ? Color.amber.opacity(0.55) : .clear, radius: 6)
-                        .frame(width: 26, height: 18)
-                        .opacity(active && m.layer.rawValue >= 3 ? 0.5 : 1)
-                        .offset(x: active ? 9 : (hover == i || dropOver == i ? 4 : 0))
-                        .animation(.spring(response: 0.32, dampingFraction: 0.62), value: m.layer)
-                        .animation(.easeOut(duration: 0.12), value: hover)
-                        .frame(width: 44, height: 23, alignment: .leading)
+            VStack(spacing: 6) {
+                ForEach(Array(sheets.list.enumerated()), id: \.element.id) { i, s in
+                    RailTile(icon: s.icon, active: !m.settings && m.sheet == i, target: dropOver == i)
+                        .opacity(m.settings && m.sheet == i ? 0.5 : 1)
                         .contentShape(Rectangle())
-                        .onTapGesture { if let l = Layer(rawValue: i) { m.show(l) } }
-                        .onHover { hover = $0 ? i : (hover == i ? nil : hover) }
-                        .help(names[i])
+                        .onTapGesture { m.show(i) }
+                        .help(s.title)
+                        .onDrag { m.draggingSheet = i; return NSItemProvider(object: ("sheet:" + s.id) as NSString) }
+                        .onDrop(of: [UTType.plainText], delegate: SheetReorder(index: i))
                         .onDrop(of: [UTType.fileURL], delegate: LayerDrop(index: i, over: $dropOver))
+                        .contextMenu {
+                            if s.kind == "board" || s.isFolder { Button("Show in Finder") { if let r = s.root { NSWorkspace.shared.open(URL(fileURLWithPath: r)) } }.disabled(s.root == nil) }
+                            if s.kind != "temp" { Button("Remove sheet") { m.removeSheet(i) } }
+                        }
+                }
+                if sheets.list.count < Sheets.max && !sheets.list.contains(where: { $0.kind == "empty" }) {
+                    RailTile(icon: "plus").opacity(hover || sheets.list.count <= 1 ? 0.7 : 0)
+                        .contentShape(Rectangle())
+                        .onTapGesture { m.addSheet() }
+                        .help("New sheet")
+                        .animation(.easeOut(duration: 0.15), value: hover)
                 }
             }
+            .onHover { hover = $0 }
             .padding(.bottom, 60)
             Spacer()
             VStack(spacing: 6) {
                 RoundIcon(system: "trash", help: "Open Trash") { NSWorkspace.shared.open(Paths.home.appendingPathComponent(".Trash")) }
-                RoundIcon(system: "slider.horizontal.3", help: "Settings", color: m.layer == .settings ? .text1 : .text2) { m.show(m.layer == .settings ? m.lastLayer : .settings) }
+                RoundIcon(system: "slider.horizontal.3", help: "Settings", color: m.settings ? .text1 : .text2) { m.showSettings(!m.settings) }
             }.padding(.bottom, 16)
         }
     }
 }
 
-/// Dropping files onto a sheet moves them into that layer; holding a moment opens the layer (spring-loaded).
+/// Dropping files onto a tile moves them into that sheet (board: adds references); holding a moment opens the sheet.
 struct LayerDrop: DropDelegate {
     let index: Int
     @Binding var over: Int?
@@ -305,21 +337,20 @@ struct LayerDrop: DropDelegate {
         EdgeHold.shared.begin()
         over = index
         let i = index
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { if over == i, let l = Layer(rawValue: i) { MainModel.shared.show(l) } }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { if over == i { MainModel.shared.show(i) } }
     }
     func dropExited(info: DropInfo) { if over == index { over = nil } }
     func performDrop(info: DropInfo) -> Bool {
         over = nil
-        let target: URL?
-        switch index {
-        case 0:
-            let f = Paths.timeFolders.first(where: { $0.1 == Store.shared.settings.standard })?.0 ?? "1 Week"
-            target = Paths.root.appendingPathComponent(f)
-        case 1: target = Paths.permanent
-        default: target = Cloud.current(Store.shared.settings).map { URL(fileURLWithPath: $0.path) }
+        guard index < Sheets.shared.list.count else { return false }
+        let s = Sheets.shared.list[index]
+        switch s.kind {
+        case "temp": return dropFiles(info, into: MainModel.standardFolder, skipTimed: true)
+        case "board": addToBoard(index, info.itemProviders(for: [UTType.fileURL])); return true
+        default:
+            guard let r = s.root else { return false }
+            return dropFiles(info, into: URL(fileURLWithPath: r))
         }
-        guard let t = target else { return false }
-        return dropFiles(info, into: t)
     }
 }
 
@@ -486,7 +517,7 @@ struct TimeCard: View {
 // MARK: - Layer 2 + 3: Permanent and Cloud as a desktop
 
 struct FolderView: View {
-    let layer: Int
+    let sheet: Sheet
     @ObservedObject var store = Store.shared
     @ObservedObject var m = MainModel.shared
     @State private var dropping = false
@@ -495,7 +526,7 @@ struct FolderView: View {
 
     var items: [String] {
         _ = store.version
-        guard let dir = m.currentFolder(layer), let names = try? Paths.fm.contentsOfDirectory(atPath: dir) else { return [] }
+        guard let dir = m.currentFolder(sheet), let names = try? Paths.fm.contentsOfDirectory(atPath: dir) else { return [] }
         let paths = names.filter { !Paths.isHelperFile($0) && (m.search.isEmpty || $0.localizedCaseInsensitiveContains(m.search)) }.map { (dir as NSString).appendingPathComponent($0) }
         func isDir(_ p: String) -> Bool { var d: ObjCBool = false; Paths.fm.fileExists(atPath: p, isDirectory: &d); return d.boolValue }
         return paths.sorted { a, b in
@@ -505,17 +536,17 @@ struct FolderView: View {
     }
 
     var body: some View {
-        if layer == 2 && Cloud.current(store.settings) == nil {
+        if sheet.root == nil || !Paths.fm.fileExists(atPath: sheet.root!) {
             VStack(spacing: 14) {
-                Image(systemName: "cloud").font(.system(size: 40, weight: .light)).foregroundColor(Color.white.opacity(0.35))
-                Button("Choose folder") { chooseCloud() }
+                Image(systemName: sheet.icon).font(.system(size: 40, weight: .light)).foregroundColor(Color.white.opacity(0.35))
+                Button("Choose folder") { chooseSheetFolder(sheet) }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             GeometryReader { geo in
                 let rows = max(1, Int((geo.size.height - 10) / 104))
                 Group {
                     if items.isEmpty {
-                        Image(systemName: layer == 2 ? "cloud" : "folder").font(.system(size: 36, weight: .light)).foregroundColor(Color.white.opacity(0.25)).frame(maxWidth: .infinity, maxHeight: .infinity)
+                        Image(systemName: sheet.icon).font(.system(size: 34, weight: .ultraLight)).foregroundColor(Color.white.opacity(0.25)).frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
                         ScrollView(.horizontal, showsIndicators: false) {
                             LazyHGrid(rows: Array(repeating: GridItem(.fixed(100), spacing: 2), count: rows), alignment: .top, spacing: 2) {
@@ -529,10 +560,10 @@ struct FolderView: View {
             .contentShape(Rectangle())
             .onTapGesture { m.selected = nil }
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.amber.opacity(dropping ? 0.7 : 0), lineWidth: 1.5))
-            .onDrop(of: [UTType.fileURL], delegate: FolderDrop(dir: { m.currentFolder(layer) }))
+            .onDrop(of: [UTType.fileURL], delegate: FolderDrop(dir: { m.currentFolder(sheet) }))
             .contextMenu {
                 Button("New folder") { newFolder() }
-                Button("Open in Finder") { if let d = m.currentFolder(layer) { NSWorkspace.shared.open(URL(fileURLWithPath: d)) } }
+                Button("Open in Finder") { if let d = m.currentFolder(sheet) { NSWorkspace.shared.open(URL(fileURLWithPath: d)) } }
             }
             .sheet(isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
                 VStack(alignment: .leading, spacing: 12) {
@@ -548,22 +579,21 @@ struct FolderView: View {
         Paths.fm.fileExists(atPath: p, isDirectory: &d)
         let folder = d.boolValue
         return Tile(path: p)
-            .onTapGesture(count: 2) { if folder { m.enter(layer, p) } else { NSWorkspace.shared.open(URL(fileURLWithPath: p)) } }
+            .onTapGesture(count: 2) { if folder { m.enter(sheet, p) } else { NSWorkspace.shared.open(URL(fileURLWithPath: p)) } }
             .simultaneousGesture(TapGesture().onEnded { m.click(p) })
-            .onDrop(of: [UTType.fileURL], delegate: FolderDrop(dir: { folder ? p : nil }, springOpen: folder ? { m.enter(layer, p) } : nil))
+            .onDrop(of: [UTType.fileURL], delegate: FolderDrop(dir: { folder ? p : nil }, springOpen: folder ? { m.enter(sheet, p) } : nil))
             .contextMenu {
-                Button("Open") { if folder { m.enter(layer, p) } else { NSWorkspace.shared.open(URL(fileURLWithPath: p)) } }
+                Button("Open") { if folder { m.enter(sheet, p) } else { NSWorkspace.shared.open(URL(fileURLWithPath: p)) } }
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: p)]) }
                 Button("Rename") { newName = (p as NSString).lastPathComponent; renaming = p }
-                if layer == 1, let c = Cloud.current(store.settings) { Button("Move to " + c.name) { m.move(m.with(p), to: URL(fileURLWithPath: c.path)) } }
-                if layer == 2 { Button("Move to Permanent") { m.move(m.with(p), to: Paths.permanent) } }
+                ForEach(m.otherFolders(sheet)) { o in Button("Move to " + o.title) { m.move(m.with(p), to: URL(fileURLWithPath: o.root!)) } }
                 Divider()
                 Button("Move to Trash") { m.trash(m.with(p)) }
             }
     }
 
     func newFolder() {
-        guard let d = m.currentFolder(layer) else { return }
+        guard let d = m.currentFolder(sheet) else { return }
         let u = Paths.freeName(in: URL(fileURLWithPath: d), "New folder")
         try? Paths.fm.createDirectory(at: u, withIntermediateDirectories: false)
         store.version += 1
@@ -592,6 +622,16 @@ struct FolderDrop: DropDelegate {
         guard let d = dir() else { return false }
         return dropFiles(info, into: URL(fileURLWithPath: d))
     }
+}
+
+/// The folder behind a sheet is missing (cloud not found, folder deleted): pick another.
+func chooseSheetFolder(_ s: Sheet) {
+    let p = NSOpenPanel()
+    p.canChooseDirectories = true; p.canChooseFiles = false
+    guard p.runModal() == .OK, let u = p.url, let i = Sheets.shared.list.firstIndex(where: { $0.id == s.id }) else { return }
+    Sheets.shared.list[i].path = u.path
+    if Sheets.shared.list[i].kind == "folder" { Sheets.shared.list[i].name = u.lastPathComponent }
+    Sheets.shared.save()
 }
 
 func chooseCloud() {
