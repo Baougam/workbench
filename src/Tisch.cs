@@ -161,7 +161,7 @@ namespace Workbench
             }
             foreach (var n in A.Notizen.ToList()) NotizBauen(n, false);
 
-            sv = new ScrollViewer { Content = flaeche, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Focusable = false };
+            sv = new ScrollViewer { Content = flaeche, HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden, Focusable = false };
             Children.Add(sv);
             Children.Add(kreis);
             kreis.MouseMove += (s, a) => KreisZeigerAuf(a.GetPosition(kreis));

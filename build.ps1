@@ -19,6 +19,9 @@ $refs = @(
   'System.Web.Extensions.dll', 'Microsoft.CSharp.dll',
   "$fw\System.Xaml.dll", "$fw\WPF\WindowsBase.dll", "$fw\WPF\PresentationCore.dll", "$fw\WPF\PresentationFramework.dll"
 ) | ForEach-Object { "/r:$_" }
+# PDF-Vorschau: Windows' eigener PDF-Renderer (WinRT, nur Metadaten zum Übersetzen)
+$wm = "$env:WINDIR\System32\WinMetadata"
+$refs += @("$wm\Windows.Data.winmd", "$wm\Windows.Foundation.winmd", "$wm\Windows.Storage.winmd", "$fw\System.Runtime.dll") | ForEach-Object { "/r:$_" }
 # Browser-Erweiterung steckt in der exe (Workbench packt sie bei Bedarf aus)
 $res = @(Get-ChildItem "$root\browser\*") + @(Get-ChildItem "$pngs\*.png") | ForEach-Object { "/resource:$($_.FullName),browser/$($_.Name)" }
 $src = Get-ChildItem "$root\src\*.cs" | ForEach-Object { $_.FullName }

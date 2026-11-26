@@ -20,6 +20,7 @@ namespace Workbench
         public string Symbol = "";                          // Ikon für das Blatt in der Schiene (leer = nach Art)
         public List<string> Leisten = new List<string>();   // „recent@top“, „shelf@bottom“ …
         public List<string> Inhalt = new List<string>();    // nur Board: Pfade
+        public Dictionary<string, int> LeistenGroesse = new Dictionary<string, int>();   // Leiste → 0 S, 1 M, 2 L
         public List<Modul> Module = new List<Modul>();      // nur Home: Bausteine auf dem Raster
         public bool Vorschlag;                              // Home: Vorlagen-Auswahl unten zeigen (bis „behalten“ oder gewählt)
     }
@@ -70,7 +71,7 @@ namespace Workbench
                     if (D != null && D.Liste != null && D.Liste.Count > 0)
                     {
                         if (D.Ablage == null) D.Ablage = new List<string>();
-                        foreach (var b in D.Liste) { if (b.Leisten == null) b.Leisten = new List<string>(); if (b.Inhalt == null) b.Inhalt = new List<string>(); if (b.Module == null) b.Module = new List<Modul>(); foreach (var m in b.Module) { if (m.Inhalt == null) m.Inhalt = new List<string>(); if (m.W < 1) { m.W = m.Breit ? 4 : 2; m.H = m.Art == "recent" || m.Art == "screens" ? 1 : 2; } } }
+                        foreach (var b in D.Liste) { if (b.Leisten == null) b.Leisten = new List<string>(); if (b.Inhalt == null) b.Inhalt = new List<string>(); if (b.Module == null) b.Module = new List<Modul>(); if (b.LeistenGroesse == null) b.LeistenGroesse = new Dictionary<string, int>(); foreach (var m in b.Module) { if (m.Inhalt == null) m.Inhalt = new List<string>(); if (m.W < 1) { m.W = m.Breit ? 4 : 2; m.H = m.Art == "recent" || m.Art == "screens" ? 1 : 2; } } }
                         if (!D.Liste.Any(b => b.Art == "temp")) D.Liste.Insert(0, new BlattDef { Art = "temp", Name = "Expiring" });
                         if (D.Version < 3) Umstellen();
                         return;
@@ -179,6 +180,9 @@ namespace Workbench
             if (kante != null) b.Leisten.Add(art + "@" + kante);
             Speichern();
         }
+
+        public static int LeisteGroesse(BlattDef b, string art) { int g; return b.LeistenGroesse != null && b.LeistenGroesse.TryGetValue(art, out g) ? Math.Max(0, Math.Min(2, g)) : 1; }
+        public static void LeisteGroesseSetzen(BlattDef b, string art, int g) { if (b.LeistenGroesse == null) b.LeistenGroesse = new Dictionary<string, int>(); b.LeistenGroesse[art] = g; Speichern(); }
 
         public static void LeisteWeg(BlattDef b, string art) { b.Leisten.RemoveAll(l => l.StartsWith(art + "@")); Speichern(); }
 

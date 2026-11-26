@@ -1296,7 +1296,7 @@ namespace Workbench
             bool imText = Keyboard.FocusedElement is TextBox;
             if (strg && a.Key >= Key.D1 && a.Key <= Key.D9 && IstBlatt(a.Key - Key.D1)) { Zeige(a.Key - Key.D1); a.Handled = true; }
             else if (strg && a.Key == Key.F) { SucheAuf(); suche.SelectAll(); a.Handled = true; }
-            else if (strg && a.Key == Key.E && Akt != null && Akt.Art == "home") { HomeBearbeiten(!homeBearbeiten); a.Handled = true; }
+            else if (strg && a.Key == Key.E && Akt != null) { HomeBearbeiten(!homeBearbeiten); a.Handled = true; }
             else if (a.Key == Key.Escape && homeBearbeiten && !(Keyboard.FocusedElement is TextBox)) { HomeBearbeiten(false); a.Handled = true; }
             else if (a.Key == Key.Escape)
             {

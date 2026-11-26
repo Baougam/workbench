@@ -164,20 +164,11 @@ namespace Workbench
                 plus.Click += delegate { HomeBearbeiten(true); };
                 g.Children.Add(plus);
             }
-            // Stift oben rechts: leise, wird beim Darüberfahren deutlich
-            if (!homeBearbeiten)
-            {
-                var stift = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 30, Height = 30, Content = UI.Icon(Ikon.Stift, 14, Farbe.B("#99FFFFFF"), 1.6), ToolTip = "Edit (Ctrl+E)", HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, -4, -4, 0), Opacity = bild ? 0.5 : 0.25 };
-                stift.MouseEnter += delegate { stift.Opacity = 1; };
-                stift.MouseLeave += delegate { stift.Opacity = 0.25; };
-                stift.Click += delegate { HomeBearbeiten(true); };
-                g.Children.Add(stift);
-            }
             g.MouseRightButtonUp += (s, a) =>
             {
                 if (a.Handled) return;
                 a.Handled = true;
-                UI.Menue(g, new List<KeyValuePair<string, Action>> { new KeyValuePair<string, Action>(homeBearbeiten ? "Done" : "Edit Home", () => HomeBearbeiten(!homeBearbeiten)) }, true);
+                UI.Menue(g, new List<KeyValuePair<string, Action>> { new KeyValuePair<string, Action>(homeBearbeiten ? "Done" : "Customize", () => HomeBearbeiten(!homeBearbeiten)) }, true);
             };
             if (homeBearbeiten) g.Children.Add(BearbeitenLeiste(b));
             else if (b.Vorschlag) g.Children.Add(VorschlagLeiste(b));
@@ -258,7 +249,7 @@ namespace Workbench
                 {
                     if (a.Handled) return;
                     a.Handled = true;
-                    UI.Menue(karte, new List<KeyValuePair<string, Action>> { new KeyValuePair<string, Action>("Edit Home", () => HomeBearbeiten(true)) }, true);
+                    UI.Menue(karte, new List<KeyValuePair<string, Action>> { new KeyValuePair<string, Action>("Customize", () => HomeBearbeiten(true)) }, true);
                 };
                 return karte;
             }

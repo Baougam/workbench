@@ -133,13 +133,14 @@ namespace Workbench
             bool da;
             lock (cache) da = cache.TryGetValue(k, out fertig);
             if (da) { setzen(fertig); return g; }
-            if (Sofort) { var b0 = Native.Vorschau(pfad, px, 0x8); Merken(k, b0); setzen(b0); return g; }
+            if (Sofort) { var b0 = Native.Vorschau(pfad, px, 0x8); if (b0 == null && pfad.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) b0 = PdfVorschau.Seite(pfad, px); Merken(k, b0); setzen(b0); return g; }
             Starten();
             var disp = Application.Current.Dispatcher;
             auftraege.Add(() =>
             {
                 BitmapSource b = null;
                 try { b = Native.Vorschau(pfad, px, 0x8); } catch { }
+                if (b == null && pfad.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) b = PdfVorschau.Seite(pfad, px);
                 Merken(k, b);
                 if (b != null) disp.BeginInvoke(new Action(() => setzen(b)));
             });
