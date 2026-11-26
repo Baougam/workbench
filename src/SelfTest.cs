@@ -245,8 +245,10 @@ namespace Workbench
             Pumpen(8000, () => dl != null);
             Ok(dl != null && dl.Any(x => x.Name == "Bordkarte.pdf"), "nach Wiederherstellen wird neu gefragt");
 
-            // 11) Oberfläche baut sich ohne Fehler (alle Ebenen + Frage)
-            foreach (int a in new[] { 0, 1, 2, 3, 4, 5 })
+            // 11) Oberfläche baut sich ohne Fehler (alle Blätter + Frage)
+            Blaetter.D = Blaetter.Standard(false);
+            Blaetter.Speichern();
+            foreach (int a in new[] { 0, 1, 2, Hauptfenster.Korb, Hauptfenster.Einst, Hauptfenster.Netzansicht })
             {
                 try
                 {
@@ -292,6 +294,49 @@ namespace Workbench
                 Ok(r.Zone == 0, "nach dem Loslassen ist die Anzeige weg");
             }
             catch (Exception ex) { Ok(false, "Randwechsel: " + ex); }
+
+            // 12b) Blätter: + wählen, Board sammelt Verweise, umsortieren, entfernen, Leisten
+            try
+            {
+                var w = new Hauptfenster(E, 0, true);
+                w.Wurzel.Measure(new Size(1060, 700)); w.Wurzel.Arrange(new Rect(0, 0, 1060, 700));
+                int bVorher = Blaetter.Liste.Count;
+                w.BlattNeu();
+                Ok(Blaetter.Liste.Count == bVorher + 1 && Blaetter.Liste.Last().Art == "empty" && w.Ansicht == bVorher, "+ legt ein leeres Blatt an und zeigt es");
+                w.BlattNeu();
+                Ok(Blaetter.Liste.Count == bVorher + 1, "ein zweites leeres Blatt gibt es nicht");
+                var bb = Blaetter.Liste.Last();
+                w.Waehlen(bb, "board", "", "Board", "");
+                string a1 = Path.Combine(Paths.Daten, "board-a.txt"), a2 = Path.Combine(Paths.Downloads, "board-b.txt");
+                File.WriteAllText(a1, "a"); File.WriteAllText(a2, "b");
+                w.BoardHinzu(bb, new[] { a1, a2, a1 });
+                Ok(bb.Inhalt.Count == 2 && File.Exists(a1) && File.Exists(a2), "Board sammelt Verweise, verschiebt nichts");
+                w.Wurzel.UpdateLayout();
+                Ok(w.SymboleTest.ContainsKey(a1) && w.SymboleTest.ContainsKey(a2), "Board zeigt beide");
+                w.GruppeTest(g => { });
+                w.AllesMarkieren();
+                w.EntfernenTest();
+                Pumpen(400, null);
+                Ok(bb.Inhalt.Count == 0 && File.Exists(a1) && File.Exists(a2), "Entf auf dem Board nimmt nur den Verweis weg");
+                int bi = Blaetter.Liste.IndexOf(bb);
+                w.BlattVerschieben(bi, 1);
+                Ok(Blaetter.Liste[1] == bb && w.Ansicht == 1, "Blatt umsortieren, man bleibt auf ihm");
+                Blaetter.LeisteSetzen(bb, "recent", "top");
+                Blaetter.LeisteSetzen(bb, "shelf", "bottom");
+                Blaetter.LeisteSetzen(bb, "recent", "right");
+                Ok(Blaetter.LeisteBei(bb, "right") == "recent" && Blaetter.LeisteBei(bb, "top") == null && Blaetter.LeisteBei(bb, "bottom") == "shelf", "Leiste andocken und umsetzen");
+                Blaetter.Parken(new[] { a1, a1, a2 });
+                Ok(Blaetter.D.Ablage.Count == 2 && Paths.Gleich(Blaetter.D.Ablage[0], a2), "Ablage parkt ohne Doppelte");
+                w.Zeige(1);
+                w.Wurzel.UpdateLayout();
+                Ok(true, "Blatt mit Leisten baut sich");
+                w.BlattWeg(1);
+                Ok(!Blaetter.Liste.Contains(bb) && File.Exists(a1), "Blatt entfernen lässt die Dateien in Ruhe");
+                w.BlattWeg(0);
+                Ok(Blaetter.Liste.Any(x => x.Art == "temp"), "Expiring lässt sich nicht entfernen");
+            }
+            catch (Exception ex) { Ok(false, "Blätter: " + ex); }
+            Blaetter.D = Blaetter.Standard(false);
 
             // 13) Mehrere markieren: Rahmen aufziehen, alles markieren, gemeinsam löschen
             try
@@ -399,11 +444,14 @@ namespace Workbench
             };
 
             string[] namen = { "1-befristet", "2-dauerhaft", "3-cloud", "4-papierkorb", "5-einstellungen", "9-netz" };
+            int[] ansichten = { 0, 1, 2, Hauptfenster.Korb, Hauptfenster.Einst, Hauptfenster.Netzansicht };
+            Blaetter.D = Blaetter.Standard(false);
+            Zuletzt.Setzen(E.S.D.Eintraege.Select(x => x.Pfad).Where(File.Exists).ToList());
             for (int a = 0; a < 6; a++)
             {
-                var w = new Hauptfenster(E, a, true);
+                var w = new Hauptfenster(E, ansichten[a], true);
                 w.KorbFuerBild(korb);
-                w.Zeige(a);
+                w.Zeige(ansichten[a]);
                 Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, namen[a] + ".png"));
                 if (a == 0)
                 {
@@ -424,6 +472,25 @@ namespace Workbench
                     Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "9b-netzsuche.png"));
                 }
             }
+            {
+                // neues Blatt (+ aufgefächert), Blatt mit Leisten, Board
+                var w = new Hauptfenster(E, 0, true);
+                w.KorbFuerBild(korb);
+                w.BlattNeu();
+                Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "12-neu.png"));
+                var dh = Blaetter.Liste[1];
+                Blaetter.LeisteSetzen(dh, "recent", "top");
+                Blaetter.LeisteSetzen(dh, "shelf", "bottom");
+                Blaetter.Parken(E.S.D.Eintraege.Select(x => x.Pfad).Where(File.Exists).Take(3).ToList());
+                w.Zeige(1);
+                Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "13-leisten.png"));
+                var leer = Blaetter.Liste.Last();
+                w.Waehlen(leer, "board", "", "Board", "");
+                w.BoardHinzu(leer, E.S.D.Eintraege.Select(x => x.Pfad).Where(File.Exists).Take(4).Concat(Directory.EnumerateFileSystemEntries(Paths.Dauerhaft).Take(3)).ToList());
+                w.Zeige(Blaetter.Liste.Count - 1);
+                Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "14-board.png"));
+                Blaetter.D = Blaetter.Standard(false);
+            }
             foreach (var s in new[] { 0, 1, 3 })
             {
                 var w = new Hauptfenster(E, 0, true);
@@ -443,7 +510,56 @@ namespace Workbench
             var ik = info.Karte; info.Content = null;
             Speichern(Rahmen(ik), 410, 0, Path.Combine(ziel, "8-gespeichert.png"));
             Speichern(Rahmen(new BrowserKarte(new Browser.Ziel { Name = "Brave", Exe = "brave.exe", Seite = "brave://extensions" }).FuerBild(0)), 330, 0, Path.Combine(ziel, "10-browser.png"));
+            Entwuerfe(Path.Combine(ziel, "11-reiter.png"));
             return 0;
+        }
+
+        /// <summary>Schiene: bisher und drei Entwürfe nebeneinander, groß gerendert.</summary>
+        static void Entwuerfe(string datei)
+        {
+            var reihe = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, Background = Farbe.B("#0B0D11") };
+            string[] titel = { "now", "A", "B", "C" };
+            string[] zeichen = { ReiterZeichen.Sanduhr, ReiterZeichen.Bildschirm, ReiterZeichen.Ordner, ReiterZeichen.Wolke, ReiterZeichen.Plus };
+            for (int v = 0; v < 4; v++)
+            {
+                var sp = new System.Windows.Controls.StackPanel { Width = 74, Margin = new Thickness(6, 12, 6, 12) };
+                sp.Children.Add(new System.Windows.Controls.TextBlock { Text = titel[v], FontSize = 10, Foreground = Farbe.B("#66FFFFFF"), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 10) });
+                for (int i = 0; i < zeichen.Length; i++)
+                {
+                    var platz = new System.Windows.Controls.Grid { Width = 44, Height = 23, HorizontalAlignment = HorizontalAlignment.Center };
+                    bool an = i == 1, ueber = i == 3 && v > 0;
+                    if (v == 0)
+                    {
+                        if (i == 4) { sp.Children.Add(platz); continue; }
+                        var alt = new System.Windows.Controls.Border { Width = 26, Height = 18, CornerRadius = new CornerRadius(5), BorderThickness = new Thickness(1), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(3 + (an ? 9 : 0), 2, 0, 0),
+                            Background = Farbe.B(an ? "#FFF6EAD4" : "#FF1C2028"), BorderBrush = an ? Farbe.Akzent : Farbe.B("#3DFFFFFF") };
+                        if (an) alt.Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = System.Windows.Media.Color.FromRgb(0xF4, 0xB8, 0x60), BlurRadius = 12, ShadowDepth = 0, Opacity = 0.55 };
+                        platz.Children.Add(alt);
+                    }
+                    else
+                    {
+                        Reiter.Variante = v - 1;
+                        var r = new Reiter(zeichen[i]);
+                        r.Skalierung(3);
+                        r.Margin = new Thickness(3, 2, 0, 0);
+                        r.Opacity = i == 4 ? 0.55 : 1;
+                        r.An = an; r.Ueber = ueber;
+                        r.Schub.X = an ? r.Rund(9) : 0;
+                        platz.Children.Add(r);
+                    }
+                    sp.Children.Add(platz);
+                }
+                reihe.Children.Add(sp);
+            }
+            Reiter.Variante = 0;
+            reihe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            reihe.Arrange(new Rect(reihe.DesiredSize));
+            reihe.UpdateLayout();
+            var bmp = new RenderTargetBitmap((int)(reihe.ActualWidth * 3), (int)(reihe.ActualHeight * 3), 288, 288, PixelFormats.Pbgra32);
+            bmp.Render(reihe);
+            var enc = new PngBitmapEncoder();
+            enc.Frames.Add(BitmapFrame.Create(bmp));
+            using (var s = File.Create(datei)) enc.Save(s);
         }
 
         static FrameworkElement Rahmen(FrameworkElement k)

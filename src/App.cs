@@ -53,12 +53,12 @@ namespace Workbench
             Sprungliste();
 
             Log.Info("Gestartet " + Program.Version + (hintergrund ? " (Hintergrund)" : ""));
-            if (!hintergrund) Zeigen(Hauptfenster.Befristet);
+            if (!hintergrund) Zeigen(Hauptfenster.StartAnsicht());
             else
             {
                 // Fenster schon still vorbereiten, wenn der PC zur Ruhe gekommen ist – dann öffnet es später sofort.
                 var vor = new DispatcherTimer(DispatcherPriority.ApplicationIdle) { Interval = TimeSpan.FromSeconds(20) };
-                vor.Tick += delegate { vor.Stop(); if (fenster == null) Bauen(Hauptfenster.Befristet); Sparen(); };
+                vor.Tick += delegate { vor.Stop(); if (fenster == null) Bauen(Hauptfenster.StartAnsicht()); Sparen(); };
                 vor.Start();
             }
             // Update: höchstens einmal am Tag still nachsehen
@@ -127,9 +127,12 @@ namespace Workbench
             {
                 string exe = Install.IstInstallierteKopie() ? Install.Ziel : System.Reflection.Assembly.GetExecutingAssembly().Location;
                 var jl = new System.Windows.Shell.JumpList { ShowFrequentCategory = false, ShowRecentCategory = false };
-                string[] namen = { "Expiring", "Permanent", "Cloud", "Graph" };
-                int[] ziele = { Hauptfenster.Befristet, Hauptfenster.Dauerhaft, Hauptfenster.Wolke, Hauptfenster.Netzansicht };
-                for (int i = 0; i < namen.Length; i++)
+                var namen = new List<string>(); var ziele = new List<int>();
+                var wolke = Cloud.Aktuell(E.Cfg);
+                for (int i = 0; i < Blaetter.Liste.Count; i++)
+                    if (Blaetter.Liste[i].Art != "empty") { namen.Add(Blaetter.NameVon(Blaetter.Liste[i], wolke)); ziele.Add(i); }
+                namen.Add("Graph"); ziele.Add(Hauptfenster.Netzansicht);
+                for (int i = 0; i < namen.Count; i++)
                     jl.JumpItems.Add(new System.Windows.Shell.JumpTask { Title = namen[i], Arguments = "--zeige " + ziele[i], ApplicationPath = exe, IconResourcePath = exe, IconResourceIndex = 0 });
                 System.Windows.Shell.JumpList.SetJumpList(this, jl);
                 jl.Apply();
@@ -161,7 +164,7 @@ namespace Workbench
 
         public void Zeigen(int ansicht)
         {
-            if (fenster == null) Bauen(ansicht < 0 ? Hauptfenster.Befristet : ansicht);
+            if (fenster == null) Bauen(ansicht < 0 ? Hauptfenster.StartAnsicht() : ansicht);
             else if (ansicht >= 0) fenster.Zeige(ansicht);
             if (fenster.WindowState == WindowState.Minimized) fenster.WindowState = WindowState.Normal;
             fenster.Hereinholen();

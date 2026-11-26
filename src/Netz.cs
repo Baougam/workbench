@@ -74,7 +74,8 @@ namespace Workbench
             public Shape Form;
             public Ellipse Schein;
             public TextBlock Schild;
-            public bool SchildImmer;
+            public bool SchildImmer, Heiss;
+            public double Eigen, Summe, H, Ruhe = 1;
             public readonly List<Knoten> Nachbarn = new List<Knoten>();
         }
         class Kante { public Knoten A, B; public bool Eigen; public string Farbe; public Line Strich; }
@@ -117,7 +118,7 @@ namespace Workbench
                     Anwerfen(0.35);
                     return;
                 }
-                if (panStart == null) return;
+                if (panStart == null) { Naehe(a.GetPosition(this)); return; }
                 var q = a.GetPosition(this);
                 pan.BeginAnimation(TranslateTransform.XProperty, null);
                 pan.BeginAnimation(TranslateTransform.YProperty, null);
@@ -131,12 +132,15 @@ namespace Workbench
                 ReleaseMouseCapture();
             };
             Unloaded += delegate { Anhalten(); };
+            MouseLeave += delegate { NaeheAus(); };
             SizeChanged += delegate { if (!eingepasst && knoten.Count > 0) Einpassen(false); };
 
             var orte = NetzOrte.Alle;
-            if (sofort) { var r = Sammeln(wurzeln); Vorrechnen(r, orte); Aufbauen(r); return; }
+            var genutzt = Zuletzt.Stand.ToList();
+            var nutz = Nutzung.Alle();
+            if (sofort) { var r = Sammeln(wurzeln); Waermen(r, genutzt, nutz); Vorrechnen(r, orte); Aufbauen(r); return; }
             // Lesen und Anordnen im Hintergrund – die Oberfläche bleibt frei, das Netz erscheint fertig
-            Task.Factory.StartNew(() => { var r = Sammeln(wurzeln); Vorrechnen(r, orte); return r; })
+            Task.Factory.StartNew(() => { var r = Sammeln(wurzeln); Waermen(r, genutzt, nutz); Vorrechnen(r, orte); return r; })
                 .ContinueWith(t => { if (t.Exception == null) Aufbauen(t.Result); }, TaskScheduler.FromCurrentSynchronizationContext());
         }
 
@@ -154,7 +158,7 @@ namespace Workbench
             foreach (var w in wurzeln)
             {
                 if (w == null || !Directory.Exists(w.Pfad)) continue;
-                bool wolke = w.Name != "Permanent";
+                bool wolke = w.Fern;
                 var wk = new Knoten { Name = w.Name, Pfad = w.Pfad.TrimEnd('\\'), Art = 0, Wolke = wolke, R = 9 };
                 wk.Wurzel = wk;
                 r.K.Add(wk); nachPfad[wk.Pfad] = wk;
@@ -214,6 +218,39 @@ namespace Workbench
                 }
             }
             return r;
+        }
+
+        /// <summary>
+        /// Wärme je Ordner: zuletzt benutzte Dateien darin, was in Workbench geöffnet wurde, wann er sich zuletzt geändert hat.
+        /// Dann von unten nach oben aufsummiert – so wird der Weg zur Wurzel zur „Ader“. Einmal je Öffnen, im Hintergrund.
+        /// </summary>
+        static void Waermen(Roh r, List<string> genutzt, Dictionary<string, double> nutz)
+        {
+            var nachPfad = new Dictionary<string, Knoten>(StringComparer.OrdinalIgnoreCase);
+            foreach (var k in r.K) if (k.Art <= 1 && !nachPfad.ContainsKey(k.Pfad)) nachPfad[k.Pfad] = k;
+            Func<string, Knoten> tiefster = p =>
+            {
+                for (int i = 0; i < 30 && !string.IsNullOrEmpty(p); i++)
+                {
+                    Knoten k;
+                    if (nachPfad.TryGetValue(p.TrimEnd('\\'), out k)) return k;
+                    p = System.IO.Path.GetDirectoryName(p);
+                }
+                return null;
+            };
+            var jetzt = DateTime.UtcNow;
+            foreach (var k in r.K)
+            {
+                if (k.Art > 1) continue;
+                try { k.Eigen += 0.6 * Math.Exp(-(jetzt - Directory.GetLastWriteTimeUtc(k.Pfad)).TotalDays / 21); } catch { }
+            }
+            foreach (var f in genutzt) { var k = tiefster(System.IO.Path.GetDirectoryName(f) ?? ""); if (k != null) k.Eigen += 1; }
+            foreach (var kv in nutz) { var k = tiefster(kv.Key); if (k != null) k.Eigen += kv.Value; }
+            foreach (var k in r.K) k.Summe = k.Eigen;
+            for (int i = r.K.Count - 1; i >= 0; i--) { var k = r.K[i]; if (k.Eltern != null && k.Art <= 1) k.Eltern.Summe += k.Summe; }
+            double max = r.K.Where(k => k.Art == 1).Select(k => k.Summe).DefaultIfEmpty(0).Max();
+            foreach (var k in r.K) k.H = k.Art == 0 ? 1 : (max > 0 ? Math.Log(1 + k.Summe) / Math.Log(1 + max) : 0);
+            foreach (var k in r.K.Where(k => k.Art == 1 && k.H > 0.35).OrderByDescending(k => k.H).Take(3)) k.Heiss = true;
         }
 
         static int Anzahl(string pfad) { try { return Directory.EnumerateFileSystemEntries(pfad).Take(200).Count(); } catch { return 0; } }
@@ -304,7 +341,11 @@ namespace Workbench
             kanten.AddRange(r.E);
             foreach (var e in kanten)
             {
-                e.Strich = new Line { Stroke = e.Eigen ? Tisch.Pinsel(e.Farbe, 0.8) : Farbe.B("#1CFFFFFF"), StrokeThickness = e.Eigen ? 1.5 : 0.8, IsHitTestVisible = false, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
+                // Ader: je wärmer der Ordner am Ende, desto dicker und heller der Weg zu ihm – kalte bleiben fein, nie unsichtbar
+                double h = e.Eigen ? 0 : e.B.H;
+                Brush strich = e.Eigen ? Tisch.Pinsel(e.Farbe, 0.8) : new SolidColorBrush(e.B.Heiss ? Color.FromArgb((byte)(60 + 110 * h), 0xF4, 0xB8, 0x60) : Color.FromArgb((byte)(24 + 120 * h * h), 255, 255, 255));
+                if (strich.CanFreeze) strich.Freeze();
+                e.Strich = new Line { Stroke = strich, StrokeThickness = e.Eigen ? 1.5 : 0.6 + 2.2 * h * h, IsHitTestVisible = false, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
                 welt.Children.Add(e.Strich);
             }
             foreach (var k in knoten)
@@ -322,10 +363,14 @@ namespace Workbench
             }
             foreach (var k in knoten)
             {
-                Brush fuellung = !string.IsNullOrEmpty(k.Farbe) ? Farbe.B(k.Farbe) : k.Art == 0 ? Farbe.B("#FFF6EAD4") : k.Art == 1 ? Farbe.B("#D9E9ECF2") : k.Art == 3 ? Farbe.B("#B3F4B860") : Farbe.B("#80E9ECF2");
+                Brush fuellung = !string.IsNullOrEmpty(k.Farbe) ? Farbe.B(k.Farbe) : k.Art == 0 ? Farbe.B("#FFF6EAD4") : k.Heiss ? Farbe.B("#FFF6DDB0") : k.Art == 1 ? Farbe.B("#D9E9ECF2") : k.Art == 3 ? Farbe.B("#B3F4B860") : Farbe.B("#80E9ECF2");
                 Shape s = k.Art == 3 ? (Shape)new Rectangle { RadiusX = 1.5, RadiusY = 1.5 } : new Ellipse();
                 s.Width = s.Height = k.R * 2;
                 s.Fill = fuellung;
+                k.Ruhe = k.Art == 0 || !string.IsNullOrEmpty(k.Farbe) ? 1 : 0.38 + 0.62 * k.H;
+                s.Opacity = k.Ruhe;
+                s.RenderTransform = new ScaleTransform(1, 1);
+                s.RenderTransformOrigin = new Point(0.5, 0.5);
                 s.Cursor = Cursors.Hand;
                 s.ToolTip = k.Art == 3 ? "Note: " + k.Name : k.Name;
                 ToolTipService.SetInitialShowDelay(s, 350);
@@ -345,18 +390,69 @@ namespace Workbench
                 welt.Children.Add(s);
                 if (k.Art <= 1)
                 {
-                    k.SchildImmer = k.Art == 0 || k.R >= 6.5 || !string.IsNullOrEmpty(k.Farbe);
+                    k.SchildImmer = false;
                     k.Schild = new TextBlock { Text = k.Name, FontSize = k.Art == 0 ? 13 : 11, FontWeight = k.Art == 0 ? FontWeights.SemiBold : FontWeights.Normal, Foreground = Farbe.B(k.Art == 0 ? "#EBFFFFFF" : "#99FFFFFF"), IsHitTestVisible = false };
                     welt.Children.Add(k.Schild);
                 }
             }
             Zeichnen();
+            SchilderWaehlen();
             Einpassen(false);
             SchilderNachZoom();
             OrteMerken();
             if (sofort) { welt.Opacity = 1; return; }
             // weich erscheinen
             welt.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(380)) { EasingFunction = UI.Weich });
+        }
+
+        /// <summary>Namen nur für Wichtiges: Wurzeln, Gefärbtes und die wärmsten Ordner – und nur, wo sie sich nicht überdecken.</summary>
+        void SchilderWaehlen()
+        {
+            var warm = new HashSet<Knoten>(knoten.Where(k => k.Art == 1 && k.H > 0.08).OrderByDescending(k => k.H).Take(14));
+            var kandidaten = knoten.Where(k => k.Schild != null && (k.Art == 0 || !string.IsNullOrEmpty(k.Farbe) || warm.Contains(k)))
+                .OrderBy(k => k.Art == 0 ? 0 : 1).ThenByDescending(k => k.H).ToList();
+            var belegt = new List<Rect>();
+            foreach (var k in kandidaten)
+            {
+                var r = new Rect(k.X + k.R + 6, k.Y - 8, k.Name.Length * (k.Art == 0 ? 7.6 : 6.3) + 4, 16);
+                if (belegt.Any(b => b.IntersectsWith(r))) continue;
+                belegt.Add(r);
+                k.SchildImmer = true;
+            }
+            foreach (var k in knoten) if (k.Schild != null) k.Schild.Foreground = Farbe.B(k.Art == 0 ? "#EBFFFFFF" : k.Heiss ? "#E6F6DDB0" : k.SchildImmer ? "#B3FFFFFF" : "#99FFFFFF");
+        }
+
+        Knoten hover;
+
+        /// <summary>
+        /// Die Maus in der Nähe: Punkte wachsen ein wenig, ihre Namen tauchen auf – nur bei Mausbewegung, nur die nahen, ohne Animation.
+        /// </summary>
+        void Naehe(Point bild)
+        {
+            if (hover != null || SucheAktiv || knoten.Count == 0) return;
+            var p = Welt(bild);
+            double r = 110 / zoom.ScaleX;
+            bool schilderFrei = zoom.ScaleX < 1.1;
+            foreach (var k in knoten)
+            {
+                double dx = k.X - p.X, dy = k.Y - p.Y;
+                double f = 0;
+                if (Math.Abs(dx) < r && Math.Abs(dy) < r) { double d = Math.Sqrt(dx * dx + dy * dy); if (d < r) { f = 1 - d / r; f *= f; } }
+                var st = k.Form.RenderTransform as ScaleTransform;
+                double s = 1 + 0.5 * f;
+                if (st != null && Math.Abs(st.ScaleX - s) > 0.01) st.ScaleX = st.ScaleY = s;
+                if (k.Schild != null && !k.SchildImmer && schilderFrei)
+                {
+                    double o = f > 0.2 ? Math.Min(1, (f - 0.2) * 2.2) : 0;
+                    if (Math.Abs(k.Schild.Opacity - o) > 0.04) { k.Schild.BeginAnimation(OpacityProperty, null); k.Schild.Opacity = o; }
+                }
+            }
+        }
+
+        void NaeheAus()
+        {
+            foreach (var k in knoten) { var st = k.Form.RenderTransform as ScaleTransform; if (st != null && st.ScaleX != 1) st.ScaleX = st.ScaleY = 1; }
+            if (hover == null && !SucheAktiv) SchilderNachZoom();
         }
 
         Point Mitte() { return new Point(ActualWidth / 2, ActualHeight / 2); }
@@ -377,12 +473,13 @@ namespace Workbench
         /// <summary>Nachbarn hervorheben, Rest weich zurücknehmen.</summary>
         void Hervorheben(Knoten k)
         {
+            hover = k;
             if (k == null && SucheAktiv) { Markieren(false); return; }   // Suche bleibt sichtbar
             var dauer = TimeSpan.FromMilliseconds(160);
             foreach (var x in knoten)
             {
                 bool an = k == null || x == k || k.Nachbarn.Contains(x);
-                x.Form.BeginAnimation(OpacityProperty, new DoubleAnimation(an ? 1 : 0.16, dauer));
+                x.Form.BeginAnimation(OpacityProperty, new DoubleAnimation(an ? (k == null ? x.Ruhe : 1) : 0.16, dauer));
                 if (x.Schein != null) x.Schein.BeginAnimation(OpacityProperty, new DoubleAnimation(an ? 1 : 0.1, dauer));
                 if (x.Schild != null)
                 {

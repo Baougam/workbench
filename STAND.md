@@ -148,3 +148,21 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 - Gemeinsam: ziehen, Zeit aendern, behalten, Cloud, Papierkorb, wiederherstellen; auf der freien Flaeche zusammen verschieben. Logik im Selbsttest, echte Maus nicht.
 - Mac: Build vom 25.11. (Browser) wurde von GitHub abgebrochen (kein Runner frei), neu angestossen.
 - Mac: `mac/Sources/Select.swift` (Rahmen, ⌘-Klick, ⌘A, ⌘⌫, Leiste, Rand-Schein). Nach außen zieht SwiftUI nur die eine Datei unter dem Zeiger; innerhalb alle.
+
+## Blätter statt fester Ebenen (2026-11-26)
+
+- Wunsch des Nutzers: leere, modulare Workbench. `src/Blaetter.cs` (Modell, `blaetter.json`): Liste von `BlattDef` – Art `temp`
+  (Expiring, immer genau einmal, nicht entfernbar), `folder` (auch Desktop/Screenshots, `Symbol` = Reiter-Zeichen), `board`
+  (Verweise, verschiebt nie), `cloud` (Pfad leer = erkannter Cloud-Ordner), `empty` (großes leises +). Max. 6.
+  Bisherige Nutzer bekommen Expiring/Permanent/Cloud, neue Expiring + leeres Blatt (Start dort, `Blaetter.Frisch`).
+- `src/HauptfensterBlaetter.cs` (partial): Schiene mit `Reiter` (`src/Reiter.cs`, Variante A: 1 echter Pixel Rand, kein Schatten,
+  leises Zeichen; Sanduhr/Ordner/Wolke/Bildschirm/Board/Ausschnitt/+). Reiter ziehen = umsortieren, nach rechts heraus = entfernen.
+  + erscheint nur bei Maus über der Schiene (außer nur 1 Blatt). Ansichten: Blätter 0..n-1, Korb=100, Einst=101, Netz=102.
+  Start: mittleres Blatt (leer → Expiring); nach >10 min versteckt wieder Start, sonst wo man war.
+- Leisten (Recent = Windows „Zuletzt verwendet“ + eigene Downloads; Shelf = `Ablage`, Verweise): je Blatt oben/unten/rechts,
+  + an freien Kanten erscheint bei Mausnähe; Griff ziehen = andere Kante (tauscht) oder in die Mitte = weg. Laufen ins Transparente
+  aus, beim Darüberfahren ganz sichtbar; Mausrad/zwei Finger rollen sie (`LeisteRollen`).
+- Netz: Wärme je Ordner (`Nutzung` = in Workbench geöffnet, `nutzung.json`, Halbwertszeit 14 Tage; Recent-Dateien; LastWrite)
+  → aufsummiert = Adern (Dicke/Helligkeit), Punkte 38–100 % Deckkraft, Top 3 bernstein, Namen nur Wurzeln/Gefärbtes/14 wärmste ohne
+  Überlappung. Maus in der Nähe: Punkte wachsen, Namen tauchen auf (nur bei Mausbewegung, keine Animation).
+- Mac: noch offen (Blätter, Leisten, Reiter, Netz gibt es dort noch nicht).

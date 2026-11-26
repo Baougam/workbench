@@ -9,6 +9,7 @@ namespace Workbench
     {
         public string Name;   // „Google Drive“, „OneDrive“ …
         public string Pfad;
+        public bool Fern = true;   // Cloud: im Netz nur 2 Ebenen tief
     }
 
     /// <summary>Findet Cloud-Ordner, die Windows schon kennt: Google Drive für Desktop, OneDrive, Dropbox, iCloud.</summary>

@@ -1,0 +1,118 @@
+using System;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Shapes;
+
+namespace Workbench
+{
+    /// <summary>
+    /// Ein Blatt in der Schiene links: kleines Rechteck mit einem kaum sichtbaren Zeichen (Sanduhr, Ordner, Wolke …).
+    /// Scharf ohne Effekte: Rand genau 1 Bildschirmpixel, Positionen auf ganze Pixel gerundet, kein Schatten/Weichzeichner.
+    /// </summary>
+    static class ReiterZeichen
+    {
+        public const string Sanduhr = "M7 4h10M7 20h10M8.5 4v2.5L12 12l3.5-5.5V4M8.5 20v-2.5L12 12l3.5 5.5V20";
+        public const string Ordner = "M4 7.5A1.5 1.5 0 0 1 5.5 6h3.8l1.7 1.8h7.5A1.5 1.5 0 0 1 20 9.3v7.2a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5z";
+        public const string Wolke = "M7.5 17.5h9a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 7.3 9.6A4 4 0 0 0 7.5 17.5z";
+        public const string Bildschirm = "M4.5 5.5h15v10h-15zM9.5 19h5M12 15.5V19";
+        public const string Board = "M5.5 5.5h5v5h-5zM13.5 5.5h5v5h-5zM5.5 13.5h5v5h-5zM13.5 13.5h5v5h-5z";
+        public const string Ausschnitt = "M5 9.5V5h4.5M14.5 5H19v4.5M19 14.5V19h-4.5M9.5 19H5v-4.5";
+        public const string Plus = "M12 6.5v11M6.5 12h11";
+        public const string Ablage = "M4 13.5h4.5l1.5 2.5h4l1.5-2.5H20M4 13.5l2.2-6.5h11.6l2.2 6.5V18H4z";
+
+        public static string Fuer(BlattDef b)
+        {
+            if (b == null) return Plus;
+            switch (b.Art)
+            {
+                case "temp": return Sanduhr;
+                case "cloud": return Wolke;
+                case "board": return Board;
+                case "empty": return Plus;
+            }
+            if (!string.IsNullOrEmpty(b.Symbol)) return b.Symbol;
+            return Ordner;
+        }
+    }
+
+    class Reiter : Grid
+    {
+        public const double B = 26, H = 18;
+        /// <summary>Nur für die Entwürfe: 0 = Zeichen immer leise, 1 = Zeichen nur aktiv/darüber, 2 = aktiv als Bernstein-Umriss.</summary>
+        public static int Variante;
+        readonly Border kasten;
+        readonly Path zeichen;
+        readonly TranslateTransform schub = new TranslateTransform();
+        bool an, ueber, ziel;
+        double px = 1;            // Größe eines Bildschirmpixels in WPF-Einheiten
+
+        public TranslateTransform Schub { get { return schub; } }
+
+        public Reiter(string zeichenDaten)
+        {
+            Width = B; Height = H;
+            HorizontalAlignment = HorizontalAlignment.Left;
+            VerticalAlignment = VerticalAlignment.Top;
+            IsHitTestVisible = false;
+            SnapsToDevicePixels = true;
+            UseLayoutRounding = true;
+            RenderTransform = schub;
+            kasten = new Border { CornerRadius = new CornerRadius(5), SnapsToDevicePixels = true };
+            Children.Add(kasten);
+            zeichen = new Path
+            {
+                Data = Geometry.Parse(zeichenDaten),
+                StrokeThickness = 1.6,
+                StrokeLineJoin = PenLineJoin.Round, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round,
+                Stretch = Stretch.None
+            };
+            // 24er-Raster auf 11 px verkleinern, Strich bleibt ~0,75 px dick: kaum sichtbar, aber klar
+            var c = new Canvas { Width = 24, Height = 24 };
+            c.Children.Add(zeichen);
+            Children.Add(new Viewbox { Width = 11, Height = 11, Child = c, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center });
+            Loaded += delegate { Pixel(); };
+            Setzen();
+        }
+
+        void Pixel()
+        {
+            var src = PresentationSource.FromVisual(this);
+            px = src != null && src.CompositionTarget != null ? 1 / src.CompositionTarget.TransformToDevice.M11 : 1;
+            Setzen();
+        }
+
+        /// <summary>Für Bilder ohne Fenster: Skalierung vorgeben.</summary>
+        public void Skalierung(double s) { px = 1 / s; Setzen(); }
+
+        public bool An { get { return an; } set { an = value; Setzen(); } }
+        public bool Ueber { get { return ueber; } set { ueber = value; Setzen(); } }
+        public bool Ziel { get { return ziel; } set { ziel = value; Setzen(); } }
+
+        /// <summary>Herausschieben um ganze Bildschirmpixel – sonst verschmiert der Rand beim Stillstand.</summary>
+        public double Rund(double x) { return Math.Round(x / px) * px; }
+
+        void Setzen()
+        {
+            kasten.BorderThickness = new Thickness(px);
+            if (an && Variante == 2)
+            {
+                kasten.Background = Farbe.B("#FF2A2418");
+                kasten.BorderBrush = Farbe.B("#FFF4B860");
+                zeichen.Stroke = Farbe.B("#FFF4B860");
+            }
+            else if (an)
+            {
+                kasten.Background = Farbe.B("#FFF3E6CF");
+                kasten.BorderBrush = Farbe.B("#FFF4B860");
+                zeichen.Stroke = Farbe.B("#8C3A2A10");
+            }
+            else
+            {
+                kasten.Background = Farbe.B(ueber ? "#FF242933" : "#FF1A1E26");
+                kasten.BorderBrush = Farbe.B(ziel ? "#FFF4B860" : (ueber ? "#5CFFFFFF" : "#38FFFFFF"));
+                zeichen.Stroke = Farbe.B(ueber || ziel ? "#8CFFFFFF" : (Variante == 1 ? "#00FFFFFF" : "#4DFFFFFF"));
+            }
+        }
+    }
+}
