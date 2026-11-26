@@ -219,17 +219,24 @@ namespace Workbench
             };
             string offen; offenVon.TryGetValue(b.Id, out offen);
             var neu = new Dictionary<string, Rect>(StringComparer.OrdinalIgnoreCase);
-            // Seiten: höchstens so viele Ordner, dass jede Box gut lesbar bleibt
+            // Seiten erst, wenn eine Box sonst zu klein würde. Dann rechts/links Platz für die Pfeile.
             var wurzel0 = st.Wurzel;
             var ordnerAlle = wurzel0.Kinder.Where(x => x.Ordner && x.Kinder != null).ToList();
-            int proSeite = Math.Max(4, (int)(w * h / (210.0 * 150.0)));
-            seitenAnzahl = Math.Max(1, (int)Math.Ceiling(ordnerAlle.Count / (double)proSeite));
+            var dateienOben = wurzel0.Kinder.Where(x => !(x.Ordner && x.Kinder != null)).ToList();
+            int nDat = dateienOben.Count(x => Passt(x.Name)) + wurzel0.Mehr;
+            double datGewicht = nDat > 0 ? Math.Sqrt(nDat) + 1 : 0;
+            var flaeche = new Rect(0, 0, w, h);
+            List<int> starts;
+            if (SeitePasst(ordnerAlle, 0, ordnerAlle.Count, datGewicht, flaeche)) starts = new List<int> { 0 };
+            else { flaeche = new Rect(Rand, 0, Math.Max(200, w - 2 * Rand), h); starts = SeitenStarts(ordnerAlle, datGewicht, flaeche); }
+            seitenAnzahl = starts.Count;
             int seite; seiteVon.TryGetValue(b.Id, out seite);
             seite = Math.Max(0, Math.Min(seitenAnzahl - 1, seite)); seiteVon[b.Id] = seite;
+            int von = starts[seite], bis = seite + 1 < starts.Count ? starts[seite + 1] : ordnerAlle.Count;
             var teil = new TKnoten { Pfad = wurzel0.Pfad, Name = wurzel0.Name, Ordner = true, Mehr = seite == 0 ? wurzel0.Mehr : 0,
-                Kinder = (seite == 0 ? wurzel0.Kinder.Where(x => !(x.Ordner && x.Kinder != null)) : Enumerable.Empty<TKnoten>()).Concat(ordnerAlle.Skip(seite * proSeite).Take(proSeite)).ToList() };
-            Fuellen(b, teil, c, new Rect(0, 0, w, h), 0, offen, neu, true);
-            if (seitenAnzahl > 1) huelle.Children.Add(SeitenAnzeige(b, seite));
+                Kinder = (seite == 0 ? dateienOben : new List<TKnoten>()).Concat(ordnerAlle.Skip(von).Take(bis - von)).ToList() };
+            Fuellen(b, teil, c, flaeche, 0, offen, neu, true);
+            if (seitenAnzahl > 1) huelle.Children.Add(SeitenAnzeige(b, seite, tiefe, ordnerAlle.Count - bis));
             // FLIP: was schon da war, gleitet von seinem alten Platz an den neuen
             if (!bild && letzteBoxen.Count > 0)
                 foreach (UIElement el in c.Children)
@@ -278,15 +285,64 @@ namespace Workbench
             }
         }
 
-        /// <summary>Mehr als eine Seite: leiser Pfeil am Rand (mit Anzahl) und Punkte unten. ← → oder zwei Finger seitlich.</summary>
-        FrameworkElement SeitenAnzeige(BlattDef b, int seite)
+        const double Rand = 58, MinBreite = 150, MinHoehe = 104;
+
+        /// <summary>Passen diese Ordner (plus Dateigruppe) so, dass jede Box mindestens MinBreite × MinHoehe hat?</summary>
+        static bool SeitePasst(List<TKnoten> ordner, int von, int n, double datGewicht, Rect r)
+        {
+            var g = new List<double>();
+            if (datGewicht > 0) g.Add(datGewicht);
+            for (int i = von; i < von + n; i++) g.Add(Math.Sqrt(Anzahl(ordner[i])) + 1.5);
+            if (g.Count == 0) return true;
+            foreach (var x in Kacheln(g, r)) if (x.Width < MinBreite || x.Height < MinHoehe) return false;
+            return true;
+        }
+
+        /// <summary>Seitenanfänge: je Seite so viele Ordner wie gut lesbar passen (Halbierungssuche – schnell auch bei 400 Ordnern).</summary>
+        static List<int> SeitenStarts(List<TKnoten> ordner, double datGewicht, Rect r)
+        {
+            var starts = new List<int> { 0 };
+            int i = 0;
+            while (i < ordner.Count)
+            {
+                double dg = starts.Count == 1 ? datGewicht : 0;
+                int lo = 1, hi = ordner.Count - i;
+                while (lo < hi) { int mid = (lo + hi + 1) / 2; if (SeitePasst(ordner, i, mid, dg, r)) lo = mid; else hi = mid - 1; }
+                i += lo;
+                if (i < ordner.Count) starts.Add(i);
+            }
+            return starts;
+        }
+
+        readonly HashSet<string> pfeilGesehen = new HashSet<string>();
+
+        /// <summary>
+        /// Mehr als eine Seite: ein deutlicher runder Pfeil in einem eigenen Streifen am Rand (nichts liegt darunter),
+        /// darunter leise „+N“. Beim ersten Erscheinen je Ebene stupst er zweimal kurz nach rechts, danach steht er still.
+        /// </summary>
+        FrameworkElement SeitenAnzeige(BlattDef b, int seite, int tiefe, int rest)
         {
             var g = new Grid { IsHitTestVisible = true };
-            Func<bool, Button> pfeil = rechts =>
+            Func<bool, FrameworkElement> pfeil = rechts =>
             {
-                var k = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 34, Height = 34, Content = UI.Icon(rechts ? Ikon.Rechts : Ikon.Links, 15, Farbe.B("#E6FFFFFF"), 2), HorizontalAlignment = rechts ? HorizontalAlignment.Right : HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, Margin = rechts ? new Thickness(0, 0, -4, 0) : new Thickness(8, 0, 0, 0), Background = Farbe.B("#D9191C23"), ToolTip = rechts ? (seitenAnzahl - seite - 1) + " more" : "Back" };
+                var k = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 46, Height = 46, Content = UI.Icon(rechts ? Ikon.Rechts : Ikon.Links, 20, Farbe.B(rechts ? "#FFF4B860" : "#CCFFFFFF"), 2.2), Background = Farbe.B(rechts ? "#33F4B860" : "#26FFFFFF"), BorderBrush = Farbe.B(rechts ? "#80F4B860" : "#33FFFFFF"), BorderThickness = new Thickness(1), ToolTip = rechts ? "Next  →" : "Back  ←" };
                 k.Click += delegate { SeiteWechseln(rechts ? 1 : -1); };
-                return k;
+                var sp = new StackPanel { HorizontalAlignment = rechts ? HorizontalAlignment.Right : HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, Margin = rechts ? new Thickness(0, 0, 4, 0) : new Thickness(18, 0, 0, 0) };
+                sp.Children.Add(k);
+                if (rechts && rest > 0) sp.Children.Add(new TextBlock { Text = "+" + rest, FontSize = 11, Foreground = Farbe.B("#99F4B860"), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0), IsHitTestVisible = false });
+                if (rechts && !bild && pfeilGesehen.Add(b.Id + "|" + tiefe))
+                {
+                    var tt = new TranslateTransform(); k.RenderTransform = tt;
+                    var a = new DoubleAnimationUsingKeyFrames { BeginTime = TimeSpan.FromMilliseconds(450) };
+                    var ez = new SineEase { EasingMode = EasingMode.EaseInOut };
+                    a.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+                    a.KeyFrames.Add(new EasingDoubleKeyFrame(9, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(220)), ez));
+                    a.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(440)), ez));
+                    a.KeyFrames.Add(new EasingDoubleKeyFrame(6, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(640)), ez));
+                    a.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(860)), ez));
+                    tt.BeginAnimation(TranslateTransform.XProperty, a);
+                }
+                return sp;
             };
             if (seite < seitenAnzahl - 1) g.Children.Add(pfeil(true));
             if (seite > 0) g.Children.Add(pfeil(false));
