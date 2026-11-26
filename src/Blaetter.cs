@@ -23,6 +23,8 @@ namespace Workbench
         public Dictionary<string, int> LeistenGroesse = new Dictionary<string, int>();   // Leiste → 0 S, 1 M, 2 L
         public List<Modul> Module = new List<Modul>();      // nur Home: Bausteine auf dem Raster
         public bool Vorschlag;                              // Home: Vorlagen-Auswahl unten zeigen (bis „behalten“ oder gewählt)
+        public string VorlageName;                          // Home: solange Vorschlag, passt sich die Vorlage der Breite an
+        public int Spalten;
     }
 
     /// <summary>Ein Baustein auf Home: recent, shelf, expiring, downloads, screens, folder (Pfad), note (Text).</summary>
@@ -77,7 +79,7 @@ namespace Workbench
                         if (D.Reihen == null) D.Reihen = new Dictionary<string, int>();
                         foreach (var b in D.Liste) { if (b.Leisten == null) b.Leisten = new List<string>(); if (b.Inhalt == null) b.Inhalt = new List<string>(); if (b.Module == null) b.Module = new List<Modul>(); if (b.LeistenGroesse == null) b.LeistenGroesse = new Dictionary<string, int>(); foreach (var m in b.Module) { if (m.Inhalt == null) m.Inhalt = new List<string>(); if (m.W < 1) { m.W = m.Breit ? 4 : 2; m.H = m.Art == "recent" || m.Art == "screens" ? 1 : 2; } } }
                         if (!D.Liste.Any(b => b.Art == "temp")) D.Liste.Insert(0, new BlattDef { Art = "temp", Name = "Expiring" });
-                        if (D.Version < 3) Umstellen();
+                        if (D.Version < 4) Umstellen();
                         return;
                     }
                 }
@@ -102,9 +104,9 @@ namespace Workbench
         /// <summary>Neu: Expiring und ein leeres Blatt in der Mitte. Bisher: die alten drei Ebenen bleiben, wie sie waren.</summary>
         public static BlaetterDaten Standard(bool neu)
         {
-            var d = new BlaetterDaten { Version = 3 };
+            var d = new BlaetterDaten { Version = 4 };
             d.Liste.Add(new BlattDef { Art = "temp", Name = "Expiring" });
-            if (neu) { var h = new BlattDef { Art = "home", Name = "Home", Vorschlag = true }; Hauptfenster.Vorlage(h, "focus"); d.Liste.Add(h); }
+            if (neu) d.Liste.Add(new BlattDef { Art = "home", Name = "Home", Vorschlag = true, VorlageName = "start" });
             else
             {
                 d.Liste.Add(new BlattDef { Art = "folder", Pfad = Paths.Dauerhaft, Name = "Permanent" });
@@ -126,8 +128,17 @@ namespace Workbench
                     b.Art = "empty"; b.Pfad = ""; b.Name = ""; b.Symbol = "";
                 }
             // 3: das leere + wird zu Home (die Art des Blattes wählt man jetzt direkt am + der Schiene)
-            foreach (var b in D.Liste) if (b.Art == "empty") { b.Art = "home"; b.Name = "Home"; b.Vorschlag = true; Hauptfenster.Vorlage(b, "focus"); }
-            D.Version = 3;
+            foreach (var b in D.Liste) if (b.Art == "empty") { b.Art = "home"; b.Name = "Home"; b.Vorschlag = true; b.VorlageName = "start"; b.Module.Clear(); }
+            // 4: Ankommen = Home. Wer keins hat, bekommt eins an zweiter Stelle (mit der Vorlage „Workbench“); nichts sonst ändert sich.
+            if (D.Version < 4)
+            {
+                foreach (var b in D.Liste.Where(x => x.Art == "home" && x.Vorschlag)) { b.VorlageName = "start"; b.Module.Clear(); }
+                if (!D.Liste.Any(x => x.Art == "home"))
+                {
+                    D.Liste.Insert(Math.Min(1, D.Liste.Count), new BlattDef { Art = "home", Name = "Home", Vorschlag = true, VorlageName = "start" });
+                }
+            }
+            D.Version = 4;
             Speichern();
         }
 

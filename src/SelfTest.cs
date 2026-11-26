@@ -307,7 +307,7 @@ namespace Workbench
                 // Home mit Bausteinen
                 var home = new BlattDef { Art = "home", Name = "Home" };
                 w.BlattHinzu(home);
-                Ok(home.Module.Count == 1 && home.Module[0].Art == "expiring", "neues Home beginnt mit Expiring");
+                Ok(home.Module.Count == 4 && home.Module[0].Art == "recent" && home.Module.Any(x => x.Art == "tools"), "neues Home beginnt mit der Vorlage Workbench");
                 foreach (var art in new[] { "recent", "shelf", "pinned", "downloads", "screens", "note" }) w.ModulNeu(home, art);
                 home.Module.Last().Text = "hello";
                 w.HomeBearbeiten(true);
@@ -315,14 +315,14 @@ namespace Workbench
                 var belegt = new HashSet<string>();
                 bool ueberlapp = false;
                 foreach (var mm in home.Module) for (int ix = mm.X; ix < mm.X + mm.W; ix++) for (int iy = mm.Y; iy < mm.Y + mm.H; iy++) if (!belegt.Add(ix + "," + iy)) ueberlapp = true;
-                Ok(home.Module.Count == 7 && !ueberlapp && home.Module.All(x => x.X >= 0 && x.Y >= 0), "Bausteine liegen ohne Überlappung auf dem Raster");
+                Ok(home.Module.Count == 10 && !ueberlapp && home.Module.All(x => x.X >= 0 && x.Y >= 0), "Bausteine liegen ohne Überlappung auf dem Raster");
                 w.HomeBearbeiten(false);
                 Hauptfenster.Vorlage(home, "daily");
                 Ok(home.Module.Count == 3 && home.Module.Any(x => x.Art == "recent"), "Vorlage ersetzt die Bausteine");
                 w.ModulNeu(home, "note"); home.Module.Last().Text = "hello";
                 Blaetter.Speichern(); Blaetter.Laden();
                 var home2 = Blaetter.Liste.First(x => x.Id == home.Id);
-                Ok(home2.Module.Count == 4 && home2.Module.Last().Text == "hello" && home2.Module[0].W == 6, "Bausteine, Plätze und Notiz überstehen Neustart");
+                Ok(home2.Module.Count == 4 && home2.Module.Last().Text == "hello" && home2.Module[0].W >= 6, "Bausteine, Plätze und Notiz überstehen Neustart");
                 home = home2; bb = Blaetter.Liste.First(x => x.Id == bb.Id);
                 w.BlattWeg(Blaetter.Liste.IndexOf(home));
                 string a1 = Path.Combine(Paths.Daten, "board-a.txt"), a2 = Path.Combine(Paths.Downloads, "board-b.txt");

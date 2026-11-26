@@ -30,6 +30,8 @@ namespace Workbench
         /// <summary>Start: das mittlere Blatt. Ist es noch leer und nicht der erste Start, dann Expiring.</summary>
         public static int StartAnsicht()
         {
+            int h = Blaetter.Index("home");
+            if (h >= 0) return h;               // ankommen = Home
             int m = Blaetter.Mitte;
             return m;
         }

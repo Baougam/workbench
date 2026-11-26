@@ -70,7 +70,7 @@ namespace Workbench
             var sp = new StackPanel { Orientation = Orientation.Horizontal };
             var arten = new List<Tuple<string, string, Func<BlattDef>>>
             {
-                Tuple.Create(ReiterZeichen.Haus, "Home", (Func<BlattDef>)(() => { var h = new BlattDef { Art = "home", Name = "Home" }; Vorlage(h, "focus"); h.Vorschlag = true; return h; })),
+                Tuple.Create(ReiterZeichen.Haus, "Home", (Func<BlattDef>)(() => new BlattDef { Art = "home", Name = "Home", Vorschlag = true, VorlageName = "start" })),
                 Tuple.Create(ReiterZeichen.Bildschirm, "Desktop", (Func<BlattDef>)(() => new BlattDef { Art = "folder", Pfad = Paths.Desktop, Name = "Desktop", Symbol = ReiterZeichen.Bildschirm })),
                 Tuple.Create(ReiterZeichen.Ordner, "Folder", (Func<BlattDef>)(() => { var p = OrdnerFragen(null); return p == null ? null : new BlattDef { Art = "folder", Pfad = p, Name = System.IO.Path.GetFileName(p.TrimEnd('\\')) }; })),
                 Tuple.Create(ReiterZeichen.Board, "Board", (Func<BlattDef>)(() => new BlattDef { Art = "board", Name = "Board" })),
@@ -116,19 +116,27 @@ namespace Workbench
 
         // ================= Vorlagen =================
 
-        static readonly string[][] Vorlagen = { new[] { "focus", "Focus" }, new[] { "daily", "Daily" }, new[] { "desk", "Desk" }, new[] { "blank", "Blank" } };
+        static readonly string[][] Vorlagen = { new[] { "start", "Workbench" }, new[] { "focus", "Focus" }, new[] { "daily", "Daily" }, new[] { "desk", "Desk" }, new[] { "blank", "Blank" } };
+        int spaltenJetzt = 8;
 
         /// <summary>Drei ruhige Vorlagen und „leer“. Ersetzt die Bausteine des Blatts.</summary>
-        public static void Vorlage(BlattDef b, string name)
+        public static void Vorlage(BlattDef b, string name) { Vorlage(b, name, 8); }
+
+        /// <summary>Vorlage über die ganze Breite (n Spalten).</summary>
+        public static void Vorlage(BlattDef b, string name, int n)
         {
             b.Module.Clear();
+            n = Math.Max(4, n);
+            int halb = n / 2;
             Action<string, int, int, int, int> m = (art, x, y, w, h) => b.Module.Add(new Modul { Art = art, X = x, Y = y, W = w, H = h, Groesse = 1 });
             switch (name)
             {
-                case "focus": m("expiring", 0, 0, 6, 3); break;
-                case "daily": m("recent", 0, 0, 6, 1); m("expiring", 0, 1, 3, 2); m("downloads", 3, 1, 3, 2); break;
-                case "desk": m("pinned", 0, 0, 3, 2); m("note", 3, 0, 3, 2); m("tools", 0, 2, 6, 1); break;
+                case "start": m("recent", 0, 0, n, 1); m("expiring", 0, 1, halb, 2); m("downloads", halb, 1, n - halb, 2); m("tools", 0, 3, n, 1); break;
+                case "focus": m("expiring", 0, 0, n, 3); break;
+                case "daily": m("recent", 0, 0, n, 1); m("expiring", 0, 1, halb, 2); m("downloads", halb, 1, n - halb, 2); break;
+                case "desk": m("pinned", 0, 0, halb, 2); m("note", halb, 0, n - halb, 2); m("tools", 0, 2, n, 1); break;
             }
+            foreach (var x in b.Module.Where(x => x.Art == "downloads" && name == "start")) x.Liste = true;
             foreach (var x in b.Module.Where(x => x.Art == "recent" || x.Art == "screens")) x.Groesse = 1;
         }
 
@@ -140,8 +148,10 @@ namespace Workbench
         FrameworkElement FlaecheHome(BlattDef b)
         {
             OrtSetzen(homeBearbeiten ? "Edit" : "");
-            if (b.Module.Count == 0 && !homeBearbeiten && !b.Vorschlag) { Vorlage(b, "focus"); b.Vorschlag = true; Blaetter.Speichern(); }
+            if (b.Module.Count == 0 && !homeBearbeiten && !b.Vorschlag && b.VorlageName == null) { b.VorlageName = "start"; b.Vorschlag = true; b.Spalten = 0; Blaetter.Speichern(); }
             int spalten = Math.Max(2, (int)((Math.Max(600, buehne.ActualWidth > 0 ? buehne.ActualWidth : 1000) - 8) / (Zelle + Luecke)));
+            spaltenJetzt = spalten;
+            if (b.Vorschlag && b.VorlageName != null && b.Spalten != spalten) { Vorlage(b, b.VorlageName, spalten); b.Spalten = spalten; }
             foreach (var m in b.Module) { if (m.W < 1) m.W = 2; if (m.H < 1) m.H = 2; if (m.W > spalten) m.W = spalten; }
             Ordnen(b, spalten);
             int zeilen = b.Module.Count == 0 ? 3 : b.Module.Max(m => m.Y + m.H);
@@ -443,8 +453,8 @@ namespace Workbench
             foreach (var v in Vorlagen)
             {
                 var v2 = v;
-                var probe = new BlattDef(); Vorlage(probe, v[0]);
-                var skizze = new Canvas { Width = 66, Height = 40 };
+                var probe = new BlattDef(); Vorlage(probe, v[0], 6);
+                var skizze = new Canvas { Width = 66, Height = 40, ClipToBounds = true };
                 double zs = 66 / 6.0;
                 foreach (var m in probe.Module)
                 {
@@ -460,7 +470,7 @@ namespace Workbench
                 k.Content = st;
                 k.MouseEnter += delegate { k.Background = Farbe.B("#14FFFFFF"); };
                 k.MouseLeave += delegate { k.Background = Brushes.Transparent; };
-                k.Click += delegate { Vorlage(b, v2[0]); Blaetter.Speichern(); if (danach != null) danach(); Neuzeichnen(); };
+                k.Click += delegate { Vorlage(b, v2[0], spaltenJetzt); b.VorlageName = v2[0]; b.Spalten = spaltenJetzt; Blaetter.Speichern(); if (danach != null) danach(); Neuzeichnen(); };
                 sp.Children.Add(k);
             }
             return sp;
@@ -506,8 +516,8 @@ namespace Workbench
             double s = SymbolPx[Math.Max(0, Math.Min(2, m.Groesse))];
             if (m.Art == "tools") { var wt = new WrapPanel(); foreach (var w in Werkzeuge.Alle) wt.Children.Add(Werkzeugkachel(w, s)); return wt; }
             double breite = Px(m.W) - 20, hoehe = Px(m.H) - 36;
-            int proZeile = m.Liste ? 1 : Math.Max(1, (int)(breite / (s + 26)));
-            int zeilen = Math.Max(1, (int)(hoehe / (m.Liste ? 30 : s + 30)));
+            int proZeile = m.Liste ? 1 : Math.Max(1, (int)(breite / (s + 34)));
+            int zeilen = Math.Max(1, (int)((hoehe + 4) / (m.Liste ? 30 : s + (m.Groesse > 0 ? 38 : 16))));
             int max = Math.Max(1, proZeile * zeilen);
             if (m.Art == "screens") { max = Math.Max(1, (int)(breite / 116)) * Math.Max(1, (int)(hoehe / 86)); }
 
