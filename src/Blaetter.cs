@@ -20,7 +20,8 @@ namespace Workbench
         public string Symbol = "";                          // Ikon für das Blatt in der Schiene (leer = nach Art)
         public List<string> Leisten = new List<string>();   // „recent@top“, „shelf@bottom“ …
         public List<string> Inhalt = new List<string>();    // nur Board: Pfade
-        public List<Modul> Module = new List<Modul>();      // nur Home: Bausteine in Reihenfolge
+        public List<Modul> Module = new List<Modul>();      // nur Home: Bausteine auf dem Raster
+        public bool Vorschlag;                              // Home: Vorlagen-Auswahl unten zeigen (bis „behalten“ oder gewählt)
     }
 
     /// <summary>Ein Baustein auf Home: recent, shelf, expiring, downloads, screens, folder (Pfad), note (Text).</summary>
@@ -30,7 +31,13 @@ namespace Workbench
         public string Art = "";
         public string Pfad = "";
         public string Text = "";
-        public bool Breit;
+        public bool Breit;                                  // alt (vor dem Raster)
+        public int X = -1, Y = -1, W, H;                    // Platz auf dem Raster (Zellen)
+        public int Groesse = 1;                             // Symbole: 0 S, 1 M, 2 L
+        public bool Liste;                                  // Zeilen statt Kacheln
+        public string Filter = "";                          // "", docs, images, archives, apps
+        public string Titel = "";
+        public List<string> Inhalt = new List<string>();    // pinned: Pfade
     }
 
     public class BlaetterDaten
@@ -63,7 +70,7 @@ namespace Workbench
                     if (D != null && D.Liste != null && D.Liste.Count > 0)
                     {
                         if (D.Ablage == null) D.Ablage = new List<string>();
-                        foreach (var b in D.Liste) { if (b.Leisten == null) b.Leisten = new List<string>(); if (b.Inhalt == null) b.Inhalt = new List<string>(); if (b.Module == null) b.Module = new List<Modul>(); }
+                        foreach (var b in D.Liste) { if (b.Leisten == null) b.Leisten = new List<string>(); if (b.Inhalt == null) b.Inhalt = new List<string>(); if (b.Module == null) b.Module = new List<Modul>(); foreach (var m in b.Module) { if (m.Inhalt == null) m.Inhalt = new List<string>(); if (m.W < 1) { m.W = m.Breit ? 4 : 2; m.H = m.Art == "recent" || m.Art == "screens" ? 1 : 2; } } }
                         if (!D.Liste.Any(b => b.Art == "temp")) D.Liste.Insert(0, new BlattDef { Art = "temp", Name = "Expiring" });
                         if (D.Version < 3) Umstellen();
                         return;
@@ -92,7 +99,7 @@ namespace Workbench
         {
             var d = new BlaetterDaten { Version = 3 };
             d.Liste.Add(new BlattDef { Art = "temp", Name = "Expiring" });
-            if (neu) d.Liste.Add(new BlattDef { Art = "home", Name = "Home" });
+            if (neu) { var h = new BlattDef { Art = "home", Name = "Home", Vorschlag = true }; Hauptfenster.Vorlage(h, "focus"); d.Liste.Add(h); }
             else
             {
                 d.Liste.Add(new BlattDef { Art = "folder", Pfad = Paths.Dauerhaft, Name = "Permanent" });
@@ -114,7 +121,7 @@ namespace Workbench
                     b.Art = "empty"; b.Pfad = ""; b.Name = ""; b.Symbol = "";
                 }
             // 3: das leere + wird zu Home (die Art des Blattes wählt man jetzt direkt am + der Schiene)
-            foreach (var b in D.Liste) if (b.Art == "empty") { b.Art = "home"; b.Name = "Home"; }
+            foreach (var b in D.Liste) if (b.Art == "empty") { b.Art = "home"; b.Name = "Home"; b.Vorschlag = true; Hauptfenster.Vorlage(b, "focus"); }
             D.Version = 3;
             Speichern();
         }

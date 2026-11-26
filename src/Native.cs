@@ -127,14 +127,17 @@ namespace Workbench
         /// <summary>Echtes Windows-Vorschaubild (Bilder, PDFs …) oder das Programmsymbol. Muss auf einem STA-Thread laufen.</summary>
         public static BitmapSource Vorschau(string pfad, int px) { return Vorschau(pfad, px, false); }
 
-        public static BitmapSource Vorschau(string pfad, int px, bool nurSymbol)
+        public static BitmapSource Vorschau(string pfad, int px, bool nurSymbol) { return Vorschau(pfad, px, nurSymbol ? 0x4 : 0); }
+
+        /// <summary>flags: 0 = Vorschaubild oder Symbol, 0x4 = nur Symbol, 0x8 = nur echtes Vorschaubild (sonst null).</summary>
+        public static BitmapSource Vorschau(string pfad, int px, int flags)
         {
             IShellItemImageFactory f;
             try { SHCreateItemFromParsingName(pfad, IntPtr.Zero, typeof(IShellItemImageFactory).GUID, out f); }
             catch { return null; }
             IntPtr hbm;
             int hr;
-            try { hr = f.GetImage(new SIZE { cx = px, cy = px }, nurSymbol ? 0x4 : 0, out hbm); }   // 0x4 = SIIGBF_ICONONLY
+            try { hr = f.GetImage(new SIZE { cx = px, cy = px }, flags, out hbm); }   // 0x4 ICONONLY, 0x8 THUMBNAILONLY
             finally { Marshal.ReleaseComObject(f); }
             if (hr != 0 || hbm == IntPtr.Zero) return null;
             try

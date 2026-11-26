@@ -106,6 +106,46 @@ namespace Workbench
             return g;
         }
 
+        /// <summary>
+        /// Für Recent & Co.: das echte Vorschaubild (erste Seite, Foto, Video-Standbild), wenn Windows eines hat – sonst
+        /// Workbench' Typ-Marke (farbiges Blatt mit Endung) statt des Symbols der öffnenden App. So sieht nichts gleich aus.
+        /// </summary>
+        public static FrameworkElement Echt(string pfad, double groesse)
+        {
+            var g = new Grid { Width = groesse, Height = groesse };
+            if (Directory.Exists(pfad)) { var o = UI.OrdnerBild(groesse); o.VerticalAlignment = VerticalAlignment.Center; g.Children.Add(o); return g; }
+            var marke = Glyphe(pfad, Math.Round(groesse * 0.78), groesse * 0.94);
+            marke.HorizontalAlignment = HorizontalAlignment.Center; marke.VerticalAlignment = VerticalAlignment.Center;
+            g.Children.Add(marke);
+            int px = (int)Math.Ceiling(groesse * 2);
+            string k = Schluessel(pfad, px) + "|t";
+            Action<BitmapSource> setzen = bs =>
+            {
+                if (bs == null) return;
+                g.Children.Clear();
+                var rahmen = new Border { CornerRadius = new CornerRadius(Math.Max(4, groesse / 7)), ClipToBounds = true, Background = new ImageBrush(bs) { Stretch = Stretch.UniformToFill }, BorderBrush = Farbe.B("#26FFFFFF"), BorderThickness = new Thickness(1) };
+                double s = Math.Min(groesse / bs.PixelWidth, groesse / bs.PixelHeight);
+                rahmen.Width = Math.Max(groesse * 0.6, bs.PixelWidth * s); rahmen.Height = Math.Max(groesse * 0.6, bs.PixelHeight * s);
+                rahmen.HorizontalAlignment = HorizontalAlignment.Center; rahmen.VerticalAlignment = VerticalAlignment.Center;
+                g.Children.Add(rahmen);
+            };
+            BitmapSource fertig;
+            bool da;
+            lock (cache) da = cache.TryGetValue(k, out fertig);
+            if (da) { setzen(fertig); return g; }
+            if (Sofort) { var b0 = Native.Vorschau(pfad, px, 0x8); Merken(k, b0); setzen(b0); return g; }
+            Starten();
+            var disp = Application.Current.Dispatcher;
+            auftraege.Add(() =>
+            {
+                BitmapSource b = null;
+                try { b = Native.Vorschau(pfad, px, 0x8); } catch { }
+                Merken(k, b);
+                if (b != null) disp.BeginInvoke(new Action(() => setzen(b)));
+            });
+            return g;
+        }
+
         static readonly string[] bildEndungen = { ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".heic", ".tif", ".tiff", ".mp4", ".mov", ".mkv", ".webm", ".avi" };
 
         /// <summary>

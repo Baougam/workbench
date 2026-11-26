@@ -974,7 +974,7 @@ namespace Workbench
         {
             var k = new Border { Width = 40, Height = 40, CornerRadius = new CornerRadius(9), Margin = new Thickness(2), Background = Brushes.Transparent, ToolTip = System.IO.Path.GetFileName(p), Cursor = Cursors.Hand };
             ToolTipService.SetInitialShowDelay(k, 350);
-            var bildEl = Vorschau.Bild(p, 30, 30, Blaetter.Liste.Any(x => x.Art == "cloud" && WurzelVon(x) != null && p.StartsWith(WurzelVon(x), StringComparison.OrdinalIgnoreCase)), null, false);
+            var bildEl = Vorschau.Echt(p, 30);
             bildEl.HorizontalAlignment = HorizontalAlignment.Center; bildEl.VerticalAlignment = VerticalAlignment.Center;
             k.Child = bildEl;
             k.MouseEnter += delegate { k.Background = Farbe.B("#1AFFFFFF"); };
