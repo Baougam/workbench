@@ -543,7 +543,7 @@ namespace Workbench
             max = Math.Max(max, jetzt);
             if (max == 0) { tiefenAnzeige = null; return null; }
             var sp = new StackPanel { HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(-12, 0, 0, 0), Background = Brushes.Transparent };
-            var zahlen = tiefeZahlen; zahlen.Clear(); tiefeStriche.Clear();
+            var zahlen = new List<TextBlock>();
             // Darüberfahren: die Zahlen erscheinen weich neben den Strichen – ein Klick springt direkt (auch zwei Ebenen)
             sp.MouseEnter += delegate { foreach (var z in zahlen) z.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(140))); };
             sp.MouseLeave += delegate { foreach (var z in zahlen) z.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(200))); };
@@ -551,13 +551,12 @@ namespace Workbench
             {
                 int i2 = i;
                 bool an = i == jetzt;
-                var feld = new Border { Width = 54, Height = 17, Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = i == 0 ? "Surface   ·   pinch / Ctrl+wheel" : null };
+                var feld = new Border { Width = 54, Height = 17, Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = i == 0 ? "Surface" : null };
                 ToolTipService.SetInitialShowDelay(feld, 500);
                 var reihe = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
                 var strich = new Border { Width = an ? 14 : 8, Height = an ? 2.5 : 1.5, CornerRadius = new CornerRadius(1), Background = Farbe.B(an ? "#FFF4B860" : "#4DFFFFFF"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 0) };
                 var zahl = new TextBlock { Text = Griechisch(i), FontSize = 12, FontFamily = new FontFamily("Cambria, Georgia, Segoe UI"), Foreground = Farbe.B(an ? "#FFF4B860" : "#B3FFFFFF"), Margin = new Thickness(an ? 6 : 12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, Opacity = 0, IsHitTestVisible = false };
                 reihe.Children.Add(strich); reihe.Children.Add(zahl);
-                tiefeStriche.Add(strich);
                 feld.Child = reihe;
                 zahlen.Add(zahl);
                 feld.MouseEnter += delegate { if (!an) { strich.Background = Farbe.B("#E6FFFFFF"); strich.Width = 12; zahl.Foreground = Brushes.White; } };

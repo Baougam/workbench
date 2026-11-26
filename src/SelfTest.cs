@@ -405,19 +405,6 @@ namespace Workbench
             }
             catch (Exception ex) { Ok(false, "Tiefe: " + ex.Message); }
 
-            // 12d2) Tiefe als Zoom: Touchpad-Schritte sammeln sich, eine Geste = eine Ebene
-            try
-            {
-                Blaetter.D = Blaetter.Standard(false);
-                var w = new Hauptfenster(E, 1, true);
-                w.Wurzel.Measure(new Size(1060, 700)); w.Wurzel.Arrange(new Rect(0, 0, 1060, 700));
-                for (int i = 0; i < 4; i++) w.Zoom(40);
-                Ok(w.TiefeJetzt == 0, "Zoom: kurzes Ziehen wechselt noch nicht");
-                for (int i = 0; i < 20; i++) w.Zoom(40);
-                Ok(w.TiefeJetzt == 1, "Zoom: ganz gezogen = genau eine Ebene tiefer (Tiefe " + w.TiefeJetzt + ")");
-            }
-            catch (Exception ex) { Ok(false, "Zoom: " + ex.Message); }
-
             // 12e) Schnelles Lesen + Seiten, wenn eine Ebene zu voll ist
             try
             {
