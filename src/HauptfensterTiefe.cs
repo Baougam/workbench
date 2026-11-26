@@ -584,7 +584,7 @@ namespace Workbench
             tiefeSpeicher.Stop(); tiefeSpeicher.Start();
         }
 
-        static readonly string[] griechisch = { "α", "β", "γ", "δ", "ε", "ζ", "η", "θ", "ι" };
+        static readonly string[] griechisch = { "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX" };
         static string Griechisch(int i) { return i >= 0 && i < griechisch.Length ? griechisch[i] : i.ToString(); }
     }
 }

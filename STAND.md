@@ -181,7 +181,7 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 
 ## Tiefe schneller, Seiten, Update per Klick (2026-11-26, Version 0.2.0)
 
-- **Ebenen-Wähler**: griechische Zeichen statt „Level n / Surface“ (α = Oberfläche, β, γ …, `Griechisch(i)`).
+- **Ebenen-Wähler**: römische Zahlen statt „Level n / Surface“ (I = Oberfläche, II, III …, `Griechisch(i)`).
   Gewählte Platte hebt sich (BackEase) mit Bernstein-Verlauf; Anzahl rechts klein. Scanlinie beim Wechsel entfernt (Wunsch).
 - **Schnell lesen** (`src/Schnell.cs`): FindFirstFileEx (Basic + LARGE_FETCH), Versteckt/System aus den Find-Daten,
   Hilfsdateien nur nach Namen (`Engine.IstHilfsName`), `HatInhalt` für die Frage „geht es tiefer?“.
