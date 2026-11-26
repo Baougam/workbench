@@ -38,9 +38,7 @@ namespace Workbench
 
     class Reiter : Grid
     {
-        public const double B = 26, H = 18;
-        /// <summary>Nur für die Entwürfe: 0 = Zeichen immer leise, 1 = Zeichen nur aktiv/darüber, 2 = aktiv als Bernstein-Umriss.</summary>
-        public static int Variante;
+        public const double B = 40, H = 28;
         readonly Border kasten;
         readonly Path zeichen;
         readonly TranslateTransform schub = new TranslateTransform();
@@ -58,19 +56,19 @@ namespace Workbench
             SnapsToDevicePixels = true;
             UseLayoutRounding = true;
             RenderTransform = schub;
-            kasten = new Border { CornerRadius = new CornerRadius(5), SnapsToDevicePixels = true };
+            kasten = new Border { CornerRadius = new CornerRadius(8), SnapsToDevicePixels = true };
             Children.Add(kasten);
             zeichen = new Path
             {
                 Data = Geometry.Parse(zeichenDaten),
-                StrokeThickness = 1.6,
+                StrokeThickness = 1.5,
                 StrokeLineJoin = PenLineJoin.Round, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round,
                 Stretch = Stretch.None
             };
             // 24er-Raster auf 11 px verkleinern, Strich bleibt ~0,75 px dick: kaum sichtbar, aber klar
             var c = new Canvas { Width = 24, Height = 24 };
             c.Children.Add(zeichen);
-            Children.Add(new Viewbox { Width = 11, Height = 11, Child = c, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center });
+            Children.Add(new Viewbox { Width = 17, Height = 17, Child = c, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center });
             Loaded += delegate { Pixel(); };
             Setzen();
         }
@@ -95,24 +93,19 @@ namespace Workbench
         void Setzen()
         {
             kasten.BorderThickness = new Thickness(px);
-            if (an && Variante == 2)
+            if (an)
             {
-                kasten.Background = Farbe.B("#FF2A2418");
-                kasten.BorderBrush = Farbe.B("#FFF4B860");
+                kasten.Background = Farbe.B("#2EF4B860");
+                kasten.BorderBrush = Farbe.B("#66F4B860");
                 zeichen.Stroke = Farbe.B("#FFF4B860");
-            }
-            else if (an)
-            {
-                kasten.Background = Farbe.B("#FFF3E6CF");
-                kasten.BorderBrush = Farbe.B("#FFF4B860");
-                zeichen.Stroke = Farbe.B("#8C3A2A10");
             }
             else
             {
-                kasten.Background = Farbe.B(ueber ? "#FF242933" : "#FF1A1E26");
-                kasten.BorderBrush = Farbe.B(ziel ? "#FFF4B860" : (ueber ? "#5CFFFFFF" : "#38FFFFFF"));
-                zeichen.Stroke = Farbe.B(ueber || ziel ? "#8CFFFFFF" : (Variante == 1 ? "#00FFFFFF" : "#4DFFFFFF"));
+                kasten.Background = Farbe.B(ueber ? "#14FFFFFF" : "#00FFFFFF");
+                kasten.BorderBrush = Farbe.B(ziel ? "#99F4B860" : "#00FFFFFF");
+                zeichen.Stroke = Farbe.B(ueber || ziel ? "#B3FFFFFF" : "#73FFFFFF");
             }
         }
+
     }
 }

@@ -510,57 +510,9 @@ namespace Workbench
             var ik = info.Karte; info.Content = null;
             Speichern(Rahmen(ik), 410, 0, Path.Combine(ziel, "8-gespeichert.png"));
             Speichern(Rahmen(new BrowserKarte(new Browser.Ziel { Name = "Brave", Exe = "brave.exe", Seite = "brave://extensions" }).FuerBild(0)), 330, 0, Path.Combine(ziel, "10-browser.png"));
-            Entwuerfe(Path.Combine(ziel, "11-reiter.png"));
             return 0;
         }
 
-        /// <summary>Schiene: bisher und drei Entwürfe nebeneinander, groß gerendert.</summary>
-        static void Entwuerfe(string datei)
-        {
-            var reihe = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, Background = Farbe.B("#0B0D11") };
-            string[] titel = { "now", "A", "B", "C" };
-            string[] zeichen = { ReiterZeichen.Sanduhr, ReiterZeichen.Bildschirm, ReiterZeichen.Ordner, ReiterZeichen.Wolke, ReiterZeichen.Plus };
-            for (int v = 0; v < 4; v++)
-            {
-                var sp = new System.Windows.Controls.StackPanel { Width = 74, Margin = new Thickness(6, 12, 6, 12) };
-                sp.Children.Add(new System.Windows.Controls.TextBlock { Text = titel[v], FontSize = 10, Foreground = Farbe.B("#66FFFFFF"), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 10) });
-                for (int i = 0; i < zeichen.Length; i++)
-                {
-                    var platz = new System.Windows.Controls.Grid { Width = 44, Height = 23, HorizontalAlignment = HorizontalAlignment.Center };
-                    bool an = i == 1, ueber = i == 3 && v > 0;
-                    if (v == 0)
-                    {
-                        if (i == 4) { sp.Children.Add(platz); continue; }
-                        var alt = new System.Windows.Controls.Border { Width = 26, Height = 18, CornerRadius = new CornerRadius(5), BorderThickness = new Thickness(1), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(3 + (an ? 9 : 0), 2, 0, 0),
-                            Background = Farbe.B(an ? "#FFF6EAD4" : "#FF1C2028"), BorderBrush = an ? Farbe.Akzent : Farbe.B("#3DFFFFFF") };
-                        if (an) alt.Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = System.Windows.Media.Color.FromRgb(0xF4, 0xB8, 0x60), BlurRadius = 12, ShadowDepth = 0, Opacity = 0.55 };
-                        platz.Children.Add(alt);
-                    }
-                    else
-                    {
-                        Reiter.Variante = v - 1;
-                        var r = new Reiter(zeichen[i]);
-                        r.Skalierung(3);
-                        r.Margin = new Thickness(3, 2, 0, 0);
-                        r.Opacity = i == 4 ? 0.55 : 1;
-                        r.An = an; r.Ueber = ueber;
-                        r.Schub.X = an ? r.Rund(9) : 0;
-                        platz.Children.Add(r);
-                    }
-                    sp.Children.Add(platz);
-                }
-                reihe.Children.Add(sp);
-            }
-            Reiter.Variante = 0;
-            reihe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            reihe.Arrange(new Rect(reihe.DesiredSize));
-            reihe.UpdateLayout();
-            var bmp = new RenderTargetBitmap((int)(reihe.ActualWidth * 3), (int)(reihe.ActualHeight * 3), 288, 288, PixelFormats.Pbgra32);
-            bmp.Render(reihe);
-            var enc = new PngBitmapEncoder();
-            enc.Frames.Add(BitmapFrame.Create(bmp));
-            using (var s = File.Create(datei)) enc.Save(s);
-        }
 
         static FrameworkElement Rahmen(FrameworkElement k)
         {

@@ -27,7 +27,7 @@ namespace Workbench
     partial class Hauptfenster : Window
     {
         public const int Korb = 100, Einst = 101, Netzansicht = 102;
-        const double Abstand = 23;
+        const double Abstand = 34;
 
         readonly Engine E;
         readonly bool bild;

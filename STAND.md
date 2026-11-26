@@ -155,8 +155,8 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
   (Expiring, immer genau einmal, nicht entfernbar), `folder` (auch Desktop/Screenshots, `Symbol` = Reiter-Zeichen), `board`
   (Verweise, verschiebt nie), `cloud` (Pfad leer = erkannter Cloud-Ordner), `empty` (großes leises +). Max. 6.
   Bisherige Nutzer bekommen Expiring/Permanent/Cloud, neue Expiring + leeres Blatt (Start dort, `Blaetter.Frisch`).
-- `src/HauptfensterBlaetter.cs` (partial): Schiene mit `Reiter` (`src/Reiter.cs`, Variante A: 1 echter Pixel Rand, kein Schatten,
-  leises Zeichen; Sanduhr/Ordner/Wolke/Bildschirm/Board/Ausschnitt/+). Reiter ziehen = umsortieren, nach rechts heraus = entfernen.
+- `src/HauptfensterBlaetter.cs` (partial): Schiene mit `Reiter` (`src/Reiter.cs`, Nutzerwahl: Kachel 40×28 im Bildschirm-Format, aktive bernstein getönt, keine helle Fläche (sonst wirkt sie durch Kontrast, als würde sie schimmern), 1 echter Pixel Rand,
+  Zeichen 17 px; Sanduhr/Ordner/Wolke/Bildschirm/Board/Ausschnitt/+). Reiter ziehen = umsortieren, nach rechts heraus = entfernen.
   + erscheint nur bei Maus über der Schiene (außer nur 1 Blatt). Ansichten: Blätter 0..n-1, Korb=100, Einst=101, Netz=102.
   Start: mittleres Blatt (leer → Expiring); nach >10 min versteckt wieder Start, sonst wo man war.
 - Leisten (Recent = Windows „Zuletzt verwendet“ + eigene Downloads; Shelf = `Ablage`, Verweise): je Blatt oben/unten/rechts,

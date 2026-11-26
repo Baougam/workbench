@@ -46,7 +46,7 @@ namespace Workbench
         FrameworkElement Schiene()
         {
             var g = new Grid();
-            regler = new Grid { Width = 44, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, Background = Brushes.Transparent, Margin = new Thickness(0, -60, 0, 0) };
+            regler = new Grid { Width = 52, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, Background = Brushes.Transparent, Margin = new Thickness(0, -60, 0, 0) };
             regler.MouseEnter += delegate { PlusZeigen(true); };
             regler.MouseLeave += delegate { PlusZeigen(false); };
             SchieneFuellen();
@@ -82,10 +82,10 @@ namespace Workbench
             plusReiter = null;
             var l = Blaetter.Liste;
             bool plus = l.Count < Blaetter.Max && !l.Any(b => b.Art == "empty");
-            regler.Height = 24 + (l.Count - 1 + (plus ? 1 : 0)) * Abstand;
+            regler.Height = 32 + (l.Count - 1 + (plus ? 1 : 0)) * Abstand;
             for (int i = 0; i < l.Count; i++)
             {
-                var r = new Reiter(ReiterZeichen.Fuer(l[i])) { Margin = new Thickness(3, i * Abstand + 3, 0, 0) };
+                var r = new Reiter(ReiterZeichen.Fuer(l[i])) { Margin = new Thickness(6, i * Abstand + 2, 0, 0) };
                 reiter.Add(r);
                 regler.Children.Add(r);
             }
@@ -93,7 +93,7 @@ namespace Workbench
             {
                 int nr = i;
                 var b = l[i];
-                var knopf = new Button { Style = (Style)Application.Current.FindResource("Leer"), Width = 40, Height = 23, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, i * Abstand, 0, 0), ToolTip = BlattName(i) };
+                var knopf = new Button { Style = (Style)Application.Current.FindResource("Leer"), Width = 52, Height = 32, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, i * Abstand, 0, 0), ToolTip = BlattName(i) };
                 ToolTipService.SetPlacement(knopf, PlacementMode.Right);
                 ToolTipService.SetInitialShowDelay(knopf, 150);
                 System.Windows.Automation.AutomationProperties.SetName(knopf, BlattName(i));
@@ -103,16 +103,16 @@ namespace Workbench
                 if (b.Art == "temp") AblageZiel(knopf, null, BefristetOrdner, federn, echo);
                 else if (b.Art == "board") BoardZiel(knopf, null, b, federn, echo);
                 else AblageZiel(knopf, null, () => WurzelVon(b), federn, echo);
-                knopf.MouseEnter += delegate { reiter[nr].Ueber = true; if (nr != aktivesBlatt) Schieben(reiter[nr], 3); };
-                knopf.MouseLeave += delegate { reiter[nr].Ueber = false; if (nr != aktivesBlatt) Schieben(reiter[nr], 0); };
+                knopf.MouseEnter += delegate { reiter[nr].Ueber = true; };
+                knopf.MouseLeave += delegate { reiter[nr].Ueber = false; };
                 Ordnen(knopf, nr);
                 regler.Children.Add(knopf);
             }
             if (plus)
             {
-                plusReiter = new Reiter(ReiterZeichen.Plus) { Margin = new Thickness(3, l.Count * Abstand + 3, 0, 0), Opacity = l.Count <= 1 || bild ? 0.6 : 0 };
+                plusReiter = new Reiter(ReiterZeichen.Plus) { Margin = new Thickness(6, l.Count * Abstand + 2, 0, 0), Opacity = l.Count <= 1 || bild ? 0.6 : 0 };
                 regler.Children.Add(plusReiter);
-                var pk = new Button { Style = (Style)Application.Current.FindResource("Leer"), Width = 40, Height = 23, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, l.Count * Abstand, 0, 0), ToolTip = "New sheet" };
+                var pk = new Button { Style = (Style)Application.Current.FindResource("Leer"), Width = 52, Height = 32, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, l.Count * Abstand, 0, 0), ToolTip = "New sheet" };
                 ToolTipService.SetPlacement(pk, PlacementMode.Right);
                 ToolTipService.SetInitialShowDelay(pk, 300);
                 pk.Click += delegate { BlattNeu(); };
@@ -150,7 +150,7 @@ namespace Workbench
                 var r = reiter[i];
                 bool an = i == aktiv;
                 r.An = an;
-                double x = r.Rund(an ? 9 : 0), o = an && !aufBlatt ? 0.5 : 1;
+                double x = 0, o = an && !aufBlatt ? 0.5 : 1;
                 if (bild) { r.Schub.X = x; r.Opacity = o; continue; }
                 if (neuAktiv || !an) r.Schub.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(x, TimeSpan.FromMilliseconds(an ? 320 : 220)) { EasingFunction = an ? (IEasingFunction)new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.5 } : UI.Weich });
                 r.BeginAnimation(OpacityProperty, new DoubleAnimation(o, TimeSpan.FromMilliseconds(180)));
