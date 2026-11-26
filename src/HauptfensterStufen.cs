@@ -131,6 +131,14 @@ namespace Workbench
             }
             stufenZiel = neu;
             StufenFaerben();
+            // Einrasten sichtbar: die Platte blitzt kurz auf und federt
+            platten[neu].BeginAnimation(Shape.StrokeThicknessProperty, new DoubleAnimation(3.2, 1.6, TimeSpan.FromMilliseconds(260)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+            var zt = stufenText[neu];
+            var zs = new ScaleTransform(1.25, 1.25); zt.RenderTransformOrigin = new Point(0.5, 0.5);
+            var zg = new TransformGroup(); zg.Children.Add(zs); zg.Children.Add(zt.RenderTransform as TranslateTransform ?? new TranslateTransform());
+            zt.RenderTransform = zg;
+            zs.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(240)) { EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.5 } });
+            zs.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(240)) { EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.5 } });
             // Ziel-Ebene vorlesen, damit das Fliegen sofort klappt
             var b = Akt;
             if (b != null && neu > 0) TiefeLesen(AktOrdner(b), neu);

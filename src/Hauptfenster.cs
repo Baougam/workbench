@@ -41,6 +41,7 @@ namespace Workbench
         readonly Border[] hinterBlatt = new Border[2];
         readonly StackPanel ort = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         TextBox suche;
+        Button sucheLeeren;
         Border suchFeld;
         Point leerStart;
         bool leerZug;
@@ -286,9 +287,16 @@ namespace Workbench
             lupe.HorizontalAlignment = HorizontalAlignment.Left;
             lupe.Margin = new Thickness(8, 0, 0, 0);
             sg.Children.Add(lupe);
-            suche = new TextBox { Style = (Style)Application.Current.FindResource("Suchfeld"), Margin = new Thickness(30, 0, 10, 0) };
+            suche = new TextBox { Style = (Style)Application.Current.FindResource("Suchfeld"), Margin = new Thickness(30, 0, 28, 0) };
             System.Windows.Automation.AutomationProperties.SetName(suche, "Search");
             sg.Children.Add(suche);
+            var leeren = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 22, Height = 22, Content = UI.Icon(Ikon.X, 9, LabelLeise, 2), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 4, 0), ToolTip = "Clear (Esc)", Visibility = Visibility.Collapsed, Cursor = Cursors.Hand };
+            System.Windows.Automation.AutomationProperties.SetName(leeren, "Clear search");
+            WindowChrome.SetIsHitTestVisibleInChrome(leeren, true);
+            leeren.PreviewMouseLeftButtonDown += (s0, a0) => { a0.Handled = true; suche.Text = ""; suche.Focus(); };
+            suche.TextChanged += delegate { leeren.Visibility = suche.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed; };
+            sg.Children.Add(leeren);
+            sucheLeeren = leeren;
             suchFeld.Child = sg;
             suchFeld.ToolTip = "Search (Ctrl+F)";
             suchFeld.MouseLeftButtonDown += delegate { SucheAuf(); };
@@ -1349,7 +1357,7 @@ namespace Workbench
         // Zwei Finger hoch/runter (Mausrad) = Ebene wechseln. Zwei Finger links/rechts = im Ordner zurück/vor.
         // Jede Wischbewegung zählt einmal: Summe sammeln, dann kurz sperren – sonst rattert es durch.
         int wischSumme, radSumme, tiefeRad;
-        DateTime wischSperre, radSperre;
+        DateTime wischSperre, radSperre, stufenRast;
 
         void Rad(object s, MouseWheelEventArgs a)
         {
@@ -1358,8 +1366,14 @@ namespace Workbench
                 // Umschalt+Rad oder Zusammenziehen/Auseinanderziehen: in die Tiefe der Ordner
                 a.Handled = true;
                 if (!StufenOffen) StufenZeigen();
-                tiefeRad += a.Delta;
-                if (Math.Abs(tiefeRad) >= 100) { StufenSchritt(tiefeRad < 0 ? 1 : -1); tiefeRad = 0; }
+                // Einrasten: nach jedem Schritt hält die Ebene kurz fest – das Touchpad rutscht nicht über zwei Ebenen
+                bool fein = Math.Abs(a.Delta) < 120 || (Keyboard.Modifiers & ModifierKeys.Control) != 0;
+                if (fein && DateTime.UtcNow < stufenRast) { tiefeRad = 0; }
+                else
+                {
+                    tiefeRad += a.Delta;
+                    if (Math.Abs(tiefeRad) >= 120) { StufenSchritt(tiefeRad < 0 ? 1 : -1); tiefeRad = 0; if (fein) stufenRast = DateTime.UtcNow.AddMilliseconds(230); }
+                }
                 if ((Keyboard.Modifiers & ModifierKeys.Shift) == 0) StufenNachRuhe();   // Zusammenziehen: kurz Ruhe = loslassen
                 return;
             }

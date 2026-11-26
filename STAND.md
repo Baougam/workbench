@@ -196,3 +196,7 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
   Klick: laufende exe → `.alt` umbenennen, neue an ihren Platz, Start mit `--nach-update` (wartet auf den Mutex), alte beendet sich.
   `.alt` wird beim nächsten Start gelöscht. **Bei jedem Release: `Program.Version` und `VERSION` gemeinsam erhöhen.**
 - Leerlauf nach Start gemessen: 0,01 % CPU.
+
+- **Einrasten** (2026-11-26): Touchpad/Zusammenziehen (Delta < 120 oder Strg) – nach jedem Ebenenschritt 230 ms Rast (`stufenRast`), Schwelle 120. Platte blitzt (StrokeThickness) und Zahl federt beim Einrasten. Mausrad-Rasten unverändert.
+- **Leiste links**: beim Darüberfahren erscheinen I, II, III neben den Strichen, Klick springt direkt (auch mehrere Ebenen).
+- **Suche**: Kreuz rechts im Feld, sobald Text drin ist – leert und behält den Fokus.
