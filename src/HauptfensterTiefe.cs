@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -100,6 +100,17 @@ namespace Workbench
         void Uebergang(FrameworkElement alt, int richtung)
         {
             var dauer = TimeSpan.FromMilliseconds(260);
+            Vorschau.Halten(300);   // keine Bilder einsetzen, solange es sich bewegt
+            FrameworkElement neuEl = buehne.Children.Count > 0 ? buehne.Children[0] as FrameworkElement : null;
+            // während der Bewegung als Bild auf der Grafikkarte halten: Skalieren kostet dann fast nichts
+            if (alt != null) alt.CacheMode = new BitmapCache();
+            if (neuEl != null)
+            {
+                neuEl.CacheMode = new BitmapCache();
+                var los = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(320) };
+                los.Tick += delegate { los.Stop(); neuEl.CacheMode = null; };   // danach wieder gestochen scharf
+                los.Start();
+            }
             var ez = new CubicEase { EasingMode = EasingMode.EaseOut };
             if (alt != null)
             {
@@ -148,10 +159,9 @@ namespace Workbench
                 var ui = Dispatcher;
                 Func<TStand> lesen = () =>
                 {
-                    int budget = 900;
-                    bool tiefer = false;
-                    var w = Scannen(ordner, 0, tiefe, ref budget, ref tiefer);
-                    return new TStand { Wurzel = w, Tiefer = tiefer, Zeit = DateTime.UtcNow };
+                    var bud = new Budget { Rest = 900 };
+                    var w = Scannen(ordner, 0, tiefe, bud);
+                    return new TStand { Wurzel = w, Tiefer = bud.Tiefer, Zeit = DateTime.UtcNow };
                 };
                 if (bild) { tiefeLaedt.Remove(k); st = lesen(); tiefeCache[k] = st; return st; }   // Bilder/Test: sofort
                 Task.Factory.StartNew(lesen).ContinueWith(t => ui.BeginInvoke(new Action(() =>
@@ -164,34 +174,53 @@ namespace Workbench
                     TiefeMerken();
                     if (gleich) return;   // gemerkter Stand war richtig – nichts neu zeichnen
                     var b = Akt;
+                    if (stufenOffen && b != null && Paths.Gleich(AktOrdner(b), ordner) && stufenZiel == tiefe) StufenVorbauen();
                     if (b != null && ImOrdner && Paths.Gleich(AktOrdner(b), ordner) && Tiefe(b) == tiefe) { Neuzeichnen(); if (vorher == null && buehne.Children.Count > 0) buehne.Children[0].BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220))); }
                 })));
             }
             return st;
         }
 
-        static TKnoten Scannen(string pfad, int ebene, int tiefe, ref int budget, ref bool tiefer)
+        /// <summary>Gemeinsames Budget für alle Leser (mehrere Ordner werden gleichzeitig gelesen).</summary>
+        class Budget
+        {
+            public int Rest;
+            public volatile bool Tiefer;
+            public bool Nehmen() { return System.Threading.Interlocked.Decrement(ref Rest) >= 0; }
+        }
+
+        /// <summary>
+        /// Ordner bis zur Tiefe lesen. Die Unterordner der obersten Ebene werden gleichzeitig gelesen (bis zu 4 auf einmal) –
+        /// bei vielen Ordnern ein Vielfaches schneller, weil Windows/OneDrive die Antworten parallel liefern kann.
+        /// </summary>
+        static TKnoten Scannen(string pfad, int ebene, int tiefe, Budget bud)
         {
             var k = new TKnoten { Pfad = pfad, Name = Path.GetFileName(pfad.TrimEnd('\\')), Ordner = true, Kinder = new List<TKnoten>() };
             if (ebene > tiefe) return k;
             List<string> dirs, files;
             if (!Schnell.Lesen(pfad, out dirs, out files)) return k;
-            int n = 0, grenze = ebene == 0 ? 400 : 40;   // oben: alle Ordner (dafür gibt es Seiten)
-            foreach (var d in dirs)
+            int grenze = ebene == 0 ? 400 : 40;
+            var nehmen = new List<string>();
+            foreach (var d in dirs) { if (nehmen.Count < grenze && bud.Nehmen()) nehmen.Add(d); else k.Mehr++; }
+            var kinder = new TKnoten[nehmen.Count];
+            if (ebene < tiefe)
             {
-                if (budget <= 0 || n >= grenze) { k.Mehr++; continue; }
-                budget--; n++;
-                if (ebene < tiefe) k.Kinder.Add(Scannen(d, ebene + 1, tiefe, ref budget, ref tiefer));
-                else
-                {
-                    k.Kinder.Add(new TKnoten { Pfad = d, Name = Path.GetFileName(d), Ordner = true });
-                    if (!tiefer) tiefer = Schnell.HatInhalt(d);
-                }
+                if (ebene == 0 && nehmen.Count > 1)
+                    Parallel.For(0, nehmen.Count, new ParallelOptions { MaxDegreeOfParallelism = 4 }, i => { kinder[i] = Scannen(nehmen[i], ebene + 1, tiefe, bud); });
+                else for (int i = 0; i < nehmen.Count; i++) kinder[i] = Scannen(nehmen[i], ebene + 1, tiefe, bud);
             }
+            else
+                for (int i = 0; i < nehmen.Count; i++)
+                {
+                    kinder[i] = new TKnoten { Pfad = nehmen[i], Name = Path.GetFileName(nehmen[i]), Ordner = true };
+                    if (!bud.Tiefer && Schnell.HatInhalt(nehmen[i])) bud.Tiefer = true;
+                }
+            k.Kinder.AddRange(kinder);
+            int n = nehmen.Count;
             foreach (var f in files)
             {
-                if (budget <= 0 || n >= 40) { k.Mehr++; continue; }
-                budget--; n++;
+                if (n >= 40 || !bud.Nehmen()) { k.Mehr++; continue; }
+                n++;
                 k.Kinder.Add(new TKnoten { Pfad = f, Name = Path.GetFileName(f) });
             }
             return k;

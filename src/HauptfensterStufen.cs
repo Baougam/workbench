@@ -139,9 +139,33 @@ namespace Workbench
             zt.RenderTransform = zg;
             zs.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(240)) { EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.5 } });
             zs.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(240)) { EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.5 } });
-            // Ziel-Ebene vorlesen, damit das Fliegen sofort klappt
+            // Ziel-Ebene vorlesen und schon fertig bauen, damit das Fliegen sofort klappt
             var b = Akt;
             if (b != null && neu > 0) TiefeLesen(AktOrdner(b), neu);
+            StufenVorbauen();
+        }
+
+        DispatcherTimer stufenVorbau;
+
+        /// <summary>Kurz nachdem das Ziel steht (man hält inne), die Zielebene unsichtbar fertig bauen.</summary>
+        void StufenVorbauen()
+        {
+            if (bild) return;
+            if (stufenVorbau == null)
+            {
+                stufenVorbau = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(90) };
+                stufenVorbau.Tick += delegate
+                {
+                    stufenVorbau.Stop();
+                    var b = Akt;
+                    if (!stufenOffen || b == null || stufenZiel == Tiefe(b)) return;
+                    TStand st;
+                    if (stufenZiel > 0 && (!tiefeCache.TryGetValue(AktOrdner(b) + "|" + stufenZiel, out st) || st == null)) return;   // noch nicht gelesen: kommt nach dem Lesen
+                    int z = stufenZiel;
+                    Vorbauen(() => { tiefeVon[b.Id] = z; offenVon.Remove(b.Id); seiteVon.Remove(b.Id); });
+                };
+            }
+            stufenVorbau.Stop(); stufenVorbau.Start();
         }
 
         /// <summary>Loslassen: hinfliegen (oder abbrechen).</summary>

@@ -16,47 +16,137 @@ namespace Workbench
     static class Vorschau
     {
         public static bool Sofort;   // Render-Modus: synchron laden
-        static readonly BlockingCollection<Action> auftraege = new BlockingCollection<Action>();
+        // Aufträge: neueste zuerst (was man gerade sieht, kommt vor dem, was man schon verlassen hat)
+        static readonly ConcurrentStack<Action> auftraege = new ConcurrentStack<Action>();
+        static readonly SemaphoreSlim signal = new SemaphoreSlim(0);
         static readonly Dictionary<string, BitmapSource> cache = new Dictionary<string, BitmapSource>();
-        static Thread arbeiter;
+        static readonly Dictionary<string, long> cacheZeit = new Dictionary<string, long>();      // Änderungszeit der Datei beim Laden
+        static readonly LinkedList<string> cacheReihe = new LinkedList<string>();
+        static readonly Dictionary<string, LinkedListNode<string>> cacheKnoten = new Dictionary<string, LinkedListNode<string>>();
+        static Thread[] arbeiter;
+        const int CacheMax = 900;
 
-        static string Schluessel(string pfad, int px)
+        /// <summary>Schlüssel ohne Dateizugriff (früher: eine Windows-Abfrage je Symbol mitten im Aufbau). Geprüft wird still im Hintergrund.</summary>
+        static string Schluessel(string pfad, int px) { return pfad.ToLowerInvariant() + "|" + px; }
+
+        static void Auftrag(Action a) { Starten(); auftraege.Push(a); signal.Release(); }
+
+        // fertige Bilder gebündelt einsetzen: ein Aufruf je Bildschirmbild statt einer je Bild, und nie mitten in einem Übergang
+        static readonly ConcurrentQueue<Action> fertigListe = new ConcurrentQueue<Action>();
+        static int fertigGeplant;
+        static DateTime haltenBis;
+        public static void Halten(int ms) { var t = DateTime.UtcNow.AddMilliseconds(ms); if (t > haltenBis) haltenBis = t; }
+
+        static void Fertig(Action a)
         {
-            long t = 0;
-            try { t = File.GetLastWriteTimeUtc(pfad).Ticks; } catch { }
-            return pfad.ToLowerInvariant() + "|" + px + "|" + t;
+            fertigListe.Enqueue(a);
+            if (Interlocked.Exchange(ref fertigGeplant, 1) == 0) Planen(0);
+        }
+
+        static void Planen(int ms)
+        {
+            var disp = Application.Current.Dispatcher;
+            if (ms <= 0) { disp.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(Einsetzen)); return; }
+            var t = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background, disp) { Interval = TimeSpan.FromMilliseconds(ms) };
+            t.Tick += delegate { t.Stop(); Einsetzen(); };
+            t.Start();
+        }
+
+        static void Einsetzen()
+        {
+            var warten = haltenBis - DateTime.UtcNow;
+            if (warten.TotalMilliseconds > 1) { Planen((int)warten.TotalMilliseconds + 10); return; }
+            var uhr = System.Diagnostics.Stopwatch.StartNew();
+            Action a;
+            while (uhr.ElapsedMilliseconds < 8 && fertigListe.TryDequeue(out a)) { try { a(); } catch { } }
+            if (!fertigListe.IsEmpty) { Planen(16); return; }   // Rest im nächsten Bild – der Bildschirm bleibt flüssig
+            Interlocked.Exchange(ref fertigGeplant, 0);
+            if (!fertigListe.IsEmpty && Interlocked.Exchange(ref fertigGeplant, 1) == 0) Planen(0);
+        }
+
+        static bool AusCache(string k, out BitmapSource bs)
+        {
+            lock (cache)
+            {
+                if (!cache.TryGetValue(k, out bs)) return false;
+                LinkedListNode<string> n;
+                if (cacheKnoten.TryGetValue(k, out n)) { cacheReihe.Remove(n); cacheReihe.AddLast(n); }
+                return true;
+            }
+        }
+
+        /// <summary>Still im Hintergrund: hat sich die Datei seit dem Laden geändert, wird das Bild beim nächsten Mal neu geholt.</summary>
+        static void Nachpruefen(string k, string pfad)
+        {
+            if (Sofort) return;
+            Auftrag(() =>
+            {
+                long t = 0;
+                try { t = File.GetLastWriteTimeUtc(pfad).Ticks; } catch { }
+                lock (cache) { long alt; if (cacheZeit.TryGetValue(k, out alt) && alt != t) Vergessen(k); }
+            });
+        }
+
+        static void Vergessen(string k)
+        {
+            cache.Remove(k); cacheZeit.Remove(k);
+            LinkedListNode<string> n;
+            if (cacheKnoten.TryGetValue(k, out n)) { cacheReihe.Remove(n); cacheKnoten.Remove(k); }
         }
 
         public static void Laden(string pfad, int px, bool nurSymbol, Action<BitmapSource> fertig)
         {
             string k = Schluessel(pfad, px) + (nurSymbol ? "|s" : "");
             BitmapSource bs;
-            lock (cache) { if (cache.TryGetValue(k, out bs)) { fertig(bs); return; } }
-            if (Sofort) { bs = Native.Vorschau(pfad, px, nurSymbol); Merken(k, bs); fertig(bs); return; }
-            Starten();
-            var disp = Application.Current.Dispatcher;
-            auftraege.Add(() =>
+            if (AusCache(k, out bs)) { fertig(bs); Nachpruefen(k, pfad); return; }
+            if (Sofort) { bs = Native.Vorschau(pfad, px, nurSymbol); Merken(k, bs, pfad); fertig(bs); return; }
+            Auftrag(() =>
             {
                 BitmapSource b = null;
                 try { b = Native.Vorschau(pfad, px, nurSymbol); } catch { }
-                Merken(k, b);
-                disp.BeginInvoke(new Action(() => fertig(b)));
+                Merken(k, b, pfad);
+                Fertig(() => fertig(b));
             });
         }
 
-        static void Merken(string k, BitmapSource b)
+        /// <summary>Merken mit Verdrängen des am längsten nicht Gesehenen (statt bei 400 alles wegzuwerfen und neu zu laden).</summary>
+        static void Merken(string k, BitmapSource b, string pfad)
         {
-            lock (cache) { if (cache.Count > 400) cache.Clear(); cache[k] = b; }
+            long t = 0;
+            if (pfad != null) try { t = File.GetLastWriteTimeUtc(pfad).Ticks; } catch { }
+            lock (cache)
+            {
+                if (cache.ContainsKey(k)) Vergessen(k);
+                cache[k] = b; cacheZeit[k] = t;
+                cacheKnoten[k] = cacheReihe.AddLast(k);
+                while (cache.Count > CacheMax && cacheReihe.First != null) Vergessen(cacheReihe.First.Value);
+            }
         }
 
+        static readonly object startSperre = new object();
         static void Starten()
         {
-            if (arbeiter != null) return;
-            arbeiter = new Thread(() => { foreach (var a in auftraege.GetConsumingEnumerable()) a(); });
-            arbeiter.IsBackground = true;
-            arbeiter.SetApartmentState(ApartmentState.STA);
-            arbeiter.Priority = ThreadPriority.BelowNormal;
-            arbeiter.Start();
+            lock (startSperre)
+            {
+                if (arbeiter != null) return;
+                arbeiter = new Thread[2];    // zwei leise Helfer: Vorschaubilder kommen doppelt so schnell, ohne die Oberfläche zu berühren
+                for (int i = 0; i < arbeiter.Length; i++)
+                {
+                    arbeiter[i] = new Thread(() =>
+                    {
+                        while (true)
+                        {
+                            signal.Wait();
+                            Action a;
+                            if (auftraege.TryPop(out a)) { try { a(); } catch { } }
+                        }
+                    });
+                    arbeiter[i].IsBackground = true;
+                    arbeiter[i].SetApartmentState(ApartmentState.STA);
+                    arbeiter[i].Priority = ThreadPriority.BelowNormal;
+                    arbeiter[i].Start();
+                }
+            }
         }
 
         /// <summary>Bild einer Datei: erst ein Platzhalter in Endform, dann blendet das echte Vorschaubild weich ein.</summary>
@@ -83,9 +173,11 @@ namespace Workbench
             int px = (int)Math.Ceiling(Math.Max(breite, hoehe) * 2);
             // schon geladen? Dann sofort zeigen – kein Platzhalter, kein Überblenden, nichts springt.
             BitmapSource fertigesBild;
-            lock (cache) cache.TryGetValue(Schluessel(pfad, px) + (nurSymbol ? "|s" : ""), out fertigesBild);
+            string fk = Schluessel(pfad, px) + (nurSymbol ? "|s" : "");
+            AusCache(fk, out fertigesBild);
             if (fertigesBild != null)
             {
+                Nachpruefen(fk, pfad);
                 g.Children.Add(anteil.HasValue ? Fuellstand(fertigesBild, breite, hoehe, anteil.Value, bald) : Einfach(fertigesBild, breite, hoehe));
                 return g;
             }
@@ -130,19 +222,15 @@ namespace Workbench
                 g.Children.Add(rahmen);
             };
             BitmapSource fertig;
-            bool da;
-            lock (cache) da = cache.TryGetValue(k, out fertig);
-            if (da) { setzen(fertig); return g; }
-            if (Sofort) { var b0 = Native.Vorschau(pfad, px, 0x8); if (b0 == null && pfad.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) b0 = PdfVorschau.Seite(pfad, px); Merken(k, b0); setzen(b0); return g; }
-            Starten();
-            var disp = Application.Current.Dispatcher;
-            auftraege.Add(() =>
+            if (AusCache(k, out fertig)) { setzen(fertig); Nachpruefen(k, pfad); return g; }
+            if (Sofort) { var b0 = Native.Vorschau(pfad, px, 0x8); if (b0 == null && pfad.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) b0 = PdfVorschau.Seite(pfad, px); Merken(k, b0, pfad); setzen(b0); return g; }
+            Auftrag(() =>
             {
                 BitmapSource b = null;
                 try { b = Native.Vorschau(pfad, px, 0x8); } catch { }
                 if (b == null && pfad.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) b = PdfVorschau.Seite(pfad, px);
-                Merken(k, b);
-                if (b != null) disp.BeginInvoke(new Action(() => setzen(b)));
+                Merken(k, b, pfad);
+                if (b != null) Fertig(() => setzen(b));
             });
             return g;
         }

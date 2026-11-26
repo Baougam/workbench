@@ -212,3 +212,11 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 - Seiten-Punkte tiefer (eigener 20-px-Streifen unter den Boxen).
 - Log-Zeile "Langsam: Neuzeichnen … ms", wenn ein Aufbau länger als 30 ms dauert (in `%LOCALAPPDATA%\Workbench`).
 - Leerlauf gemessen: 0,01 % CPU, 50 MB.
+
+## Ebenenwechsel bei sehr vielen Ordnern (2026-11-27)
+
+- **Parallel lesen**: `Scannen` liest die Unterordner der obersten Ebene gleichzeitig (bis 4), gemeinsames Budget `Budget` (Interlocked).
+- **Vorschaubilder** (`Parts.cs`): Schlüssel ohne Dateizugriff (früher `GetLastWriteTimeUtc` je Symbol im Aufbau), Änderung wird still im Hintergrund nachgeprüft (`Nachpruefen`). Speicher LRU bis 900 statt „bei 400 alles weg“. Zwei Helfer-Threads, neueste Aufträge zuerst (Stapel). Fertige Bilder werden gebündelt eingesetzt (höchstens 8 ms je Bild, Rest im nächsten) und nie während eines Übergangs (`Vorschau.Halten`).
+- **Übergang auf der Grafikkarte**: alte und neue Ansicht während der Bewegung mit `BitmapCache`, danach wieder scharf.
+- **Wähler baut vor**: hält man im Stufen-Wähler kurz auf einer Ebene (90 ms), wird sie unsichtbar fertig gebaut (`StufenVorbauen`); kommt das Lesen später, wird nach dem Lesen gebaut. Loslassen = nur einsetzen.
+- Leerlauf: 0,01 % CPU, 49 MB.
