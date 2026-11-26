@@ -51,14 +51,31 @@ namespace Workbench
             int jetzt = Tiefe(b);
             tiefeVon[b.Id] = neu;
             tiefeRichtung = Math.Sign(neu - jetzt);
-            tiefeSperre = DateTime.UtcNow.AddMilliseconds(360);
+            tiefeSperre = DateTime.UtcNow.AddMilliseconds(150);
             auswahl = null;
             offenVon.Remove(b.Id);
             seiteVon.Remove(b.Id);
             letzteBoxen.Clear();
-            var alt = bild ? null : Schnappschuss();
+            var alt = bild ? null : AltesBild();
             Neuzeichnen();
             if (!bild) Uebergang(alt, tiefeRichtung);
+        }
+
+        /// <summary>
+        /// Statt eines Bildschirmfotos: die alte Ansicht selbst wandert kurz in die Ebene darüber und blendet dort aus.
+        /// Kostet nichts (kein Rendern in eine Bitmap) und bleibt scharf.
+        /// </summary>
+        FrameworkElement AltesBild()
+        {
+            if (buehne.Children.Count == 0 || buehne.ActualWidth < 10) return null;
+            var el = buehne.Children[0] as FrameworkElement;
+            if (el == null) return null;
+            var pos = buehne.TransformToAncestor(wurzel).Transform(new Point(0, 0));
+            double w = buehne.ActualWidth, h = buehne.ActualHeight;
+            buehne.Children.Remove(el);
+            var huelle = new Grid { Width = w, Height = h, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(pos.X, pos.Y, 0, 0), IsHitTestVisible = false, ClipToBounds = true };
+            huelle.Children.Add(el);
+            return huelle;
         }
 
         /// <summary>Das bisherige Blatt als Bild (einmalig, klein) – fliegt beim Wechsel an einem vorbei.</summary>
@@ -80,9 +97,9 @@ namespace Workbench
         /// In die Tiefe: die alte Ebene wird groß und durchsichtig (man fliegt hindurch), die neue kommt von hinten,
         /// eine feine Bernstein-Linie tastet das Blatt ab. Hinauf: genau umgekehrt. Nur während des Wechsels (≈ 0,35 s).
         /// </summary>
-        void Uebergang(Image alt, int richtung)
+        void Uebergang(FrameworkElement alt, int richtung)
         {
-            var dauer = TimeSpan.FromMilliseconds(360);
+            var dauer = TimeSpan.FromMilliseconds(260);
             var ez = new CubicEase { EasingMode = EasingMode.EaseOut };
             if (alt != null)
             {
@@ -93,7 +110,7 @@ namespace Workbench
                 double ziel = richtung > 0 ? 1.18 : 0.86;
                 st.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1, ziel, dauer) { EasingFunction = ez });
                 st.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(1, ziel, dauer) { EasingFunction = ez });
-                var weg = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(280));
+                var weg = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(210));
                 weg.Completed += delegate { wurzel.Children.Remove(alt); };
                 alt.BeginAnimation(OpacityProperty, weg);
             }
@@ -106,7 +123,7 @@ namespace Workbench
                 double von = richtung > 0 ? 0.9 : 1.1;
                 st.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(von, 1, dauer) { EasingFunction = ez });
                 st.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(von, 1, dauer) { EasingFunction = ez });
-                el.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(300)) { BeginTime = TimeSpan.FromMilliseconds(60) });
+                el.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220)) { BeginTime = TimeSpan.FromMilliseconds(30) });
             }
         }
 
@@ -142,8 +159,8 @@ namespace Workbench
                     tiefeLaedt.Remove(k);
                     if (t.Exception != null) return;
                     TStand vorher; tiefeCache.TryGetValue(k, out vorher);
-                    tiefeCache[k] = t.Result;
                     bool gleich = vorher != null && Zeichen(vorher.Wurzel) == Zeichen(t.Result.Wurzel) && vorher.Tiefer == t.Result.Tiefer;
+                    if (gleich) vorher.Zeit = t.Result.Zeit; else tiefeCache[k] = t.Result;   // gleich: derselbe Stand bleibt (Vorgebautes bleibt gültig)
                     TiefeMerken();
                     if (gleich) return;   // gemerkter Stand war richtig – nichts neu zeichnen
                     var b = Akt;
@@ -228,7 +245,7 @@ namespace Workbench
             var flaeche = new Rect(0, 0, w, h);
             // lieber voll als verteilt: erst kleinere Boxen zulassen (aufklappen macht sie groß), höchstens 2 Seiten – 3+ nur im Notfall
             List<int> starts = null;
-            var innen = new Rect(Rand, 0, Math.Max(200, w - 2 * Rand), h);
+            var innen = new Rect(Rand, 0, Math.Max(200, w - 2 * Rand), Math.Max(200, h - 20));
             foreach (var m in Mindest)
             {
                 if (SeitePasst(ordnerAlle, 0, ordnerAlle.Count, datGewicht, flaeche, m)) { starts = new List<int> { 0 }; break; }
@@ -354,7 +371,7 @@ namespace Workbench
             };
             if (seite < seitenAnzahl - 1) g.Children.Add(pfeil(true));
             if (seite > 0) g.Children.Add(pfeil(false));
-            var punkte = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 2), IsHitTestVisible = false };
+            var punkte = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, -2), IsHitTestVisible = false };
             for (int i = 0; i < seitenAnzahl; i++) punkte.Children.Add(new Border { Width = i == seite ? 14 : 5, Height = 5, CornerRadius = new CornerRadius(2.5), Background = Farbe.B(i == seite ? "#CCF4B860" : "#40FFFFFF"), Margin = new Thickness(3, 0, 3, 0) });
             g.Children.Add(punkte);
             return g;
@@ -444,7 +461,7 @@ namespace Workbench
             for (int i = 0; i < zeigen; i++)
             {
                 var p = liste[i].Pfad;
-                var el = TiefStueck(b, p, s, zw, namen, cloud);
+                var el = TiefStueck(b, p, s, zw, namen, cloud, liste[i].Ordner);
                 Canvas.SetLeft(el, r.X + (i % spalten) * zw); Canvas.SetTop(el, r.Y + (i / spalten) * zh);
                 c.Children.Add(el);
             }
@@ -458,11 +475,11 @@ namespace Workbench
         }
 
         /// <summary>Ein Eintrag in der Tiefe: echte Vorschau (oder Typ-Marke), kleiner Name; wie auf dem Desktop bedienbar.</summary>
-        FrameworkElement TiefStueck(BlattDef b, string p, double s, double breite, bool name, bool cloud)
+        FrameworkElement TiefStueck(BlattDef b, string p, double s, double breite, bool name, bool cloud, bool ordner)
         {
             var k = new Border { Width = breite - 2, Padding = new Thickness(1, 2, 1, 2), CornerRadius = new CornerRadius(7), Background = Brushes.Transparent, BorderBrush = Brushes.Transparent, BorderThickness = new Thickness(1), ToolTip = System.IO.Path.GetFileName(p) };
             var st = new StackPanel();
-            var bildEl = (cloud || s < 34) && !Directory.Exists(p) ? Vorschau.Glyphe(p, Math.Round(s * 0.78), s * 0.94, true) : Vorschau.Echt(p, s);   // klein = schnelle Typ-Marke
+            var bildEl = (cloud || s < 34) && !ordner ? Vorschau.Glyphe(p, Math.Round(s * 0.78), s * 0.94, true, false) : Vorschau.Echt(p, s, ordner);   // klein = schnelle Typ-Marke
             bildEl.HorizontalAlignment = HorizontalAlignment.Center;
             st.Children.Add(bildEl);
             if (name) st.Children.Add(new TextBlock { Text = System.IO.Path.GetFileNameWithoutExtension(p), FontSize = 10, Foreground = Farbe.B("#A6FFFFFF"), TextTrimming = TextTrimming.CharacterEllipsis, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 3, 0, 0) });
@@ -470,7 +487,6 @@ namespace Workbench
             symbole[p] = k;
             k.MouseEnter += delegate { Stil(k, gruppe.Contains(p), true); };
             k.MouseLeave += delegate { Stil(k, gruppe.Contains(p), false); };
-            bool ordner = Directory.Exists(p);
             Bedienbar(k, p, () => { if (ordner) { tiefeVon[b.Id] = 0; Betreten(b, p); } else Oeffnen(p); }, el => UI.Menue(el, KontextOrdner(p, b), true));
             k.MouseLeftButtonUp += (s2, a) => a.Handled = true;
             if (ordner) AblageZiel(k, k, () => p);

@@ -68,10 +68,10 @@ namespace Workbench
         /// anteil = wie viel Zeit noch übrig ist (0…1): das Symbol „leert“ sich von oben. Oben liegt das unveränderte Original,
         /// nur unten herum abgeschnitten; darunter eine graue Kopie desselben Symbols. Funktioniert für jeden Dateityp.
         /// </summary>
-        public static FrameworkElement Bild(string pfad, double breite, double hoehe, bool nurSymbol, double? anteil, bool bald)
+        public static FrameworkElement Bild(string pfad, double breite, double hoehe, bool nurSymbol, double? anteil, bool bald, bool? ordner = null)
         {
             var g = new Grid { Width = breite, Height = hoehe };
-            if (Directory.Exists(pfad))
+            if (ordner ?? Directory.Exists(pfad))
             {
                 // Ordner: unser Ordnerbild als Bitmap behandeln, damit auch er sich leeren kann
                 if (anteil.HasValue) { g.Children.Add(Fuellstand(OrdnerBitmap((int)(breite * 2)), breite, hoehe, anteil.Value, bald)); return g; }
@@ -110,11 +110,11 @@ namespace Workbench
         /// Für Recent & Co.: das echte Vorschaubild (erste Seite, Foto, Video-Standbild), wenn Windows eines hat – sonst
         /// Workbench' Typ-Marke (farbiges Blatt mit Endung) statt des Symbols der öffnenden App. So sieht nichts gleich aus.
         /// </summary>
-        public static FrameworkElement Echt(string pfad, double groesse)
+        public static FrameworkElement Echt(string pfad, double groesse, bool? ordner = null)
         {
             var g = new Grid { Width = groesse, Height = groesse };
-            if (Directory.Exists(pfad)) { var o = UI.OrdnerBild(groesse); o.VerticalAlignment = VerticalAlignment.Center; g.Children.Add(o); return g; }
-            var marke = Glyphe(pfad, Math.Round(groesse * 0.78), groesse * 0.94);
+            if (ordner ?? Directory.Exists(pfad)) { var o = UI.OrdnerBild(groesse); o.VerticalAlignment = VerticalAlignment.Center; g.Children.Add(o); return g; }
+            var marke = Glyphe(pfad, Math.Round(groesse * 0.78), groesse * 0.94, false, false);
             marke.HorizontalAlignment = HorizontalAlignment.Center; marke.VerticalAlignment = VerticalAlignment.Center;
             g.Children.Add(marke);
             int px = (int)Math.Ceiling(groesse * 2);
@@ -156,10 +156,10 @@ namespace Workbench
         public static FrameworkElement Glyphe(string pfad, double b, double h) { return Glyphe(pfad, b, h, false); }
 
         /// <summary>nurMarke: auch bei Bildern kein Vorschaubild laden (Cloud: nie etwas herunterladen; kleine Symbole: schnell).</summary>
-        public static FrameworkElement Glyphe(string pfad, double b, double h, bool nurMarke)
+        public static FrameworkElement Glyphe(string pfad, double b, double h, bool nurMarke, bool? ordner = null)
         {
             var g = new Grid { Width = b, Height = h };
-            if (Directory.Exists(pfad))
+            if (ordner ?? Directory.Exists(pfad))
             {
                 var o = UI.OrdnerBild(b);
                 o.VerticalAlignment = VerticalAlignment.Center;
@@ -174,18 +174,36 @@ namespace Workbench
                 Laden(pfad, (int)(b * 2), false, bs => { if (bs != null) rahmen.Background = new ImageBrush(bs) { Stretch = Stretch.UniformToFill }; });
                 return g;
             }
-            var ci = System.Globalization.CultureInfo.InvariantCulture;
-            double r = 6, c = Math.Round(b * 0.34);
-            string koerper = string.Format(ci, "M{0},0 H{1} L{2},{3} V{4} A{0},{0} 0 0 1 {5},{6} H{0} A{0},{0} 0 0 1 0,{4} V{0} A{0},{0} 0 0 1 {0},0 Z", r, b - c, b, c, h - r, b - r, h);
-            string ohr = string.Format(ci, "M{0},0 V{1} A3,3 0 0 0 {2},{3} H{4} Z", b - c, c - 3, b - c + 3, c, b);
-            g.Children.Add(new System.Windows.Shapes.Path { Data = Geometry.Parse(koerper), Fill = Farbe.Endung(ext) });
-            g.Children.Add(new System.Windows.Shapes.Path { Data = Geometry.Parse(koerper), Fill = new LinearGradientBrush(Color.FromArgb(40, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90) });
-            g.Children.Add(new System.Windows.Shapes.Path { Data = Geometry.Parse(ohr), Fill = Farbe.B("#73FFFFFF") });
+            var form = Form(b, h);
+            g.Children.Add(new System.Windows.Shapes.Path { Data = form[0], Fill = Farbe.Endung(ext) });
+            g.Children.Add(new System.Windows.Shapes.Path { Data = form[0], Fill = glanz });
+            g.Children.Add(new System.Windows.Shapes.Path { Data = form[1], Fill = ohrFarbe });
             string e = ext.TrimStart('.').ToUpperInvariant();
             if (e.Length > 4) e = e.Substring(0, 4);
             if (e.Length == 0) e = "FILE";
             g.Children.Add(new TextBlock { Text = e, FontSize = Math.Max(8, b * 0.21), FontWeight = FontWeights.Bold, Foreground = Farbe.B("#C01C1405"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, h * 0.12) });
             return g;
+        }
+
+        // Blatt-Form je Größe nur einmal berechnen (eingefroren, von allen Symbolen geteilt) – sonst wird sie für jedes Symbol neu aus Text gelesen
+        static readonly Dictionary<string, Geometry[]> formen = new Dictionary<string, Geometry[]>();
+        static readonly Brush glanz = Frieren(new LinearGradientBrush(Color.FromArgb(40, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90));
+        static readonly Brush ohrFarbe = Frieren(new SolidColorBrush(Color.FromArgb(0x73, 255, 255, 255)));
+        static Brush Frieren(Brush x) { x.Freeze(); return x; }
+
+        static Geometry[] Form(double b, double h)
+        {
+            string k = b.ToString("0.#") + "|" + h.ToString("0.#");
+            Geometry[] f;
+            if (formen.TryGetValue(k, out f)) return f;
+            var ci = System.Globalization.CultureInfo.InvariantCulture;
+            double r = 6, c = Math.Round(b * 0.34);
+            string koerper = string.Format(ci, "M{0},0 H{1} L{2},{3} V{4} A{0},{0} 0 0 1 {5},{6} H{0} A{0},{0} 0 0 1 0,{4} V{0} A{0},{0} 0 0 1 {0},0 Z", r, b - c, b, c, h - r, b - r, h);
+            string ohr = string.Format(ci, "M{0},0 V{1} A3,3 0 0 0 {2},{3} H{4} Z", b - c, c - 3, b - c + 3, c, b);
+            f = new[] { Geometry.Parse(koerper), Geometry.Parse(ohr) };
+            f[0].Freeze(); f[1].Freeze();
+            formen[k] = f;
+            return f;
         }
 
         static Image Einfach(BitmapSource bs, double b, double h)

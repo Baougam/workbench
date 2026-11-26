@@ -41,6 +41,34 @@ namespace Workbench
             finally { FindClose(h); }
         }
 
+        class Stand { public DateTime Geaendert; public List<string> Dirs, Files; }
+        static readonly Dictionary<string, Stand> listen = new Dictionary<string, Stand>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Inhalt eines Ordners – aus dem Gedächtnis, solange sich der Ordner nicht geändert hat (Windows setzt seinen
+        /// Änderungszeitpunkt bei jedem Hinzufügen/Löschen/Umbenennen darin). Eine Abfrage statt einer Liste.
+        /// </summary>
+        public static void Liste(string ordner, out List<string> dirs, out List<string> files)
+        {
+            DateTime t;
+            try { t = Directory.GetLastWriteTimeUtc(ordner); } catch { t = DateTime.MinValue; }
+            Stand st;
+            lock (listen) listen.TryGetValue(ordner, out st);
+            if (st != null && st.Geaendert == t && t != DateTime.MinValue) { dirs = st.Dirs; files = st.Files; return; }
+            if (!Lesen(ordner, out dirs, out files)) { dirs = new List<string>(); files = new List<string>(); return; }
+            lock (listen)
+            {
+                if (listen.Count > 300) listen.Clear();
+                listen[ordner] = new Stand { Geaendert = t, Dirs = dirs, Files = files };
+            }
+        }
+
+        /// <summary>Im Hintergrund vorlesen (z. B. beim Darüberfahren) – das Hineingehen ist dann sofort da.</summary>
+        public static void Vorlesen(string ordner)
+        {
+            System.Threading.ThreadPool.QueueUserWorkItem(_ => { try { List<string> d, f; Liste(ordner, out d, out f); } catch { } });
+        }
+
         public static bool Lesen(string ordner, out List<string> dirs, out List<string> files)
         {
             dirs = new List<string>(); files = new List<string>();

@@ -275,6 +275,8 @@ namespace Workbench
         {
             if (!IstBlatt(neu) && neu != Korb && neu != Einst && neu != Netzansicht) neu = Befristet;
             bool wechsel = neu != ansicht;
+            // ein verlassenes Blatt springt auf seine Oberfläche zurück – klarer Ausgangspunkt, und der Wechsel bleibt leicht
+            if (wechsel && IstBlatt(ansicht)) { var alt = Blaetter.Liste[ansicht]; tiefeVon.Remove(alt.Id); offenVon.Remove(alt.Id); seiteVon.Remove(alt.Id); }
             int richtung = IstBlatt(neu) && IstBlatt(ansicht) ? Math.Sign(neu - ansicht) : 0;
             ansicht = neu;
             if (IstBlatt(neu)) letzteEbene = neu;
@@ -499,19 +501,15 @@ namespace Workbench
             PfeileSetzen(b);
 
             int tiefe = Tiefe(b);
-            bool hatUnter = false;
-            try { hatUnter = Directory.EnumerateDirectories(akt).Any(x => !Engine.IstHilfsdatei(x)); } catch { }
+            List<string> dirs, files;
+            Schnell.Liste(akt, out dirs, out files);
+            bool hatUnter = dirs.Count > 0;
+            var ordnerMenge = new HashSet<string>(dirs, StringComparer.OrdinalIgnoreCase);
             // die nächste Tiefe still vorlesen (im Hintergrund, gemerkt) – dann ist der Wechsel sofort da und gleitet ganz
             if (hatUnter && !bild) { string a2 = akt; int t2 = tiefe + 1; Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, new Action(() => TiefeLesen(a2, t2))); }
             if (tiefe > 0) { aktuellerTisch = null; return MitTiefenAnzeige(TiefenFlaeche(b, akt, tiefe), b, hatUnter); }
 
-            var eintraege = new List<string>();
-            try
-            {
-                foreach (var d in Directory.EnumerateDirectories(akt).OrderBy(x => x, StringComparer.CurrentCultureIgnoreCase)) if (!Engine.IstHilfsdatei(d) && Passt(System.IO.Path.GetFileName(d))) eintraege.Add(d);
-                foreach (var f in Directory.EnumerateFiles(akt).OrderBy(x => x, StringComparer.CurrentCultureIgnoreCase)) if (!Engine.IstHilfsdatei(f) && Passt(System.IO.Path.GetFileName(f))) eintraege.Add(f);
-            }
-            catch (Exception ex) { Log.Fehler("Ordner lesen", ex); }
+            var eintraege = dirs.Where(x => Passt(System.IO.Path.GetFileName(x))).Concat(files.Where(x => Passt(System.IO.Path.GetFileName(x)))).ToList();
 
             var flaeche = new Grid { Background = Brushes.Transparent };
             Tisch tisch = null;
@@ -521,12 +519,17 @@ namespace Workbench
                 tisch = new Tisch(akt, eintraege.Take(800).ToList(),
                     p =>
                     {
-                        var sym = Symbol(p, p, System.IO.Path.GetFileName(p), null, null, cloud, null);
-                        if (Directory.Exists(p)) { string p2 = p; AblageZiel(sym, sym, () => p2, () => Betreten(b, p2), null); }
+                        bool istOrdner = ordnerMenge.Contains(p);
+                        var sym = Symbol(p, p, System.IO.Path.GetFileName(p), null, null, cloud, null, istOrdner);
+                        if (istOrdner)
+                        {
+                            string p2 = p; AblageZiel(sym, sym, () => p2, () => Betreten(b, p2), null);
+                            sym.MouseEnter += delegate { Schnell.Vorlesen(p2); };   // vermutlich geht es gleich hinein: schon mal lesen
+                        }
                         return sym;
                     },
                     p => Druecken(p),
-                    p => { if (Directory.Exists(p)) Betreten(b, p); else Oeffnen(p); },
+                    p => { if (ordnerMenge.Contains(p)) Betreten(b, p); else Oeffnen(p); },
                     p => KontextOrdner(p, b));
                 tisch.ZugBewegt = TischZug;
                 tisch.Gruppe = Mit;

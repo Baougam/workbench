@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -404,6 +404,31 @@ namespace Workbench
                 Ok(!w.SymboleTest.ContainsKey(Path.Combine(t1, "a.txt")), "zurück an die Oberfläche: wieder die freie Fläche (Tiefe " + w.TiefeJetzt + ", " + w.SymboleTest.Count + " Symbole)");
             }
             catch (Exception ex) { Ok(false, "Tiefe: " + ex.Message); }
+
+            // 12d3) Vorgebaut: zurück auf ein Blatt = fertige Ansicht; Änderung im Ordner = neu gebaut; verlassen = Oberfläche
+            try
+            {
+                Blaetter.D = Blaetter.Standard(false);
+                var w = new Hauptfenster(E, 1, true);
+                w.VorbauImTest = true;
+                w.Wurzel.Measure(new Size(1060, 700)); w.Wurzel.Arrange(new Rect(0, 0, 1060, 700));
+                w.Zeige(1);
+                var vb1 = w.AnsichtJetzt; int n1 = w.SymboleTest.Count;
+                w.Zeige(0); w.Zeige(1);
+                Ok(ReferenceEquals(w.AnsichtJetzt, vb1) && w.SymboleTest.Count == n1, "Vorgebaut: zurück aufs Blatt setzt die fertige Ansicht ein (" + n1 + " Symbole)");
+                string neuDatei = Path.Combine(Paths.Dauerhaft, "vorbau-neu.txt");
+                File.WriteAllText(neuDatei, "x");
+                Directory.SetLastWriteTimeUtc(Paths.Dauerhaft, DateTime.UtcNow.AddSeconds(5));
+                w.Zeige(0); w.Zeige(1);
+                Ok(!ReferenceEquals(w.AnsichtJetzt, vb1) && w.SymboleTest.ContainsKey(neuDatei), "Vorgebaut: neue Datei im Ordner = neu gebaut");
+                w.Nachbarn();
+                w.TiefeAendern(1); Pumpen(400, null);
+                Ok(w.TiefeJetzt == 1, "Vorgebaut: Tiefe geht weiter");
+                w.Zeige(0); w.Zeige(1);
+                Ok(w.TiefeJetzt == 0, "Blatt verlassen: zurück auf die Oberfläche");
+                File.Delete(neuDatei);
+            }
+            catch (Exception ex) { Ok(false, "Vorgebaut: " + ex.Message); }
 
             // 12e) Schnelles Lesen + Seiten, wenn eine Ebene zu voll ist
             try

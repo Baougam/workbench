@@ -567,6 +567,7 @@ namespace Workbench
         public void Auffrischen()
         {
             TiefeVergessen();
+            VorbauVergessen();
             if (!bild && !IsVisible) { veraltet = true; korb = null; return; }
             if (ansicht == Korb) KorbLesen(); else { Neuzeichnen(); KorbLesen(); }
         }
@@ -574,11 +575,19 @@ namespace Workbench
         void Neuzeichnen()
         {
             if (ansicht < 0) return;
+            var uhr = System.Diagnostics.Stopwatch.StartNew();
+            NeuzeichnenJetzt();
+            uhr.Stop();
+            if (uhr.ElapsedMilliseconds > 30 && !bild) Log.Info("Langsam: Neuzeichnen " + uhr.ElapsedMilliseconds + " ms (Ansicht " + ansicht + ", Tiefe " + Tiefe(Akt) + ", " + symbole.Count + " Symbole)");
+        }
+
+        void NeuzeichnenJetzt()
+        {
             veraltet = false;
-            symbole.Clear();
-            var v = Flaeche();
+            var v = FlaecheGemerkt();
             buehne.Children.Clear();
             buehne.Children.Add(v);
+            VorbauPlanen();
             if (auswahl == null) gruppe.Clear();
             else gruppe.Add(auswahl);
             gruppe.RemoveWhere(x => !symbole.ContainsKey(x));
@@ -603,7 +612,7 @@ namespace Workbench
         // ================= Symbole =================
 
         /// <summary>Ein Desktop-Symbol: Bild, Name darunter, optional ein kleines Abzeichen (Restzeit).</summary>
-        Border Symbol(string pfad, string bildPfad, string name, double? anteil, Brush ringFarbe, bool nurSymbol, string hilfe)
+        Border Symbol(string pfad, string bildPfad, string name, double? anteil, Brush ringFarbe, bool nurSymbol, string hilfe, bool? ordner = null)
         {
             var b = new Border { Width = 92, Padding = new Thickness(4, 8, 4, 6), Margin = new Thickness(1), CornerRadius = new CornerRadius(6), BorderThickness = new Thickness(1), Background = Brushes.Transparent, BorderBrush = Brushes.Transparent, ToolTip = hilfe ?? name, Tag = pfad };
             ToolTipService.SetInitialShowDelay(b, 700);
@@ -611,7 +620,7 @@ namespace Workbench
             var kopf = new Grid { Width = 56, Height = 50, HorizontalAlignment = HorizontalAlignment.Center };
             // Restzeit: das Symbol selbst leert sich (Original bleibt unverändert, nur von oben ausgeblendet)
             bool bald = anteil.HasValue && ringFarbe == Farbe.Akzent;
-            var bild2 = Vorschau.Bild(bildPfad, 48, 48, nurSymbol, anteil, bald);
+            var bild2 = Vorschau.Bild(bildPfad, 48, 48, nurSymbol, anteil, bald, ordner);
             bild2.HorizontalAlignment = HorizontalAlignment.Center;
             bild2.VerticalAlignment = VerticalAlignment.Center;
             kopf.Children.Add(bild2);
