@@ -600,6 +600,37 @@ namespace Workbench
                 }
             }
             {
+                // Raumansicht mit vielen echten Ordnern (wie ein volles OneDrive)
+                var rnd = new Random(5);
+                string[] oben = { "LocalSend", "Sonstiges", "Bilder", "Dokumente", "Anna", "Privat", "Bewerbungen", "KI", "Temp", "Referendariat", "Projekte", "Musik", "Steuern", "Uni", "Spiele", "Backups", "Design", "Reisen" };
+                string[] unter = { "2023", "2024", "Alt", "Entwürfe", "Final", "Export", "Scans", "Notizen", "Fotos", "Archiv" };
+                string[] endung = { ".jpg", ".pdf", ".docx", ".png", ".zip", ".xlsx", ".md", ".mp3" };
+                string voll = Path.Combine(test, "Voll");
+                foreach (var o in oben)
+                {
+                    string d = Path.Combine(voll, o); Directory.CreateDirectory(d);
+                    for (int fi = 0; fi < rnd.Next(1, 14); fi++) File.WriteAllBytes(Path.Combine(d, o + fi + endung[(o.Length + fi) % endung.Length]), new byte[10]);
+                    for (int u = 0; u < rnd.Next(0, 7); u++)
+                    {
+                        string du = Path.Combine(d, unter[(u + o.Length) % unter.Length]); Directory.CreateDirectory(du);
+                        for (int fi = 0; fi < rnd.Next(0, 9); fi++) File.WriteAllBytes(Path.Combine(du, "f" + fi + endung[fi % endung.Length]), new byte[10]);
+                        for (int u2 = 0; u2 < rnd.Next(0, 4); u2++) { string d3 = Path.Combine(du, unter[(u2 + 3) % unter.Length]); Directory.CreateDirectory(d3); File.WriteAllBytes(Path.Combine(d3, "x.jpg"), new byte[10]); }
+                    }
+                }
+                Blaetter.D = Blaetter.Standard(false);
+                Blaetter.D.Liste.Add(new BlattDef { Art = "folder", Pfad = voll, Name = "OneDrive" });
+                int vi = Blaetter.D.Liste.Count - 1;
+                var w = new Hauptfenster(E, vi, true);
+                w.Zeige(vi);
+                w.TiefeAendern(1);
+                Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "2g-voll-tiefe.png"));
+                w.RaumFuerBild(0.55, -0.22, null);
+                Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "2h-voll-raum.png"));
+                w.RaumFuerBild(0.55, -0.22, "Bilder");
+                Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "2i-voll-raum-fokus.png"));
+                Blaetter.D = Blaetter.Standard(false);
+            }
+            {
                 // neues Blatt (+ aufgefächert), Blatt mit Leisten, Board
                 var w = new Hauptfenster(E, 0, true);
                 w.KorbFuerBild(korb);

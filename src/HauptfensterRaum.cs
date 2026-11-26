@@ -72,6 +72,8 @@ namespace Workbench
             string akt = AktOrdner(b);
             var st = RaumDaten(akt);
             raum = new Raum(this, akt, RaumRahmen(), st);
+            leerZug = false; rahmen.Visibility = Visibility.Collapsed; Waehle(null);
+            buehne.IsHitTestVisible = false;
             wurzel.Children.Add(raum);
             raum.Ziehen(a.GetPosition(raum));
             return true;
@@ -109,6 +111,7 @@ namespace Workbench
         {
             if (raum == null) return;
             var r = raum; raum = null;
+            buehne.IsHitTestVisible = true;
             wurzel.Children.Remove(r);
             r.Aufraeumen();
             if (ortVorRaum != null) { ort.Children.Clear(); foreach (var e in ortVorRaum) ort.Children.Add(e); ortVorRaum = null; }
@@ -204,7 +207,7 @@ namespace Workbench
                 if (gew.Count == 0) return;
                 var rects = Kacheln(gew, r);
                 int i0 = dateien.Count > 0 || d.Mehr > 0 ? 1 : 0;
-                if (i0 == 1)
+                if (i0 == 1 && ebene == 0)
                 {
                     var rd = rects[0];
                     double l0 = ebene == 0 ? 5 : 4;
@@ -219,6 +222,7 @@ namespace Workbench
                     double luft = ebene == 0 ? 5 : 4;
                     var ri = rects[i + i0];
                     ri = new Rect(ri.X + luft, ri.Y + luft, Math.Max(2, ri.Width - 2 * luft), Math.Max(2, ri.Height - 2 * luft));
+                    if (ebene > 0 && (ri.Width < 40 || ri.Height < 26)) continue;   // zu klein zum Erkennen: weglassen statt Krümel
                     var p = new Platte { N = o, Eltern = eltern, Ebene = ebene + 1, R = ri };
                     p.Farbe = Ton(o, eltern, ebene);
                     Art(p, o);
@@ -350,6 +354,8 @@ namespace Workbench
             }
 
             // ---------- Zeichnen ----------
+            double ox;
+
             Point Projiziere(double x, double z, double y, double a, double b, double k, double oy)
             {
                 double cx = Width / 2, cz = Height / 2;
@@ -357,7 +363,7 @@ namespace Workbench
                 double X1 = X * Math.Cos(b) - Z * Math.Sin(b), Z1 = X * Math.Sin(b) + Z * Math.Cos(b);
                 double naehe = y * Math.Cos(a) + Z1 * Math.Sin(a);
                 double s = 1800 / (1800 - naehe);
-                return new Point(cx + X1 * s * k, cz + oy + (Z1 * Math.Cos(a) - y * Math.Sin(a)) * s * k);
+                return new Point(cx + ox + X1 * s * k, cz + oy + (Z1 * Math.Cos(a) - y * Math.Sin(a)) * s * k);
             }
 
             double dpi = 1;
@@ -370,8 +376,21 @@ namespace Workbench
                 double tt = Glatt(t);
                 double a = tt * 1.05, b = azi * Math.Min(1, tt * 3);
                 double luft = 42 * tt;                       // Abstand der Ebenen: flach 0 → nahtlos auf der Fläche
-                double k = 1 - 0.22 * tt;
-                double oy = Tiefe * luft * Math.Sin(a) * 0.45 * k;
+                // immer ganz sichtbar: die gekippte Fläche (Boden + oberste Ebene) wird eingepasst und mittig gesetzt
+                ox = 0;
+                double k = 1, oy = 0;
+                {
+                    double minX = double.MaxValue, maxX = double.MinValue, minY = double.MaxValue, maxY = double.MinValue;
+                    foreach (var y0 in new[] { 0.0, Math.Min(Tiefe, 2) * luft })
+                        foreach (var e in new[] { new Point(0, 0), new Point(Width, 0), new Point(Width, Height), new Point(0, Height) })
+                        {
+                            var q = Projiziere(e.X, e.Y, y0, a, b, 1, 0);
+                            minX = Math.Min(minX, q.X); maxX = Math.Max(maxX, q.X); minY = Math.Min(minY, q.Y); maxY = Math.Max(maxY, q.Y);
+                        }
+                    k = Math.Min(1, Math.Min(Width * 0.97 / Math.Max(1, maxX - minX), Height * 0.95 / Math.Max(1, maxY - minY)));
+                    ox = -((minX + maxX) / 2 - Width / 2) * k;
+                    oy = -((minY + maxY) / 2 - Height / 2) * k;
+                }
                 // Hineinfliegen: auf die Platte zoomen, bis sie das Blatt füllt
                 Rect fz = flugZiel != null ? flugZiel.R : Rect.Empty;
                 double f = flugZiel != null ? Glatt(flug) : 0;
@@ -388,6 +407,7 @@ namespace Workbench
                     p.Naehe = y * Math.Cos(a) + (cx * Math.Sin(b) + cz * Math.Cos(b)) * Math.Sin(a) + p.Ebene * 0.01;
                 }
                 Platte aktiv = hover ?? gewaehlt;
+                fokusOben = aktiv; while (fokusOben != null && fokusOben.Eltern != null) fokusOben = fokusOben.Eltern;
                 // Ebenen-Zahlen links, nur wenn gekippt
                 if (tt > 0.7)
                     for (int e = 1; e <= Tiefe; e++)
@@ -398,8 +418,10 @@ namespace Workbench
                         dc.DrawText(ft, new Point(pt.X - 22, pt.Y - 9));
                         dc.Pop();
                     }
+                var namen = new List<Platte>();
                 foreach (var p in platten.OrderBy(x => x.Naehe))
                 {
+                    if (!Sichtbar(p)) continue;
                     bool imZweig = aktiv == null || Im(p, aktiv) || Im(aktiv, p);
                     double deck = imZweig ? 1 : 0.22;
                     if (flugZiel != null && !Im(p, flugZiel) && p != flugZiel) deck *= 1 - f;
@@ -416,10 +438,10 @@ namespace Workbench
                     dc.DrawGeometry(flaeche, p == aktiv ? randAn : (p.Lose ? null : rand), Vieleck(p.Oben));
                     // Dateien als feine farbige Punkte entlang der oberen Kante, Ordnerart als kleine Marke
                     double bw = (p.Oben[1] - p.Oben[0]).Length, bh = (p.Oben[3] - p.Oben[0]).Length;
-                    if (bw > 26 && bh > 10 && p.Punkte.Count > 0)
+                    if (bw > 90 && bh > 18 && p.Punkte.Count > 0 && (p.Ebene <= 1 || p == aktiv))
                     {
                         var dx = (p.Oben[1] - p.Oben[0]) / bw; var dy = (p.Oben[3] - p.Oben[0]) / Math.Max(1, bh);
-                        int n = Math.Min(p.Punkte.Count, (int)((bw - 12) / 6));
+                        int n = Math.Min(Math.Min(p.Punkte.Count, 10), (int)((bw - 12) / 6));
                         for (int i = 0; i < n; i++)
                         {
                             var q = p.Oben[0] + dx * (8 + i * 6) + dy * Math.Min(bh - 4, 5);
@@ -427,7 +449,8 @@ namespace Workbench
                         }
                     }
                     bool name = !p.Lose && (p.Ebene == 1 || (aktiv != null && (p == aktiv || p.Eltern == aktiv)));
-                    if (name && bw > 48 && bh > 14)
+                    if (name && bw > 48 && bh > 14) namen.Add(p);
+                    if (false)
                     {
                         var ft = new FormattedText(p.N.Name, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, schrift, 11.5, Brushes.White, dpi)
                         { MaxTextWidth = Math.Max(10, bw - 40), MaxLineCount = 1, Trimming = TextTrimming.CharacterEllipsis };
@@ -446,11 +469,33 @@ namespace Workbench
                     }
                     dc.Pop();
                 }
+                // Namen über allem: jede Platte vorn links, mit dunklem Grund; was sich überdecken würde, entfällt
+                var belegt = new List<Rect>();
+                foreach (var p in namen.OrderBy(x => x == aktiv ? 0 : x.Ebene).ThenByDescending(x => x.R.Width * x.R.Height))
+                {
+                    double bw = (p.Oben[1] - p.Oben[0]).Length;
+                    var ft = new FormattedText(p.N.Name, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, schrift, p.Ebene == 1 ? 12 : 11, Brushes.White, dpi)
+                    { MaxTextWidth = Math.Max(10, Math.Min(bw - 16, 180)), MaxLineCount = 1, Trimming = TextTrimming.CharacterEllipsis };
+                    string art = p.Ebene == 1 && p.Art != null && bw > 140 ? p.Art : null;
+                    FormattedText aft = art != null ? new FormattedText(art, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, schrift, 8.5, p.ArtFarbe, dpi) : null;
+                    double breite = ft.Width + 14 + (aft != null ? aft.Width + 10 : 0);
+                    var o = p.Oben[0];
+                    var hg = new Rect(o.X + 4, o.Y + 4, breite, ft.Height + 6);
+                    var pruef = hg; pruef.Inflate(3, 2);
+                    if (belegt.Any(x => x.IntersectsWith(pruef))) continue;
+                    belegt.Add(pruef);
+                    bool imZweig = aktiv == null || Im(p, aktiv) || Im(aktiv, p);
+                    dc.PushOpacity((imZweig ? 1 : 0.35) * (1 - f));
+                    dc.DrawRoundedRectangle(namenGrund, null, hg, 6, 6);
+                    dc.DrawText(ft, new Point(hg.X + 7, hg.Y + 3));
+                    if (aft != null) dc.DrawText(aft, new Point(hg.X + 7 + ft.Width + 8, hg.Y + 3 + (ft.Height - aft.Height) / 2));
+                    dc.Pop();
+                }
                 // Hinweis am gewählten/überfahrenen Ordner: Anzahl
                 if (aktiv != null && flugZiel == null)
                 {
                     int dat = Zaehlen(aktiv.N), ord = aktiv.N.Kinder.Count(x => x.Ordner);
-                    var txt = new FormattedText(aktiv.N.Name + "   " + dat + " files · " + ord + " folders", CultureInfo.CurrentCulture, FlowDirection.LeftToRight, schrift, 11.5, Brushes.White, dpi);
+                    var txt = new FormattedText(aktiv.N.Name + "   " + dat + (dat == 1 ? " file · " : " files · ") + ord + (ord == 1 ? " folder" : " folders"), CultureInfo.CurrentCulture, FlowDirection.LeftToRight, schrift, 11.5, Brushes.White, dpi);
                     var o = aktiv.Oben[0];
                     var hg = new Rect(o.X, o.Y - txt.Height - 12, txt.Width + 16, txt.Height + 8);
                     if (hg.Top < 0) hg.Y = 2;
@@ -460,6 +505,11 @@ namespace Workbench
             }
 
             static readonly string[] roman = { "I", "II", "III", "IV", "V" };
+            static readonly Brush namenGrund = Frieren(new SolidColorBrush(Color.FromArgb(200, 14, 16, 21)));
+            Platte fokusOben;
+
+            /// <summary>Überblick zuerst: Ebene I und II immer; tiefer nur im obersten Ordner, den man gerade ansieht.</summary>
+            bool Sichtbar(Platte p) { return p.Ebene <= 2 || (fokusOben != null && Im(p, fokusOben)); }
             static double Glatt(double x) { return x * x * (3 - 2 * x); }
             static bool Im(Platte p, Platte ahn) { for (var x = p; x != null; x = x.Eltern) if (x == ahn) return true; return false; }
             static int Zaehlen(TKnoten k) { if (k.Kinder == null) return 0; int n = k.Mehr; foreach (var x in k.Kinder) n += x.Ordner && x.Kinder != null ? Zaehlen(x) : (x.Ordner ? 0 : 1); return n; }
@@ -485,7 +535,7 @@ namespace Workbench
             Platte Treffen(Point q)
             {
                 foreach (var p in platten.OrderByDescending(x => x.Naehe))
-                    if (p.Oben != null && !p.Lose && Innen(p.Oben, q)) return p;
+                    if (p.Oben != null && !p.Lose && Sichtbar(p) && Innen(p.Oben, q)) return p;
                 return null;
             }
 
