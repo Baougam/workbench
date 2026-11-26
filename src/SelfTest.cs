@@ -307,7 +307,7 @@ namespace Workbench
                 // Home mit Bausteinen
                 var home = new BlattDef { Art = "home", Name = "Home" };
                 w.BlattHinzu(home);
-                Ok(home.Module.Count == 4 && home.Module[0].Art == "recent" && home.Module.Any(x => x.Art == "tools"), "neues Home beginnt mit der Vorlage Workbench");
+                Ok(home.Module.Count == 3 && home.Module[0].Art == "inbox" && home.Module[1].Art == "continue" && home.Module[2].Art == "soon", "neues Home: Inbox, Weitermachen, Bald weg");
                 foreach (var art in new[] { "recent", "shelf", "pinned", "downloads", "screens", "note" }) w.ModulNeu(home, art);
                 home.Module.Last().Text = "hello";
                 w.HomeBearbeiten(true);
@@ -315,7 +315,7 @@ namespace Workbench
                 var belegt = new HashSet<string>();
                 bool ueberlapp = false;
                 foreach (var mm in home.Module) for (int ix = mm.X; ix < mm.X + mm.W; ix++) for (int iy = mm.Y; iy < mm.Y + mm.H; iy++) if (!belegt.Add(ix + "," + iy)) ueberlapp = true;
-                Ok(home.Module.Count == 10 && !ueberlapp && home.Module.All(x => x.X >= 0 && x.Y >= 0), "Bausteine liegen ohne Überlappung auf dem Raster");
+                Ok(home.Module.Count == 9 && !ueberlapp && home.Module.All(x => x.X >= 0 && x.Y >= 0), "Bausteine liegen ohne Überlappung auf dem Raster");
                 w.HomeBearbeiten(false);
                 Hauptfenster.Vorlage(home, "daily");
                 Ok(home.Module.Count == 3 && home.Module.Any(x => x.Art == "recent"), "Vorlage ersetzt die Bausteine");
@@ -382,6 +382,28 @@ namespace Workbench
                 Ok(File.Exists(png), "Werkzeuge lassen das Original in Ruhe");
             }
             catch (Exception ex) { Ok(false, "Werkzeuge: " + ex.Message); }
+
+            // 12d) Tiefe: alle Ordner gleichzeitig eine Ebene aufklappen
+            try
+            {
+                Blaetter.D = Blaetter.Standard(false);
+                string t1 = Path.Combine(Paths.Dauerhaft, "Tiefe A"), t2 = Path.Combine(t1, "Unter"), t3 = Path.Combine(t2, "Ganz unten");
+                Directory.CreateDirectory(t3); File.WriteAllText(Path.Combine(t1, "a.txt"), "a"); File.WriteAllText(Path.Combine(t3, "z.txt"), "z");
+                var w = new Hauptfenster(E, 1, true);
+                w.Wurzel.Measure(new Size(1060, 700)); w.Wurzel.Arrange(new Rect(0, 0, 1060, 700));
+                w.TiefeAendern(1);
+                Pumpen(1500, () => w.SymboleTest.ContainsKey(Path.Combine(t1, "a.txt")));
+                Ok(w.SymboleTest.ContainsKey(Path.Combine(t1, "a.txt")), "Tiefe 1 zeigt den Inhalt der Ordner");
+                Pumpen(450, null);
+                w.TiefeAendern(1);
+                Pumpen(1500, () => w.SymboleTest.ContainsKey(t3));
+                Ok(w.SymboleTest.ContainsKey(t3), "Tiefe 2 geht noch eine Ebene weiter");
+                Pumpen(300, null);
+                w.TiefeAendern(-1); Pumpen(450, null); w.TiefeAendern(-1);
+                w.Wurzel.UpdateLayout();
+                Ok(!w.SymboleTest.ContainsKey(Path.Combine(t1, "a.txt")), "zurück an die Oberfläche: wieder die freie Fläche (Tiefe " + w.TiefeJetzt + ", " + w.SymboleTest.Count + " Symbole)");
+            }
+            catch (Exception ex) { Ok(false, "Tiefe: " + ex.Message); }
 
             // 13) Mehrere markieren: Rahmen aufziehen, alles markieren, gemeinsam löschen
             try
@@ -567,6 +589,7 @@ namespace Workbench
             var info = new Frage(E, new List<Eintrag> { new Eintrag { Pfad = Path.Combine(Paths.Wurzel, "1 week", "Flyer_Draft.pdf"), Ablauf = jetzt.AddDays(7), Gewaehlt = "1 week", Herkunft = "ordner" } }, true);
             var ik = info.Karte; info.Content = null;
             Speichern(Rahmen(ik), 410, 0, Path.Combine(ziel, "8-gespeichert.png"));
+            Entwuerfe.Ebenen(Path.Combine(ziel, "15-ebenen.png"));
             Speichern(Rahmen(new BrowserKarte(new Browser.Ziel { Name = "Brave", Exe = "brave.exe", Seite = "brave://extensions" }).FuerBild(0)), 330, 0, Path.Combine(ziel, "10-browser.png"));
             return 0;
         }

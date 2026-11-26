@@ -48,6 +48,7 @@ namespace Workbench
         public List<BlattDef> Liste = new List<BlattDef>();
         public List<string> Ablage = new List<string>();    // geparkte Dateien (Verweise, für alle Blätter gleich)
         public List<string> Angeheftet = new List<string>(); // Pinned-Leiste (Verweise)
+        public List<string> Erledigt = new List<string>();   // Inbox: schon entschieden
         public Dictionary<string, int> Reihen = new Dictionary<string, int>();   // „blattId|art“ → 1/2
         public int Version;                                 // 2 = Mitte ist das eigene Blatt (leeres Permanent wurde zum +)
     }
@@ -76,10 +77,11 @@ namespace Workbench
                     {
                         if (D.Ablage == null) D.Ablage = new List<string>();
                         if (D.Angeheftet == null) D.Angeheftet = new List<string>();
+                        if (D.Erledigt == null) D.Erledigt = new List<string>();
                         if (D.Reihen == null) D.Reihen = new Dictionary<string, int>();
                         foreach (var b in D.Liste) { if (b.Leisten == null) b.Leisten = new List<string>(); if (b.Inhalt == null) b.Inhalt = new List<string>(); if (b.Module == null) b.Module = new List<Modul>(); if (b.LeistenGroesse == null) b.LeistenGroesse = new Dictionary<string, int>(); foreach (var m in b.Module) { if (m.Inhalt == null) m.Inhalt = new List<string>(); if (m.W < 1) { m.W = m.Breit ? 4 : 2; m.H = m.Art == "recent" || m.Art == "screens" ? 1 : 2; } } }
                         if (!D.Liste.Any(b => b.Art == "temp")) D.Liste.Insert(0, new BlattDef { Art = "temp", Name = "Expiring" });
-                        if (D.Version < 4) Umstellen();
+                        if (D.Version < 6) Umstellen();
                         return;
                     }
                 }
@@ -104,7 +106,7 @@ namespace Workbench
         /// <summary>Neu: Expiring und ein leeres Blatt in der Mitte. Bisher: die alten drei Ebenen bleiben, wie sie waren.</summary>
         public static BlaetterDaten Standard(bool neu)
         {
-            var d = new BlaetterDaten { Version = 4 };
+            var d = new BlaetterDaten { Version = 6 };
             d.Liste.Add(new BlattDef { Art = "temp", Name = "Expiring" });
             if (neu) d.Liste.Add(new BlattDef { Art = "home", Name = "Home", Vorschlag = true, VorlageName = "start" });
             else
@@ -138,7 +140,8 @@ namespace Workbench
                     D.Liste.Insert(Math.Min(1, D.Liste.Count), new BlattDef { Art = "home", Name = "Home", Vorschlag = true, VorlageName = "start" });
                 }
             }
-            D.Version = 4;
+            if (D.Version < 6) foreach (var b in D.Liste.Where(x => x.Art == "home" && x.Vorschlag)) { b.VorlageName = "start"; b.Spalten = 0; b.Module.Clear(); }
+            D.Version = 6;
             Speichern();
         }
 

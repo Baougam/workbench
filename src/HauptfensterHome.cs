@@ -24,6 +24,9 @@ namespace Workbench
 
         static readonly string[][] ModulArten =
         {
+            new[] { "inbox", ReiterZeichen.Inbox, "Inbox" },
+            new[] { "continue", ReiterZeichen.Weiter, "Continue" },
+            new[] { "soon", ReiterZeichen.Sanduhr, "Leaving soon" },
             new[] { "expiring", ReiterZeichen.Sanduhr, "Expiring" },
             new[] { "recent", Ikon.Uhr, "Recent" },
             new[] { "downloads", ReiterZeichen.Download, "Downloads" },
@@ -116,7 +119,7 @@ namespace Workbench
 
         // ================= Vorlagen =================
 
-        static readonly string[][] Vorlagen = { new[] { "start", "Workbench" }, new[] { "focus", "Focus" }, new[] { "daily", "Daily" }, new[] { "desk", "Desk" }, new[] { "blank", "Blank" } };
+        static readonly string[][] Vorlagen = { new[] { "start", "Simple" }, new[] { "focus", "Focus" }, new[] { "daily", "Daily" }, new[] { "desk", "Desk" }, new[] { "blank", "Blank" } };
         int spaltenJetzt = 8;
 
         /// <summary>Drei ruhige Vorlagen und „leer“. Ersetzt die Bausteine des Blatts.</summary>
@@ -131,12 +134,14 @@ namespace Workbench
             Action<string, int, int, int, int> m = (art, x, y, w, h) => b.Module.Add(new Modul { Art = art, X = x, Y = y, W = w, H = h, Groesse = 1 });
             switch (name)
             {
-                case "start": m("recent", 0, 0, n, 1); m("expiring", 0, 1, halb, 2); m("downloads", halb, 1, n - halb, 2); m("tools", 0, 3, n, 1); break;
+                case "start": m("inbox", 0, 0, n, 1); m("continue", 0, 1, n, 1); m("soon", 0, 2, n, 1); break;
                 case "focus": m("expiring", 0, 0, n, 3); break;
                 case "daily": m("recent", 0, 0, n, 1); m("expiring", 0, 1, halb, 2); m("downloads", halb, 1, n - halb, 2); break;
                 case "desk": m("pinned", 0, 0, halb, 2); m("note", halb, 0, n - halb, 2); m("tools", 0, 2, n, 1); break;
             }
-            foreach (var x in b.Module.Where(x => x.Art == "downloads" && name == "start")) x.Liste = true;
+            foreach (var x in b.Module.Where(x => x.Art == "downloads")) x.Liste = true;
+            foreach (var x in b.Module.Where(x => x.Art == "continue")) x.Groesse = 2;
+            foreach (var x in b.Module.Where(x => x.Art == "soon")) x.Liste = true;
             foreach (var x in b.Module.Where(x => x.Art == "recent" || x.Art == "screens")) x.Groesse = 1;
         }
 
@@ -238,7 +243,7 @@ namespace Workbench
 
         FrameworkElement ModulKarte(BlattDef b, Modul m, Canvas flaeche, int spalten)
         {
-            var karte = new Border { Width = Px(m.W), Height = Px(m.H), CornerRadius = new CornerRadius(16), Background = Farbe.B(homeBearbeiten ? "#F2202329" : "#08FFFFFF"), BorderBrush = Farbe.B(homeBearbeiten ? "#33FFFFFF" : "#00FFFFFF"), BorderThickness = new Thickness(1), Tag = m };
+            var karte = new Border { Width = Px(m.W), Height = Px(m.H), CornerRadius = new CornerRadius(16), Background = Farbe.B(homeBearbeiten ? "#F2202329" : "#00FFFFFF"), BorderBrush = Farbe.B(homeBearbeiten ? "#33FFFFFF" : "#00FFFFFF"), BorderThickness = new Thickness(1), Tag = m };
             Canvas.SetLeft(karte, m.X * (Zelle + Luecke)); Canvas.SetTop(karte, m.Y * (Zelle + Luecke));
             var g = new Grid();
             var kopf = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(12, 10, 0, 0), IsHitTestVisible = false };
@@ -254,8 +259,8 @@ namespace Workbench
             karte.MouseLeftButtonDown += (s, a) => a.Handled = true;      // kein Rahmen-Aufziehen auf Bausteinen
             if (!homeBearbeiten)
             {
-                karte.MouseEnter += delegate { karte.Background = Farbe.B("#0DFFFFFF"); };
-                karte.MouseLeave += delegate { karte.Background = Farbe.B("#08FFFFFF"); };
+                karte.MouseEnter += delegate { karte.Background = Farbe.B("#08FFFFFF"); };
+                karte.MouseLeave += delegate { karte.Background = Farbe.B("#00FFFFFF"); };
                 karte.MouseRightButtonUp += (s, a) =>
                 {
                     if (a.Handled) return;
@@ -454,19 +459,19 @@ namespace Workbench
             {
                 var v2 = v;
                 var probe = new BlattDef(); Vorlage(probe, v[0], 6);
-                var skizze = new Canvas { Width = 66, Height = 40, ClipToBounds = true };
-                double zs = 66 / 6.0;
+                var skizze = new Canvas { Width = 44, Height = 26, ClipToBounds = true };
+                double zs = 44 / 6.0;
                 foreach (var m in probe.Module)
                 {
-                    var r = new Border { Width = m.W * zs - 2, Height = Math.Min(40, m.H * zs * 1.15) - 2, CornerRadius = new CornerRadius(3), Background = Farbe.B("#33FFFFFF") };
+                    var r = new Border { Width = m.W * zs - 2, Height = Math.Min(26, m.H * zs * 1.15) - 2, CornerRadius = new CornerRadius(2), Background = Farbe.B("#33FFFFFF") };
                     Canvas.SetLeft(r, m.X * zs + 1); Canvas.SetTop(r, m.Y * zs * 1.15 + 1);
                     skizze.Children.Add(r);
                 }
-                if (probe.Module.Count == 0) skizze.Children.Add(new Border { Width = 64, Height = 38, CornerRadius = new CornerRadius(4), BorderBrush = Farbe.B("#33FFFFFF"), BorderThickness = new Thickness(1) });
-                var k = new Button { Style = (Style)Application.Current.FindResource("Leer"), Padding = new Thickness(8, 6, 8, 6), Margin = new Thickness(2), ToolTip = v[1], Cursor = Cursors.Hand };
+                if (probe.Module.Count == 0) skizze.Children.Add(new Border { Width = 42, Height = 24, CornerRadius = new CornerRadius(3), BorderBrush = Farbe.B("#33FFFFFF"), BorderThickness = new Thickness(1) });
+                var k = new Button { Style = (Style)Application.Current.FindResource("Leer"), Padding = new Thickness(6, 5, 6, 4), Margin = new Thickness(1), ToolTip = v[1], Cursor = Cursors.Hand };
                 var st = new StackPanel();
                 st.Children.Add(skizze);
-                st.Children.Add(new TextBlock { Text = v[1], FontSize = 10.5, Foreground = Farbe.Text3, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 0) });
+                st.Children.Add(new TextBlock { Text = v[1], FontSize = 10, Foreground = Farbe.Text3, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 3, 0, 0) });
                 k.Content = st;
                 k.MouseEnter += delegate { k.Background = Farbe.B("#14FFFFFF"); };
                 k.MouseLeave += delegate { k.Background = Brushes.Transparent; };
@@ -488,13 +493,18 @@ namespace Workbench
         {
             var sp = new StackPanel { Orientation = Orientation.Horizontal };
             sp.Children.Add(VorlagenReihe(b, null));
-            var ok = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 40, Height = 40, Content = UI.Icon(Ikon.Haken, 16, Farbe.Akzent, 2), ToolTip = "Keep this", Margin = new Thickness(6, 0, 2, 0), VerticalAlignment = VerticalAlignment.Center };
+            var ok = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 32, Height = 32, Content = UI.Icon(Ikon.Haken, 16, Farbe.Akzent, 2), ToolTip = "Keep this", Margin = new Thickness(6, 0, 2, 0), VerticalAlignment = VerticalAlignment.Center };
             ok.Click += delegate { b.Vorschlag = false; Blaetter.Speichern(); Neuzeichnen(); };
             sp.Children.Add(ok);
             var p = Pille(sp);
             p.CornerRadius = new CornerRadius(18);
             p.HorizontalAlignment = HorizontalAlignment.Center; p.VerticalAlignment = VerticalAlignment.Bottom; p.Margin = new Thickness(0, 0, 0, 4);
-            p.Opacity = 0.9;
+            p.Opacity = bild ? 0.9 : 0.5;
+            if (!bild)
+            {
+                p.MouseEnter += delegate { p.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(150))); };
+                p.MouseLeave += delegate { p.BeginAnimation(OpacityProperty, new DoubleAnimation(0.5, TimeSpan.FromMilliseconds(250))); };
+            }
             return p;
         }
 
@@ -525,16 +535,19 @@ namespace Workbench
             if (m.Art == "recent") pfade = Zuletzt.Liste(E).Where(p => PasstFilter(p, m.Filter)).Take(max).ToList();
             else if (m.Art == "shelf") pfade = Blaetter.D.Ablage.Where(p => File.Exists(p) || Directory.Exists(p)).Take(max).ToList();
             else if (m.Art == "pinned") pfade = m.Inhalt.Where(p => (File.Exists(p) || Directory.Exists(p)) && PasstFilter(p, m.Filter)).Take(max).ToList();
+            else if (m.Art == "inbox") pfade = InboxListe().Take(max).ToList();
+            else if (m.Art == "continue") pfade = Zuletzt.Liste(E).Take(Math.Min(max, 6)).ToList();
+            else if (m.Art == "soon") pfade = E.S.D.Eintraege.Where(x => x.Ablauf.HasValue && (x.Ablauf.Value - DateTime.UtcNow).TotalHours < 24 && (File.Exists(x.Pfad) || Directory.Exists(x.Pfad))).OrderBy(x => x.Ablauf.Value).Take(max).Select(x => x.Pfad).ToList();
             else if (m.Art == "expiring") pfade = E.S.D.Eintraege.Where(x => x.Ablauf.HasValue && (File.Exists(x.Pfad) || Directory.Exists(x.Pfad))).OrderBy(x => x.Ablauf.Value).Take(max).Select(x => x.Pfad).ToList();
             else if (m.Art == "downloads") pfade = Neueste(Paths.Downloads, 200, false).Where(p => PasstFilter(p, m.Filter)).Take(max).ToList();
             else if (m.Art == "screens") pfade = Neueste(Blaetter.Screenshots, max, true);
             else pfade = Neueste(m.Pfad, 300, false, true).Where(p => Directory.Exists(p) || PasstFilter(p, m.Filter)).Take(max).ToList();
 
             if (m.Art == "shelf" || m.Art == "pinned") AblageAufKarte(karte, b, m);
-            if (m.Art == "recent") recentFuellen = () => { if (karte.IsLoaded && !homeBearbeiten) Neuzeichnen(); };
+            if (m.Art == "recent" || m.Art == "continue") recentFuellen = () => { if (karte.IsLoaded && !homeBearbeiten) Neuzeichnen(); };
             if (pfade.Count == 0)
             {
-                var leer = UI.Icon(ModulZeichen(m.Art), 26, Farbe.B("#1FFFFFFF"), 1.3);
+                var leer = UI.Icon(m.Art == "inbox" || m.Art == "soon" ? Ikon.Haken : ModulZeichen(m.Art), 26, Farbe.B(m.Art == "inbox" || m.Art == "soon" ? "#33F4B860" : "#1FFFFFFF"), 1.3);
                 leer.HorizontalAlignment = HorizontalAlignment.Center; leer.VerticalAlignment = VerticalAlignment.Center; leer.Margin = new Thickness(0, 0, 0, 16);
                 if (m.Art == "shelf" || m.Art == "pinned") ((FrameworkElement)leer).ToolTip = "Drop files here";
                 var g = new Grid(); g.Children.Add(leer);
@@ -547,14 +560,14 @@ namespace Workbench
                 return wp2;
             }
             var wp = new WrapPanel { Orientation = m.Liste ? Orientation.Vertical : Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top };
-            foreach (var p in pfade) wp.Children.Add(m.Liste ? Zeile(p, m) : Stueck(p, m, s));
+            foreach (var p in pfade) wp.Children.Add(m.Liste ? Zeile(p, m) : (m.Art == "inbox" ? InboxStueck(p, m, s) : Stueck(p, m, s)));
             return wp;
         }
 
         /// <summary>Ein Eintrag als Kachel: echtes Vorschaubild oder Typ-Marke, kleiner Name darunter (nur bei M/L).</summary>
         FrameworkElement Stueck(string p, Modul m, double s)
         {
-            var e = m.Art == "expiring" ? E.S.Finde(p) : null;
+            var e = m.Art == "expiring" || m.Art == "soon" ? E.S.Finde(p) : null;
             var st = new StackPanel { Width = s + 22 };
             var bildEl = e != null && e.Ablauf.HasValue ? Leerend(p, s, Rest(e)) : Vorschau.Echt(p, s);
             bildEl.HorizontalAlignment = HorizontalAlignment.Center;
@@ -567,7 +580,7 @@ namespace Workbench
         /// <summary>Ein Eintrag als Zeile: kleines Bild, Name, rechts leise wann (oder Restzeit).</summary>
         FrameworkElement Zeile(string p, Modul m)
         {
-            var e = m.Art == "expiring" ? E.S.Finde(p) : null;
+            var e = m.Art == "expiring" || m.Art == "soon" ? E.S.Finde(p) : null;
             var g = new Grid { Height = 28 };
             var bildEl = e != null && e.Ablauf.HasValue ? Leerend(p, 20, Rest(e)) : Vorschau.Echt(p, 20);
             bildEl.HorizontalAlignment = HorizontalAlignment.Left; bildEl.VerticalAlignment = VerticalAlignment.Center;
@@ -591,6 +604,55 @@ namespace Workbench
             farbig.Clip = new RectangleGeometry(new Rect(0, s * (1 - a), s, s * a));
             g.Children.Add(grau); g.Children.Add(farbig);
             return g;
+        }
+
+        /// <summary>Neu angekommen (3 Tage): Downloads, Desktop, Gespeichertes, Screenshots – bis man entschieden hat.</summary>
+        List<string> InboxListe()
+        {
+            var seit = DateTime.UtcNow.AddDays(-3);
+            var erledigt = new HashSet<string>(Blaetter.D.Erledigt, StringComparer.OrdinalIgnoreCase);
+            var l = E.S.D.Eintraege.Where(x => x.Hinzu > seit && x.Ablauf.HasValue && !erledigt.Contains(x.Pfad) && (File.Exists(x.Pfad) || Directory.Exists(x.Pfad)))
+                .Select(x => new KeyValuePair<string, DateTime>(x.Pfad, x.Hinzu)).ToList();
+            foreach (var p in Neueste(Blaetter.Screenshots, 12, true))
+            {
+                DateTime t; try { t = File.GetCreationTimeUtc(p); } catch { continue; }
+                if (t > seit && !erledigt.Contains(p) && !l.Any(x => Paths.Gleich(x.Key, p))) l.Add(new KeyValuePair<string, DateTime>(p, t));
+            }
+            return l.OrderByDescending(x => x.Value).Select(x => x.Key).ToList();
+        }
+
+        void Erledigt(string p)
+        {
+            Blaetter.D.Erledigt.Insert(0, p);
+            if (Blaetter.D.Erledigt.Count > 300) Blaetter.D.Erledigt.RemoveRange(300, Blaetter.D.Erledigt.Count - 300);
+            Blaetter.Speichern();
+        }
+
+        /// <summary>Inbox-Eintrag: beim Darüberfahren drei leise Knöpfe – behalten, 1 Tag, weg. Danach ist er aus der Inbox.</summary>
+        FrameworkElement InboxStueck(string p, Modul m, double s)
+        {
+            var h = (Border)Stueck(p, m, s);
+            var inner = h.Child;
+            h.Child = null;
+            var g = new Grid();
+            g.Children.Add(inner);
+            var knoepfe = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(-10, -2, -10, 0), Opacity = 0, IsHitTestVisible = false };
+            Action<string, string, Brush, Action> k = (icon, hilfe, farbe, tun) =>
+            {
+                var b = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 19, Height = 19, Content = UI.Icon(icon, 10, farbe, 2), ToolTip = hilfe, Margin = new Thickness(0.5, 0, 0.5, 0), Background = Farbe.B("#E6191C23") };
+                b.Click += delegate { tun(); Erledigt(p); Neuzeichnen(); };
+                b.PreviewMouseLeftButtonDown += (o, a) => a.Handled = false;
+                knoepfe.Children.Add(b);
+            };
+            var e = E.S.Finde(p);
+            k(Ikon.Unendlich, "Keep", Farbe.Akzent, () => { if (e != null) E.Verschieben(e, Paths.Dauerhaft); });
+            k(Ikon.Uhr, "1 day", Farbe.Text, () => { if (e != null) E.FristSetzen(e, Dauer.Ablauf("1 day", DateTime.UtcNow), "1 day"); else E.FristVonHand(p, "1 day"); });
+            k(Ikon.Muell, "Move to Recycle Bin", Farbe.Gefahr, () => { if (e != null) E.JetztWeg(e); else try { Native.InPapierkorb(p); } catch { } });
+            g.Children.Add(knoepfe);
+            h.Child = g;
+            h.MouseEnter += delegate { knoepfe.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(140))); knoepfe.IsHitTestVisible = true; };
+            h.MouseLeave += delegate { knoepfe.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(180))); knoepfe.IsHitTestVisible = false; };
+            return h;
         }
 
         static double Rest(Eintrag e) { return (e.Ablauf.Value - DateTime.UtcNow).TotalSeconds / Math.Max(1, (e.Ablauf.Value - e.Hinzu).TotalSeconds); }

@@ -556,6 +556,7 @@ namespace Workbench
         /// <summary>Daten haben sich geändert. Versteckt wird nichts gezeichnet – erst beim nächsten Zeigen.</summary>
         public void Auffrischen()
         {
+            TiefeVergessen();
             if (!bild && !IsVisible) { veraltet = true; korb = null; return; }
             if (ansicht == Korb) KorbLesen(); else { Neuzeichnen(); KorbLesen(); }
         }
@@ -1310,6 +1311,7 @@ namespace Workbench
             else if (imText) return;
             else if (strg && a.Key == Key.A) { if (IstBlatt(ansicht) || ansicht == Korb) AllesMarkieren(); a.Handled = true; }
             else if (strg && a.Key == Key.G) { Zeige(ansicht == Netzansicht ? letzteEbene : Netzansicht); a.Handled = true; }
+            else if (ImOrdner && (Keyboard.Modifiers & ModifierKeys.Shift) != 0 && (a.Key == Key.Down || a.Key == Key.Up)) { TiefeAendern(a.Key == Key.Down ? 1 : -1); a.Handled = true; }
             else if (a.Key == Key.Down || a.Key == Key.PageDown) { Schritt(1); a.Handled = true; }
             else if (a.Key == Key.Up || a.Key == Key.PageUp) { Schritt(-1); a.Handled = true; }
             else if (a.Key == Key.Left || (a.SystemKey == Key.Left)) { Zurueck(); a.Handled = true; }
@@ -1343,11 +1345,19 @@ namespace Workbench
         // ---------- Gesten ----------
         // Zwei Finger hoch/runter (Mausrad) = Ebene wechseln. Zwei Finger links/rechts = im Ordner zurück/vor.
         // Jede Wischbewegung zählt einmal: Summe sammeln, dann kurz sperren – sonst rattert es durch.
-        int wischSumme, radSumme;
+        int wischSumme, radSumme, tiefeRad;
         DateTime wischSperre, radSperre;
 
         void Rad(object s, MouseWheelEventArgs a)
         {
+            if (ImOrdner && (Keyboard.Modifiers & (ModifierKeys.Shift | ModifierKeys.Control)) != 0 && ansicht != Netzansicht)
+            {
+                // Umschalt+Rad oder Zusammenziehen/Auseinanderziehen: in die Tiefe der Ordner
+                a.Handled = true;
+                tiefeRad += a.Delta;
+                if (Math.Abs(tiefeRad) >= 100) { TiefeAendern(tiefeRad < 0 ? 1 : -1); tiefeRad = 0; }
+                return;
+            }
             if ((Keyboard.Modifiers & ModifierKeys.Control) != 0) return;    // Strg+Rad / Zusammenziehen: Zoom im Netz
             if (Keyboard.FocusedElement is TextBox && ((TextBox)Keyboard.FocusedElement).AcceptsReturn) return;
             a.Handled = true;

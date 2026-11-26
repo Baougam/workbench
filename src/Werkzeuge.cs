@@ -96,7 +96,7 @@ namespace Workbench
                     }
                     break;
             }
-            if (r.Text == null) r.Text = r.Dateien.Count == 0 ? "Nothing to do" : (r.Dateien.Count == 1 ? Path.GetFileName(r.Dateien[0].TrimEnd('\\')) : r.Dateien.Count + " files");
+            if (r.Text == null) r.Text = r.Dateien.Count == 0 ? (id == "unzip" ? "Drop a .zip file" : id == "zip" ? "Drop files or folders" : "Drop images here") : (r.Dateien.Count == 1 ? Path.GetFileName(r.Dateien[0].TrimEnd('\\')) : r.Dateien.Count + " files");
             return r;
         }
 

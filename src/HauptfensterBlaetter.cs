@@ -464,6 +464,7 @@ namespace Workbench
             string jetzt = AktOrdner(b);
             if (jetzt != null && !Paths.Gleich(jetzt, ordner)) { Stapel(zurueckVon, b).Push(jetzt); Stapel(vorVon, b).Clear(); }
             ordnerVon[b.Id] = ordner;
+            tiefeVon[b.Id] = 0;
             Nutzung.Merken(ordner);
             auswahl = null;
             if (Filter.Length > 0) suche.Text = "";
@@ -496,6 +497,13 @@ namespace Workbench
                 ort.Children.Add(tb);
             }
             PfeileSetzen(b);
+
+            int tiefe = Tiefe(b);
+            bool hatUnter = false;
+            try { hatUnter = Directory.EnumerateDirectories(akt).Any(x => !Engine.IstHilfsdatei(x)); } catch { }
+            // die nächste Tiefe still vorlesen (im Hintergrund, gemerkt) – dann ist der Wechsel sofort da und gleitet ganz
+            if (hatUnter && !bild) { string a2 = akt; int t2 = tiefe + 1; Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, new Action(() => TiefeLesen(a2, t2))); }
+            if (tiefe > 0) { aktuellerTisch = null; return MitTiefenAnzeige(TiefenFlaeche(b, akt, tiefe), b, hatUnter); }
 
             var eintraege = new List<string>();
             try
@@ -539,7 +547,17 @@ namespace Workbench
                 if (tisch != null) m.Add(new KeyValuePair<string, Action>("Tidy up", () => tisch.Aufraeumen()));
                 UI.Menue(flaeche, m, true);
             };
-            return rahmen;
+            return MitTiefenAnzeige(rahmen, b, hatUnter);
+        }
+
+        FrameworkElement MitTiefenAnzeige(FrameworkElement inhalt, BlattDef b, bool hatUnter)
+        {
+            var anz = TiefenAnzeige(b, hatUnter);
+            if (anz == null) return inhalt;
+            var g = new Grid();
+            g.Children.Add(inhalt);
+            g.Children.Add(anz);
+            return g;
         }
 
         /// <summary>Andere Ordner-Blätter als Ziel fürs Verschieben (höchstens drei).</summary>
