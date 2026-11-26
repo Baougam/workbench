@@ -202,3 +202,13 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 - **Suche**: Kreuz rechts im Feld, sobald Text drin ist – leert und behält den Fokus.
 
 - **Zoom-Umbau zurückgenommen** (Nutzer: Modell in der Mitte war klarer, Übergänge wurden unruhig). Stand wieder: Stufen-Wähler + Einrasten + Umschalt+Rad = Tiefe.
+
+## Gefühlt null Verzögerung (2026-11-27)
+
+- **Vorgebaut** (`src/HauptfensterVorbau.cs`): fertige Ansichten (höchstens 8) bleiben im Speicher; zurück = nur einsetzen. Nach jedem Wechsel in Ruhe (ApplicationIdle, 350 ms) die Nachbarn bauen: Blatt davor/danach, nächste Ebene (wenn gelesen), nächste Seite. Gültig nur bei gleichem Daten-Stand (`Auffrischen` → `VorbauVergessen`), gleicher Änderungszeit des Ordners bzw. gleichem Tiefen-Stand, höchstens 60 s. `Vorbauen` stellt Zustand kurz um und setzt alles exakt zurück.
+- **Blatt verlassen = Oberfläche**: Tiefe/Seite/Aufgeklapptes des verlassenen Blatts werden zurückgesetzt (Wunsch).
+- **Weniger Arbeit beim Bauen**: Ordner-Wissen durchgereicht (vorher bis zu 4× `Directory.Exists` je Symbol), Blatt-Formen der Typ-Marken einmal berechnet und eingefroren, Ordner-Oberfläche liest per `Schnell.Liste` (gemerkt, geprüft über Änderungszeit des Ordners), Darüberfahren über einen Ordner liest ihn schon vor.
+- **Übergang Tiefe** ohne Bildschirmfoto: die alte Ansicht selbst blendet aus; 260 ms statt 360, Sperre 150 ms statt 360.
+- Seiten-Punkte tiefer (eigener 20-px-Streifen unter den Boxen).
+- Log-Zeile "Langsam: Neuzeichnen … ms", wenn ein Aufbau länger als 30 ms dauert (in `%LOCALAPPDATA%\Workbench`).
+- Leerlauf gemessen: 0,01 % CPU, 50 MB.
