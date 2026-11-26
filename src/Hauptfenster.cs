@@ -145,8 +145,6 @@ namespace Workbench
                 };
                 StateChanged += delegate { wurzel.Margin = WindowState == WindowState.Maximized ? new Thickness(7) : new Thickness(0); };
                 PreviewKeyDown += Tasten;
-                PreviewKeyUp += (s, a) => { if ((a.Key == Key.LeftShift || a.Key == Key.RightShift) && StufenOffen) StufenFertig(false); };
-                Deactivated += delegate { if (StufenOffen) StufenFertig(true); };
                 // Klick woanders: Eingabefeld (Suche, Netz-Suche, Notiz) verliert den Fokus – leere Suche klappt zu
                 PreviewMouseDown += (s, a) =>
                 {
@@ -1309,7 +1307,6 @@ namespace Workbench
             else if (strg && a.Key == Key.F) { SucheAuf(); suche.SelectAll(); a.Handled = true; }
             else if (strg && a.Key == Key.E && Akt != null) { HomeBearbeiten(!homeBearbeiten); a.Handled = true; }
             else if (a.Key == Key.Escape && homeBearbeiten && !(Keyboard.FocusedElement is TextBox)) { HomeBearbeiten(false); a.Handled = true; }
-            else if (a.Key == Key.Escape && StufenOffen) { StufenFertig(true); a.Handled = true; }
             else if (a.Key == Key.Escape)
             {
                 if (ansicht == Netzansicht && netz != null && netz.SucheAktiv) netz.SucheLeeren();
@@ -1322,7 +1319,7 @@ namespace Workbench
             else if (imText) return;
             else if (strg && a.Key == Key.A) { if (IstBlatt(ansicht) || ansicht == Korb) AllesMarkieren(); a.Handled = true; }
             else if (strg && a.Key == Key.G) { Zeige(ansicht == Netzansicht ? letzteEbene : Netzansicht); a.Handled = true; }
-            else if (ImOrdner && (Keyboard.Modifiers & ModifierKeys.Shift) != 0 && (a.Key == Key.Down || a.Key == Key.Up)) { StufenSchritt(a.Key == Key.Down ? 1 : -1); a.Handled = true; }
+            else if (ImOrdner && (Keyboard.Modifiers & ModifierKeys.Shift) != 0 && (a.Key == Key.Down || a.Key == Key.Up)) { TiefeAendern(a.Key == Key.Down ? 1 : -1); a.Handled = true; }
             else if (a.Key == Key.Down || a.Key == Key.PageDown) { Schritt(1); a.Handled = true; }
             else if (a.Key == Key.Up || a.Key == Key.PageUp) { Schritt(-1); a.Handled = true; }
             else if (a.Key == Key.Left || (a.SystemKey == Key.Left)) { if (!SeiteWechseln(-1)) Zurueck(); a.Handled = true; }
@@ -1357,24 +1354,24 @@ namespace Workbench
         // Zwei Finger hoch/runter (Mausrad) = Ebene wechseln. Zwei Finger links/rechts = im Ordner zurück/vor.
         // Jede Wischbewegung zählt einmal: Summe sammeln, dann kurz sperren – sonst rattert es durch.
         int wischSumme, radSumme, tiefeRad;
-        DateTime wischSperre, radSperre, stufenRast;
+        DateTime wischSperre, radSperre;
 
         void Rad(object s, MouseWheelEventArgs a)
         {
-            if (ImOrdner && (Keyboard.Modifiers & (ModifierKeys.Shift | ModifierKeys.Control)) != 0 && ansicht != Netzansicht)
+            // Zusammen-/Auseinanderziehen oder Strg+Rad: Tiefe als Zoom (folgt den Fingern, rastet ein)
+            if (ImOrdner && (Keyboard.Modifiers & ModifierKeys.Control) != 0 && ansicht != Netzansicht)
             {
-                // Umschalt+Rad oder Zusammenziehen/Auseinanderziehen: in die Tiefe der Ordner
                 a.Handled = true;
-                if (!StufenOffen) StufenZeigen();
-                // Einrasten: nach jedem Schritt hält die Ebene kurz fest – das Touchpad rutscht nicht über zwei Ebenen
-                bool fein = Math.Abs(a.Delta) < 120 || (Keyboard.Modifiers & ModifierKeys.Control) != 0;
-                if (fein && DateTime.UtcNow < stufenRast) { tiefeRad = 0; }
-                else
-                {
-                    tiefeRad += a.Delta;
-                    if (Math.Abs(tiefeRad) >= 120) { StufenSchritt(tiefeRad < 0 ? 1 : -1); tiefeRad = 0; if (fein) stufenRast = DateTime.UtcNow.AddMilliseconds(230); }
-                }
-                if ((Keyboard.Modifiers & ModifierKeys.Shift) == 0) StufenNachRuhe();   // Zusammenziehen: kurz Ruhe = loslassen
+                Zoom(a.Delta);
+                return;
+            }
+            // Umschalt+Rad = seitlich (Windows-Standard): blättert die Seiten einer vollen Ebene
+            if (ImOrdner && (Keyboard.Modifiers & ModifierKeys.Shift) != 0 && ansicht != Netzansicht)
+            {
+                a.Handled = true;
+                if (DateTime.UtcNow < radSperre) { tiefeRad = 0; return; }
+                tiefeRad += a.Delta;
+                if (Math.Abs(tiefeRad) >= 120) { SeiteWechseln(tiefeRad < 0 ? 1 : -1); tiefeRad = 0; radSperre = DateTime.UtcNow.AddMilliseconds(280); }
                 return;
             }
             if ((Keyboard.Modifiers & ModifierKeys.Control) != 0) return;    // Strg+Rad / Zusammenziehen: Zoom im Netz
