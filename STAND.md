@@ -259,3 +259,5 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 - Cloud-Vorschaubilder wie im Explorer: normale Abfrage (SIIGBF_THUMBNAILONLY), OneDrive liefert das Bild ohne die Datei zu laden (geprueft: reine Online-Dateien bleiben online). INCACHEONLY lieferte nur das Programm-Symbol. PDF-Rendern nie fuer reine Cloud-Dateien (`NurInCloud`).
 
 - Blattkanten oben (hinterBlatt) ausgeblendet – wirkten altmodisch; die Schiene zeigt, wo man ist.
+
+- **Kreismenue als Ring** (gedrueckt halten): Glas-Segmente um das Symbol (`RingBauen`, `Sektor`), Richtung faerbt ihr Segment weich (Bernstein, Loeschen rot), Symbol darin dunkel; Name der Aktion in der Mitte. Loslassen fuehrt aus, Mitte = nichts. Farbwahl bleibt als Punkte-Kreis. Bild: `2b-kreis.png`.

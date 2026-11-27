@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -672,7 +672,7 @@ namespace Workbench
 
         // ---------- Kreismenü: gedrückt halten ----------
 
-        class KreisPunkt { public string Icon, Name, Farbe; public Action Tun; public bool Bleibt; public Grid El; }
+        class KreisPunkt { public string Icon, Name, Farbe; public Action Tun; public bool Bleibt; public Grid El; public System.Windows.Shapes.Path Seg; public SolidColorBrush SegPinsel; public FrameworkElement Ic; }
         readonly Canvas kreis = new Canvas { Visibility = Visibility.Collapsed, Background = Brushes.Transparent };
         readonly DispatcherTimer halte = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(420) };
         string halteBei;
@@ -754,7 +754,7 @@ namespace Workbench
         {
             if (!dinge.ContainsKey(name)) return;
             if (farben) KreisFarben(name); else KreisOeffnen(name, false);
-            if (kreisPunkte != null && kreisPunkte.Count > 1) { kreisAn = kreisPunkte[1]; NamePille(kreisAn); }
+            if (kreisPunkte != null && kreisPunkte.Count > 1) { kreisAn = kreisPunkte[1]; Hervor(kreisAn, true); NamePille(kreisAn); }
         }
 
         void KreisOeffnen(string k, bool gehalten)
@@ -784,6 +784,7 @@ namespace Workbench
             if (!Vorschau.Sofort) hof.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160)));
 
             int n = punkte.Count;
+            if (!farben) { RingBauen(m, punkte); return; }
             for (int i = 0; i < n; i++)
             {
                 var p = punkte[i];
@@ -834,6 +835,81 @@ namespace Workbench
         }
 
         Point kreisMitte;
+        const double RingInnen = 38, RingAussen = 94;
+        static readonly Color ringGlas = Color.FromArgb(0xEB, 0x1A, 0x1D, 0x25);
+
+        /// <summary>
+        /// Moderner Ring: Glas-Segmente rund ums Symbol, Symbol je Segment. Die Richtung des Zeigers färbt ihr Segment
+        /// (Bernstein, Löschen rot); in der Mitte steht, was passiert. Loslassen = ausführen, in der Mitte loslassen = nichts.
+        /// </summary>
+        void RingBauen(Point m, List<KreisPunkt> punkte)
+        {
+            int n = punkte.Count;
+            var ring = new Canvas { Width = 0, Height = 0, IsHitTestVisible = false };
+            var sk = new ScaleTransform(0.86, 0.86, m.X, m.Y);
+            ring.RenderTransform = sk;
+            double luecke = 0.045;   // Bogenmaß zwischen den Segmenten
+            for (int i = 0; i < n; i++)
+            {
+                var p = punkte[i];
+                double mitte = -Math.PI / 2 + i * 2 * Math.PI / n, halb = Math.PI / n - luecke;
+                var pinsel = new SolidColorBrush(ringGlas);
+                var seg = new System.Windows.Shapes.Path { Data = Sektor(m, mitte - halb, mitte + halb), Fill = pinsel, Stroke = Farbe.B("#1CFFFFFF"), StrokeThickness = 1 };
+                ring.Children.Add(seg);
+                double rm = (RingInnen + RingAussen) / 2;
+                double x = m.X + Math.Cos(mitte) * rm, y = m.Y + Math.Sin(mitte) * rm;
+                var g = new Grid { Width = 40, Height = 40, IsHitTestVisible = false };
+                var ic = UI.Icon(p.Icon, 17, Farbe.B(p.Farbe ?? "#E6FFFFFF"), 1.8);
+                ic.HorizontalAlignment = HorizontalAlignment.Center; ic.VerticalAlignment = VerticalAlignment.Center;
+                g.Children.Add(ic);
+                var isk = new ScaleTransform(1, 1, 20, 20); g.RenderTransform = isk; g.Tag = isk;
+                Canvas.SetLeft(g, x - 20); Canvas.SetTop(g, y - 20);
+                ring.Children.Add(g);
+                p.El = g; p.Seg = seg; p.SegPinsel = pinsel; p.Ic = ic;
+            }
+            // Mitte: dunkles Glas mit dem Namen der angepeilten Aktion
+            var loch = new Ellipse { Width = RingInnen * 2 - 8, Height = RingInnen * 2 - 8, Fill = Farbe.B("#F2111419"), Stroke = Farbe.B("#14FFFFFF"), StrokeThickness = 1 };
+            Canvas.SetLeft(loch, m.X - loch.Width / 2); Canvas.SetTop(loch, m.Y - loch.Height / 2);
+            ring.Children.Add(loch);
+            kreisName = new TextBlock { FontSize = 11.5, FontWeight = FontWeights.SemiBold, Foreground = Farbe.Text, TextAlignment = TextAlignment.Center, Width = RingInnen * 2 - 12, TextTrimming = TextTrimming.CharacterEllipsis, IsHitTestVisible = false };
+            Canvas.SetLeft(kreisName, m.X - kreisName.Width / 2); Canvas.SetTop(kreisName, m.Y - 8);
+            ring.Children.Add(kreisName);
+            kreisPille = null;
+            kreis.Children.Add(ring);
+            ToolTipService.SetIsEnabled(flaeche, false);
+            if (Vorschau.Sofort) { sk.ScaleX = sk.ScaleY = 1; return; }
+            var ez = new CubicEase { EasingMode = EasingMode.EaseOut };
+            sk.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(0.86, 1, TimeSpan.FromMilliseconds(170)) { EasingFunction = ez });
+            sk.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(0.86, 1, TimeSpan.FromMilliseconds(170)) { EasingFunction = ez });
+            ring.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(130)));
+        }
+
+        static Geometry Sektor(Point m, double a0, double a1)
+        {
+            Func<double, double, Point> pt = (r, a) => new Point(m.X + Math.Cos(a) * r, m.Y + Math.Sin(a) * r);
+            var g = new StreamGeometry();
+            using (var c = g.Open())
+            {
+                c.BeginFigure(pt(RingAussen, a0), true, true);
+                c.ArcTo(pt(RingAussen, a1), new Size(RingAussen, RingAussen), 0, a1 - a0 > Math.PI, SweepDirection.Clockwise, true, true);
+                c.LineTo(pt(RingInnen, a1), true, true);
+                c.ArcTo(pt(RingInnen, a0), new Size(RingInnen, RingInnen), 0, a1 - a0 > Math.PI, SweepDirection.Counterclockwise, true, true);
+            }
+            g.Freeze();
+            return g;
+        }
+
+        /// <summary>Segment in Zeigerichtung einfärben (weich), Symbol darin dunkel und etwas größer.</summary>
+        void Hervor(KreisPunkt p, bool an)
+        {
+            if (p.Seg == null) { Wachsen(p, an ? 1.16 : 1); return; }
+            var ziel = !an ? ringGlas : p.Farbe != null ? Color.FromArgb(0xF2, 0xFF, 0x8A, 0x7A) : Color.FromArgb(0xF2, 0xF4, 0xB8, 0x60);
+            if (Vorschau.Sofort) p.SegPinsel.Color = ziel;
+            else p.SegPinsel.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(ziel, TimeSpan.FromMilliseconds(an ? 90 : 160)));
+            var ic = p.Ic as System.Windows.Shapes.Path;
+            UI.IconFarbe(p.Ic, an ? Farbe.B("#FF1A1405") : Farbe.B(p.Farbe ?? "#E6FFFFFF"));
+            Wachsen(p, an ? 1.12 : 1);
+        }
 
         /// <summary>
         /// Richtung zählt, nicht Treffsicherheit: sobald der Zeiger ein Stück aus der Mitte heraus ist, gilt das Symbol in
@@ -855,9 +931,9 @@ namespace Workbench
                 }
             }
             if (naechster == kreisAn) return;
-            if (kreisAn != null) Wachsen(kreisAn, 1);
+            if (kreisAn != null) Hervor(kreisAn, false);
             kreisAn = naechster;
-            if (kreisAn != null) Wachsen(kreisAn, 1.16);
+            if (kreisAn != null) Hervor(kreisAn, true);
             NamePille(kreisAn);
         }
 
@@ -878,7 +954,7 @@ namespace Workbench
 
         void NamePille(KreisPunkt p)
         {
-            if (kreisPille == null) return;
+            if (kreisPille == null) { if (kreisName != null) kreisName.Text = p != null ? p.Name : ""; return; }   // Ring: Name in der Mitte
             if (p == null || string.IsNullOrEmpty(p.Name)) { kreisPille.Visibility = Visibility.Collapsed; return; }
             kreisName.Text = p.Name;
             kreisPille.Visibility = Visibility.Visible;

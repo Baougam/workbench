@@ -128,6 +128,16 @@ namespace Workbench
         }
         public static FrameworkElement Icon(string daten, double groesse, Brush farbe) { return Icon(daten, groesse, farbe, 1.8); }
 
+        /// <summary>Farbe eines Icons nachträglich ändern (alle Linien darin).</summary>
+        public static void IconFarbe(DependencyObject d, Brush farbe)
+        {
+            var p = d as Path; if (p != null) p.Stroke = farbe;
+            int n = VisualTreeHelper.GetChildrenCount(d);
+            for (int i = 0; i < n; i++) IconFarbe(VisualTreeHelper.GetChild(d, i), farbe);
+            var dec = d as Decorator; if (dec != null && dec.Child != null && n == 0) IconFarbe(dec.Child, farbe);
+            var pan = d as Panel; if (pan != null && n == 0) foreach (UIElement c in pan.Children) IconFarbe(c, farbe);
+        }
+
         /// <summary>Das Workbench-Zeichen: zwei Ebenen übereinander.</summary>
         public static FrameworkElement Logo(double groesse)
         {
