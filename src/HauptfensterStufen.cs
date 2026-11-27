@@ -132,6 +132,7 @@ namespace Workbench
             }
             stufenZiel = neu;
             StufenFaerben();
+            if (tregler != null) tregler.Folgen(neu, true);
             // Einrasten sichtbar: die Platte blitzt kurz auf und federt
             platten[neu].BeginAnimation(Shape.StrokeThicknessProperty, new DoubleAnimation(3.2, 1.6, TimeSpan.FromMilliseconds(260)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
             var zt = stufenText[neu];

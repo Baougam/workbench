@@ -72,6 +72,7 @@ namespace Workbench
             unten.Children.Add(kg);
             unten.Children.Add(eg);
             g.Children.Add(unten);
+            ReglerBauen(g, regler, unten);
             return g;
         }
 

@@ -1383,114 +1383,14 @@ namespace Workbench
         DateTime wischSperre, radSperre, stufenRast;
 
         /// <summary>Maus in der dunklen Spalte zwischen Schiene und Blatt (dort stehen die Ebenen-Striche)?</summary>
-        // ---------- Das Rädchen: kleiner geriffelter Griff neben den Ebenen-Strichen ----------
+        // ---------- Hinweise rund um den Ebenen-Regler (der Regler selbst: HauptfensterRegler.cs) ----------
 
-        Border rad;
-        Canvas radRillen;
         TextBlock rillenText;
         readonly List<TextBlock> tiefeZahlen = new List<TextBlock>();
-        double radDreh;
-        const double RadRuhe = 0.5, RadNah = 1;
-
-        void RilleBauen(Grid stapel)
-        {
-            radRillen = new Canvas { Width = 8, Height = 40, ClipToBounds = true, IsHitTestVisible = false };
-            rad = new Border
-            {
-                Width = 12, Height = 48, CornerRadius = new CornerRadius(6), Background = Farbe.B("#12FFFFFF"), BorderBrush = Farbe.B("#1AFFFFFF"), BorderThickness = new Thickness(1),
-                HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(-17, 12, 0, 0),
-                Cursor = Cursors.SizeNS, Opacity = 0, Visibility = Visibility.Collapsed, Child = radRillen, ToolTip = "Levels – scroll or drag"
-            };
-            ToolTipService.SetInitialShowDelay(rad, 900);
-            RadRillenSetzen();
-            rad.MouseEnter += delegate { RilleNahe(true); };
-            rad.MouseLeave += delegate { if (!radZieht) RilleNahe(false); };
-            rad.MouseLeftButtonDown += (s0, a0) => { a0.Handled = true; radZieht = true; radY = a0.GetPosition(this).Y; radZug = 0; rad.CaptureMouse(); };
-            rad.MouseMove += (s0, a0) =>
-            {
-                if (!radZieht) return;
-                double y = a0.GetPosition(this).Y, dy = y - radY; radY = y;
-                RadDrehen(dy);
-                radZug += dy;
-                if (Math.Abs(radZug) >= 22) { StufenSchritt(radZug > 0 ? 1 : -1); radZug = 0; }   // runterziehen = tiefer, wie Scrollen
-            };
-            rad.MouseLeftButtonUp += delegate { if (!radZieht) return; radZieht = false; rad.ReleaseMouseCapture(); if (StufenOffen) StufenFertig(false); if (!rad.IsMouseOver) RilleNahe(false); };
-            stapel.Children.Add(rad);
-        }
-
-        bool radZieht; double radY, radZug;
-
-        /// <summary>Feine waagerechte Rillen; beim Drehen wandern sie mit (wie ein echtes Daumenrad).</summary>
-        void RadRillenSetzen()
-        {
-            radRillen.Children.Clear();
-            const double abstand = 5;
-            double v = ((radDreh % abstand) + abstand) % abstand;
-            for (double y = -abstand + v; y < 40 + abstand; y += abstand)
-            {
-                // zur Mitte hin heller – wirkt gewölbt
-                double m = 1 - Math.Abs(y - 20) / 22;
-                var l = new Border { Width = 6, Height = 1, Background = new SolidColorBrush(Color.FromArgb((byte)(40 + 110 * Math.Max(0, m)), 255, 255, 255)) };
-                Canvas.SetLeft(l, 1); Canvas.SetTop(l, y);
-                radRillen.Children.Add(l);
-            }
-        }
-
-        public void RadDrehen(double dy) { if (rad == null || bild) return; radDreh += dy * 0.6; RadRillenSetzen(); }
-
-        bool rilleDa;
-        /// <summary>Nach jedem Zeichnen: Rädchen nur, wo es Ebenen gibt.</summary>
-        void RilleSetzen()
-        {
-            if (rad == null) return;
-            bool da = IstBlatt(ansicht) && ImOrdner && tiefenAnzeige != null;
-            if (da == rilleDa) return;
-            rilleDa = da;
-            rad.Visibility = da ? Visibility.Visible : Visibility.Collapsed;
-            if (bild) { rad.Opacity = da ? RadRuhe : 0; return; }
-            rad.BeginAnimation(OpacityProperty, new DoubleAnimation(da ? RadRuhe : 0, TimeSpan.FromMilliseconds(220)));
-            if (da && !E.Cfg.TiefeHinweis && IsVisible) { E.Cfg.TiefeHinweis = true; E.Cfg.Speichern(); RilleZeigen(); }
-        }
-
-        void RilleNahe(bool nah)
-        {
-            if (rad == null) return;
-            rad.BeginAnimation(OpacityProperty, new DoubleAnimation(nah || StufenOffen ? RadNah : RadRuhe, TimeSpan.FromMilliseconds(nah ? 120 : 260)));
-            foreach (var z in tiefeZahlen) z.BeginAnimation(OpacityProperty, new DoubleAnimation(nah ? 1 : 0, TimeSpan.FromMilliseconds(nah ? 140 : 220)));
-        }
-
-        /// <summary>Während man wählt: Rand des Rädchens in Bernstein.</summary>
-        void RilleAktiv(bool an)
-        {
-            if (rad == null || !rilleDa) return;
-            rad.BorderBrush = an ? Farbe.AkzentRand : Farbe.B("#1AFFFFFF");
-            rad.BeginAnimation(OpacityProperty, new DoubleAnimation(an || rad.IsMouseOver ? RadNah : RadRuhe, TimeSpan.FromMilliseconds(an ? 100 : 300)));
-        }
-
-        /// <summary>Nur beim allerersten Mal: das Rädchen dreht sich einmal kurz, daneben leise „Scroll“.</summary>
-        void RilleZeigen()
-        {
-            rad.BeginAnimation(OpacityProperty, new DoubleAnimation(RadNah, TimeSpan.FromMilliseconds(200)) { BeginTime = TimeSpan.FromMilliseconds(400) });
-            int schritt = 0;
-            var dreh = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-            dreh.Tick += delegate { schritt++; RadDrehen(Math.Sin(schritt / 9.0) * 2.2); if (schritt > 56) { dreh.Stop(); RilleNahe(false); } };
-            dreh.Start();
-            rillenText = new TextBlock { Text = "Scroll", FontSize = 10.5, Foreground = Farbe.B("#CCF4B860"), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false, Opacity = 0, Margin = new Thickness(-60, 12, 0, 0) };
-            ((Grid)rad.Parent).Children.Add(rillenText);
-            rillenText.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(300)) { BeginTime = TimeSpan.FromMilliseconds(400) });
-            var weg = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
-            weg.Tick += delegate { weg.Stop(); RillenTextWeg(); };
-            weg.Start();
-        }
-
-        void RillenTextWeg()
-        {
-            var t = rillenText; rillenText = null;
-            if (t == null) return;
-            var an = new DoubleAnimation(0, TimeSpan.FromMilliseconds(300));
-            an.Completed += delegate { var p = t.Parent as Panel; if (p != null) p.Children.Remove(t); };
-            t.BeginAnimation(OpacityProperty, an);
-        }
+        void RilleBauen(Grid stapel) { }
+        void RilleSetzen() { ReglerSetzen(); }
+        void RilleAktiv(bool an) { if (tregler != null) tregler.Folgen(StufenOffen ? stufenZiel : Tiefe(Akt), an); }
+        void RillenTextWeg() { }
 
         bool ImTiefenStreifen(MouseEventArgs a)
         {
@@ -1503,13 +1403,15 @@ namespace Workbench
 
         void Rad(object s, MouseWheelEventArgs a)
         {
+            // über dem Regler in der Schiene oder in der dunklen Spalte am Blatt: der Regler nimmt das Scrollen
+            if (tregler != null && tregler.IsVisible && ImOrdner && ansicht != Netzansicht && (tregler.IsMouseOver || ImTiefenStreifen(a)) && (Keyboard.Modifiers & (ModifierKeys.Shift | ModifierKeys.Control)) == 0)
+            { a.Handled = true; tregler.Eingabe(-a.Delta / 150.0); return; }
             bool streifen = ImOrdner && ansicht != Netzansicht && ImTiefenStreifen(a);
             if (ImOrdner && ((Keyboard.Modifiers & (ModifierKeys.Shift | ModifierKeys.Control)) != 0 || streifen) && ansicht != Netzansicht)
             {
                 // Umschalt+Rad, Zusammenziehen – oder einfach zwei Finger / Mausrad in der dunklen Spalte links (einhändig): in die Tiefe
                 a.Handled = true;
                 if (!StufenOffen) StufenZeigen();
-                if (streifen) RadDrehen(-a.Delta / 12.0);
                 // Einrasten: nach jedem Schritt hält die Ebene kurz fest – das Touchpad rutscht nicht über zwei Ebenen
                 bool fein = Math.Abs(a.Delta) < 120 || (Keyboard.Modifiers & ModifierKeys.Control) != 0 || streifen && a.Delta % 120 != 0;
                 if (fein && DateTime.UtcNow < stufenRast) { tiefeRad = 0; }
