@@ -345,6 +345,7 @@ namespace Workbench
         public bool Desktop = true;                // auch neue Dateien auf dem echten Desktop fragen
         public bool Rechtsklick = true;            // „Workbench ▸ 1 Tag …“ im Rechtsklick-Menü jeder Datei
         public bool EinfuehrungFertig = false;     // Rundgang beim ersten Start
+        public bool TiefeHinweis = false;          // einmal gezeigt: links scrollen = Ebenen
         public DateTime LetztePruefung;            // Update-Prüfung höchstens einmal am Tag
         public string NeueVersion = "";
         public bool Seitenleiste = true;           // Explorer-Navigationsbereich / Speichern-Dialoge

@@ -590,7 +590,7 @@ namespace Workbench
             max = Math.Max(max, jetzt);
             if (max == 0) { tiefenAnzeige = null; return null; }
             var sp = new StackPanel { HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(-12, 0, 0, 0), Background = Brushes.Transparent };
-            var zahlen = new List<TextBlock>();
+            var zahlen = tiefeZahlen; zahlen.Clear();
             // Darüberfahren: die Zahlen erscheinen weich neben den Strichen – ein Klick springt direkt (auch zwei Ebenen)
             sp.MouseEnter += delegate { foreach (var z in zahlen) z.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(140))); };
             sp.MouseLeave += delegate { foreach (var z in zahlen) z.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(200))); };
@@ -611,6 +611,9 @@ namespace Workbench
                 feld.MouseLeftButtonDown += (s, a) => { a.Handled = true; if (!an) TiefeSetzen(b, i2); };
                 sp.Children.Add(feld);
             }
+            // ⌃ ⌄ über und unter dem Stapel – erscheinen mit den Zahlen
+            if (jetzt > 0) { var auf = new TextBlock { Text = "⌃", FontSize = 11, Foreground = Farbe.B("#99FFFFFF"), Margin = new Thickness(5, 0, 0, 2), Opacity = 0, IsHitTestVisible = false }; sp.Children.Insert(0, auf); zahlen.Add(auf); }
+            if (jetzt < max) { var ab = new TextBlock { Text = "⌄", FontSize = 11, Foreground = Farbe.B("#99FFFFFF"), Margin = new Thickness(5, -4, 0, 0), Opacity = 0, IsHitTestVisible = false }; sp.Children.Add(ab); zahlen.Add(ab); }
             tiefenAnzeige = sp;
             return sp;
         }

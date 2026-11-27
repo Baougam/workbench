@@ -37,6 +37,7 @@ namespace Workbench
             stufenMax = Math.Max(1, Math.Min(7, Math.Max(max, Tiefe(b))));
             stufenZiel = Tiefe(b);
             stufenOffen = true;
+            RilleAktiv(true);
 
             stufen = new Grid { IsHitTestVisible = false, Opacity = 0 };
             var pos = buehne.TransformToAncestor(wurzel).Transform(new Point(0, 0));
@@ -173,6 +174,7 @@ namespace Workbench
         {
             if (!stufenOffen) return;
             stufenOffen = false;
+            RilleAktiv(false);
             if (stufenTimer != null) stufenTimer.Stop();
             var weg = stufen;
             var a = new DoubleAnimation(0, TimeSpan.FromMilliseconds(160));

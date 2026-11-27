@@ -106,6 +106,7 @@ namespace Workbench
             buehne.Background = Brushes.Transparent;
             blatt.Child = buehne;
             stapel.Children.Add(blatt);
+            RilleBauen(stapel);
             Grid.SetColumn(stapel, 1);
             mitte.Children.Add(stapel);
             Grid.SetRow(mitte, 1);
@@ -589,6 +590,7 @@ namespace Workbench
             var uhr = System.Diagnostics.Stopwatch.StartNew();
             NeuzeichnenJetzt();
             uhr.Stop();
+            RilleSetzen();
             if (uhr.ElapsedMilliseconds > 30 && !bild) Log.Info("Langsam: Neuzeichnen " + uhr.ElapsedMilliseconds + " ms (Ansicht " + ansicht + ", Tiefe " + Tiefe(Akt) + ", " + symbole.Count + " Symbole)");
         }
 
@@ -1381,11 +1383,85 @@ namespace Workbench
         DateTime wischSperre, radSperre, stufenRast;
 
         /// <summary>Maus in der dunklen Spalte zwischen Schiene und Blatt (dort stehen die Ebenen-Striche)?</summary>
+        // ---------- Die Rille: leiser Hinweis, dass man links scrollen kann ----------
+
+        Border rille, rillenZone;
+        TextBlock rillenText;
+        readonly List<TextBlock> tiefeZahlen = new List<TextBlock>();
+        const double RilleRuhe = 0.10, RilleNah = 0.34;
+
+        void RilleBauen(Grid stapel)
+        {
+            rille = new Border { Width = 2, CornerRadius = new CornerRadius(1), Background = Brushes.White, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Stretch, Margin = new Thickness(-9, 70, 0, 70), IsHitTestVisible = false, Opacity = 0 };
+            rillenZone = new Border { Width = 26, Background = Brushes.Transparent, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(-24, 40, 0, 40), Cursor = Cursors.SizeNS, Visibility = Visibility.Collapsed, ToolTip = "Scroll: levels" };
+            ToolTipService.SetInitialShowDelay(rillenZone, 900);
+            rillenZone.MouseEnter += delegate { RilleNahe(true); };
+            rillenZone.MouseLeave += delegate { RilleNahe(false); };
+            stapel.Children.Add(rille); stapel.Children.Add(rillenZone);
+        }
+
+        bool rilleDa;
+        /// <summary>Nach jedem Zeichnen: Rille nur, wo es Ebenen gibt – dann ganz leise sichtbar.</summary>
+        void RilleSetzen()
+        {
+            if (rille == null) return;
+            bool da = IstBlatt(ansicht) && ImOrdner && tiefenAnzeige != null;
+            if (da == rilleDa) return;
+            rilleDa = da;
+            rillenZone.Visibility = da ? Visibility.Visible : Visibility.Collapsed;
+            if (bild) { rille.Opacity = da ? RilleRuhe : 0; return; }
+            rille.BeginAnimation(OpacityProperty, new DoubleAnimation(da ? RilleRuhe : 0, TimeSpan.FromMilliseconds(220)));
+            if (da && !E.Cfg.TiefeHinweis && IsVisible) { E.Cfg.TiefeHinweis = true; E.Cfg.Speichern(); RilleZeigen(); }
+        }
+
+        /// <summary>Maus in der Nähe: Rille heller, Zahlen und ⌃⌄ an den Strichen erscheinen.</summary>
+        void RilleNahe(bool nah)
+        {
+            if (!StufenOffen) { rille.Background = Brushes.White; rille.BeginAnimation(OpacityProperty, new DoubleAnimation(nah ? RilleNah : RilleRuhe, TimeSpan.FromMilliseconds(nah ? 120 : 260))); }
+            foreach (var z in tiefeZahlen) z.BeginAnimation(OpacityProperty, new DoubleAnimation(nah ? 1 : 0, TimeSpan.FromMilliseconds(nah ? 140 : 220)));
+        }
+
+        /// <summary>Während man wählt: Rille in Bernstein.</summary>
+        void RilleAktiv(bool an)
+        {
+            if (rille == null || !rilleDa) return;
+            rille.Background = an ? Farbe.Akzent : Brushes.White;
+            rille.BeginAnimation(OpacityProperty, new DoubleAnimation(an ? 0.75 : (rillenZone.IsMouseOver ? RilleNah : RilleRuhe), TimeSpan.FromMilliseconds(an ? 100 : 300)));
+        }
+
+        /// <summary>Nur beim allerersten Mal: Rille atmet zweimal, daneben leise „Scroll“ – danach nie wieder.</summary>
+        void RilleZeigen()
+        {
+            var a = new DoubleAnimationUsingKeyFrames { BeginTime = TimeSpan.FromMilliseconds(500) };
+            var ez = new SineEase { EasingMode = EasingMode.EaseInOut };
+            double[] w = { RilleRuhe, 0.6, RilleRuhe, 0.6, RilleRuhe };
+            for (int i = 0; i < w.Length; i++) a.KeyFrames.Add(new EasingDoubleKeyFrame(w[i], KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(i * 450)), ez));
+            rille.BeginAnimation(OpacityProperty, a);
+            rillenText = new TextBlock { Text = "↕ Scroll", FontSize = 11, Foreground = Farbe.B("#CCF4B860"), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false, Opacity = 0, RenderTransform = new RotateTransform(-90), RenderTransformOrigin = new Point(0.5, 0.5), Margin = new Thickness(-40, 0, 0, 0) };
+            var stapel = (Grid)rille.Parent;
+            stapel.Children.Add(rillenText);
+            rillenText.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(300)) { BeginTime = TimeSpan.FromMilliseconds(500) });
+            var weg = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
+            weg.Tick += delegate { weg.Stop(); RillenTextWeg(); };
+            weg.Start();
+        }
+
+        void RillenTextWeg()
+        {
+            var t = rillenText; rillenText = null;
+            if (t == null) return;
+            var an = new DoubleAnimation(0, TimeSpan.FromMilliseconds(300));
+            an.Completed += delegate { var p = t.Parent as Panel; if (p != null) p.Children.Remove(t); };
+            t.BeginAnimation(OpacityProperty, an);
+        }
+
         bool ImTiefenStreifen(MouseEventArgs a)
         {
             if (blatt.ActualWidth < 10) return false;
             var p = a.GetPosition(blatt);
-            return p.X > -28 && p.X < 30 && p.Y > 0 && p.Y < blatt.ActualHeight;
+            bool drin = p.X > -40 && p.X < 36 && p.Y > -10 && p.Y < blatt.ActualHeight + 10;
+            if (drin && rillenText != null) RillenTextWeg();
+            return drin;
         }
 
         void Rad(object s, MouseWheelEventArgs a)
