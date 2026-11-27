@@ -400,14 +400,13 @@ namespace Workbench
                     int i = y * stride + x * 4;
                     byte a = px[i + 3];
                     if (a > 24) { if (y < oben) oben = y; if (y > unten) unten = y; }
-                    double l = px[i + 2] * 0.3 + px[i + 1] * 0.59 + px[i] * 0.11;   // vormultipliziert – bleibt stimmig
-                    l = l * 0.55;                                                    // geleert = gedämpft
-                    double r = l, gg = l, bb = l;
+                    // geleert = nur noch die Form, eine ruhige einfarbige Fläche – kein Inhalt (kein schwarzer Text, keine Bildreste)
+                    double fa = a / 255.0;
+                    double r = 70 * fa, gg = 75 * fa, bb = 86 * fa;          // vormultipliziert
                     if (bald)
                     {
                         // letzter Tag: geleerter Teil bekommt einen Hauch Bernstein
-                        double fa = a / 255.0;
-                        r = l * 0.62 + 244 * fa * 0.38; gg = l * 0.62 + 184 * fa * 0.38; bb = l * 0.62 + 96 * fa * 0.38;
+                        r = r * 0.6 + 244 * fa * 0.22; gg = gg * 0.6 + 184 * fa * 0.22; bb = bb * 0.6 + 96 * fa * 0.22;
                     }
                     px[i + 2] = (byte)Math.Max(0, Math.Min(a, r));
                     px[i + 1] = (byte)Math.Max(0, Math.Min(a, gg));
