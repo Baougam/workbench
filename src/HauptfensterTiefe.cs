@@ -510,7 +510,8 @@ namespace Workbench
         {
             var k = new Border { Width = breite - 2, Padding = new Thickness(1, 2, 1, 2), CornerRadius = new CornerRadius(7), Background = Brushes.Transparent, BorderBrush = Brushes.Transparent, BorderThickness = new Thickness(1), ToolTip = System.IO.Path.GetFileName(p) };
             var st = new StackPanel();
-            var bildEl = (cloud || s < 34) && !ordner ? Vorschau.Glyphe(p, Math.Round(s * 0.78), s * 0.94, true, false) : Vorschau.Echt(p, s, ordner);   // klein = schnelle Typ-Marke
+            // klein = schnelle Typ-Marke; groß genug (z. B. Ordner aufgeklappt) = echtes Vorschaubild, weich nachgeladen (Cloud: nur aus dem Windows-Speicher)
+            var bildEl = ordner ? Vorschau.Echt(p, s, true) : s < 38 ? Vorschau.Glyphe(p, Math.Round(s * 0.78), s * 0.94, true, false) : Vorschau.Echt(p, s, false, cloud);
             bildEl.HorizontalAlignment = HorizontalAlignment.Center;
             st.Children.Add(bildEl);
             if (name) st.Children.Add(new TextBlock { Text = System.IO.Path.GetFileNameWithoutExtension(p), FontSize = 10, Foreground = Farbe.B("#A6FFFFFF"), TextTrimming = TextTrimming.CharacterEllipsis, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 3, 0, 0) });

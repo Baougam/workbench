@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
@@ -280,7 +281,8 @@ namespace Workbench
         /// Für Recent & Co.: das echte Vorschaubild (erste Seite, Foto, Video-Standbild), wenn Windows eines hat – sonst
         /// Workbench' Typ-Marke (farbiges Blatt mit Endung) statt des Symbols der öffnenden App. So sieht nichts gleich aus.
         /// </summary>
-        public static FrameworkElement Echt(string pfad, double groesse, bool? ordner = null)
+        /// <param name="nurCache">Cloud: Vorschaubild nur aus dem Windows-Vorschau-Speicher – lädt nie eine Datei herunter, rechnet nichts.</param>
+        public static FrameworkElement Echt(string pfad, double groesse, bool? ordner = null, bool nurCache = false)
         {
             var g = new Grid { Width = groesse, Height = groesse };
             if (ordner ?? Directory.Exists(pfad)) { var o = UI.OrdnerBild(groesse); o.VerticalAlignment = VerticalAlignment.Center; g.Children.Add(o); return g; }
@@ -288,25 +290,37 @@ namespace Workbench
             marke.HorizontalAlignment = HorizontalAlignment.Center; marke.VerticalAlignment = VerticalAlignment.Center;
             g.Children.Add(marke);
             int px = (int)Math.Ceiling(groesse * Skala);
-            string k = Schluessel(pfad, px) + "|t";
+            string k = Schluessel(pfad, px) + (nurCache ? "|tc" : "|t");
+            int flags = nurCache ? 0x18 : 0x8;   // 0x8 nur Vorschaubild, 0x10 nur aus dem Speicher
+            bool weich = false;
             Action<BitmapSource> setzen = bs =>
             {
                 if (bs == null) return;
-                g.Children.Clear();
+                var alt = g.Children.Cast<UIElement>().ToList();
                 var rahmen = new Border { CornerRadius = new CornerRadius(Math.Max(4, groesse / 7)), ClipToBounds = true, Background = new ImageBrush(bs) { Stretch = Stretch.UniformToFill }, BorderBrush = Farbe.B("#26FFFFFF"), BorderThickness = new Thickness(1) };
                 double s = Math.Min(groesse / bs.PixelWidth, groesse / bs.PixelHeight);
                 rahmen.Width = Math.Max(groesse * 0.6, bs.PixelWidth * s); rahmen.Height = Math.Max(groesse * 0.6, bs.PixelHeight * s);
                 rahmen.HorizontalAlignment = HorizontalAlignment.Center; rahmen.VerticalAlignment = VerticalAlignment.Center;
                 g.Children.Add(rahmen);
+                // nachgeladen: weich über die Marke blenden, dann die Marke weg – nichts springt
+                if (weich && !Sofort)
+                {
+                    rahmen.Opacity = 0;
+                    var an = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(200));
+                    an.Completed += delegate { foreach (var x in alt) g.Children.Remove(x); };
+                    rahmen.BeginAnimation(UIElement.OpacityProperty, an);
+                }
+                else foreach (var x in alt) g.Children.Remove(x);
             };
             BitmapSource fertig;
             if (AusCache(k, out fertig)) { setzen(fertig); Nachpruefen(k, pfad); return g; }
-            if (Sofort) { var b0 = Native.Vorschau(pfad, px, 0x8); if (b0 == null && pfad.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) b0 = PdfVorschau.Seite(pfad, px); Merken(k, b0, pfad); setzen(b0); return g; }
+            if (Sofort) { var b0 = Native.Vorschau(pfad, px, flags); if (b0 == null && !nurCache && pfad.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) b0 = PdfVorschau.Seite(pfad, px); Merken(k, b0, pfad); setzen(b0); return g; }
+            weich = true;
             Auftrag(() =>
             {
                 BitmapSource b = null;
-                try { b = Native.Vorschau(pfad, px, 0x8); } catch { }
-                if (b == null && pfad.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) b = PdfVorschau.Seite(pfad, px);
+                try { b = Native.Vorschau(pfad, px, flags); } catch { }
+                if (b == null && !nurCache && pfad.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) b = PdfVorschau.Seite(pfad, px);
                 Merken(k, b, pfad);
                 if (b != null) Fertig(() => setzen(b));
             });
