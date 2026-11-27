@@ -314,7 +314,7 @@ namespace Workbench
         /// Für Recent & Co.: das echte Vorschaubild (erste Seite, Foto, Video-Standbild), wenn Windows eines hat – sonst
         /// Workbench' Typ-Marke (farbiges Blatt mit Endung) statt des Symbols der öffnenden App. So sieht nichts gleich aus.
         /// </summary>
-        /// <param name="nurCache">Cloud: Vorschaubild nur aus dem Windows-Vorschau-Speicher – lädt nie eine Datei herunter, rechnet nichts.</param>
+        /// <param name="nurCache">Cloud: Vorschaubild wie im Explorer (OneDrive liefert es, ohne die Datei zu laden) – aber nie selbst eine reine Cloud-Datei lesen (kein PDF-Rendern).</param>
         public static FrameworkElement Echt(string pfad, double groesse, bool? ordner = null, bool nurCache = false)
         {
             var g = new Grid { Width = groesse, Height = groesse };
@@ -323,8 +323,8 @@ namespace Workbench
             marke.HorizontalAlignment = HorizontalAlignment.Center; marke.VerticalAlignment = VerticalAlignment.Center;
             g.Children.Add(marke);
             int px = (int)Math.Ceiling(groesse * Skala);
-            string k = Schluessel(pfad, px) + (nurCache ? "|tc" : "|t");
-            int flags = nurCache ? 0x18 : 0x8;   // 0x8 nur Vorschaubild, 0x10 nur aus dem Speicher
+            string k = Schluessel(pfad, px) + "|t";
+            const int flags = 0x8;   // nur echtes Vorschaubild, nie das Programm-Symbol
             bool weich = false;
             Action<BitmapSource> setzen = bs =>
             {
@@ -347,7 +347,7 @@ namespace Workbench
             };
             BitmapSource fertig;
             if (AusCache(k, out fertig)) { setzen(fertig); Nachpruefen(k, pfad); return g; }
-            if (Sofort) { var b0 = Native.Vorschau(pfad, px, flags); if (b0 == null && !nurCache && pfad.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) b0 = PdfVorschau.Seite(pfad, px); Merken(k, b0, pfad); setzen(b0); return g; }
+            if (Sofort) { var b0 = Native.Vorschau(pfad, px, flags); if (b0 == null && !(nurCache && NurInCloud(pfad)) && pfad.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) b0 = PdfVorschau.Seite(pfad, px); Merken(k, b0, pfad); setzen(b0); return g; }
             weich = true;
             // solange es lädt: ein feiner Schimmer über der Marke (alle teilen sich einen – läuft nur, solange etwas lädt)
             var schimmer = Schimmer.Neu(Math.Round(groesse * 0.78), groesse * 0.94);
@@ -356,11 +356,18 @@ namespace Workbench
             {
                 BitmapSource b = null;
                 try { b = Native.Vorschau(pfad, px, flags); } catch { }
-                if (b == null && !nurCache && pfad.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) b = PdfVorschau.Seite(pfad, px);
+                if (b == null && !(nurCache && NurInCloud(pfad)) && pfad.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) b = PdfVorschau.Seite(pfad, px);
                 Merken(k, b, pfad);
                 Fertig(() => { Schimmer.Weg(schimmer); if (b != null) setzen(b); });
             });
             return g;
+        }
+
+        /// <summary>Liegt die Datei nur in der Cloud (OneDrive „Nur online“)? Dann nie selbst lesen – das würde sie herunterladen.</summary>
+        static bool NurInCloud(string pfad)
+        {
+            try { var a = (int)File.GetAttributes(pfad); return (a & (0x400000 | 0x40000 | 0x1000)) != 0; }   // RECALL_ON_DATA_ACCESS, RECALL_ON_OPEN, OFFLINE
+            catch { return true; }
         }
 
         static readonly string[] bildEndungen = { ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".heic", ".tif", ".tiff", ".mp4", ".mov", ".mkv", ".webm", ".avi" };
