@@ -261,3 +261,7 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 - Blattkanten oben (hinterBlatt) ausgeblendet – wirkten altmodisch; die Schiene zeigt, wo man ist.
 
 - **Kreismenue als Ring** (gedrueckt halten): Glas-Segmente um das Symbol (`RingBauen`, `Sektor`), Richtung faerbt ihr Segment weich (Bernstein, Loeschen rot), Symbol darin dunkel; Name der Aktion in der Mitte. Loslassen fuehrt aus, Mitte = nichts. Farbwahl bleibt als Punkte-Kreis. Bild: `2b-kreis.png`.
+
+## Version 0.3.0 (2026-11-27)
+
+Veroeffentlicht, um das Update per Klick erstmals echt zu testen (installierte 0.2.0 -> 0.3.0).

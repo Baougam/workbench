@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading;
 using System.Windows;
@@ -8,7 +8,7 @@ namespace Workbench
 {
     static class Program
     {
-        public const string Version = "0.2.0";
+        public const string Version = "0.3.0";
         public const string MutexName = "Local\\Workbench.Instanz";
         public const string ZeigenName = "Local\\Workbench.Zeigen";
         public const string BeendenName = "Local\\Workbench.Beenden";
