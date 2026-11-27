@@ -82,6 +82,8 @@ namespace Workbench
             static readonly Pen knopfRand = FrierenPen(new Pen(new SolidColorBrush(Color.FromArgb(0x38, 255, 255, 255)), 1));
             static readonly Pen knopfRandAn = FrierenPen(new Pen(new SolidColorBrush(Color.FromArgb(0xB3, 0xF4, 0xB8, 0x60)), 1));
             static Brush Frieren(Brush b) { b.Freeze(); return b; }
+            static readonly string[] roemisch = { "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX" };
+            static readonly Typeface zahlSchrift = new Typeface(new FontFamily("Cambria, Georgia"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
             static Pen FrierenPen(Pen p) { p.Freeze(); return p; }
 
             public TiefenRegler() { Cursor = Cursors.SizeNS; Focusable = false; }
@@ -221,6 +223,14 @@ namespace Workbench
                         byte al = (byte)(255 * Math.Min(1, (0.28 + 0.6 * d) * nah * (offenesEnde && i == anzahl - 1 ? 0.45 : 1)));
                         var col = Color.FromArgb(al, (byte)(255 - 11 * d), (byte)(255 - 71 * d), (byte)(255 - 159 * d));
                         dc.DrawEllipse(new SolidColorBrush(col), null, new Point(cx, y), r, r);
+                        // die Zahl der Ebene leise rechts daneben – die aktuelle in Bernstein, nur sichtbar, solange man in der Nähe ist
+                        if (schritt >= 13)
+                        {
+                            double zal = nah * (0.32 + 0.55 * d) * (offenesEnde && i == anzahl - 1 ? 0.5 : 1);
+                            var zf = new SolidColorBrush(Color.FromArgb((byte)(255 * Math.Min(1, zal)), (byte)(255 - 11 * d), (byte)(255 - 71 * d), (byte)(255 - 159 * d)));
+                            var ft = new FormattedText(roemisch[Math.Min(i, roemisch.Length - 1)], System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight, zahlSchrift, 10.5, zf, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+                            dc.DrawText(ft, new Point(cx + 11, y - ft.Height / 2));
+                        }
                     }
                 // Knopf, beim schnellen Bewegen leicht gestreckt
                 double sy = 1 + Math.Min(0.5, Math.Abs(vel) * 0.05), sx = 1 / Math.Sqrt(sy);

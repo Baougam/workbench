@@ -615,6 +615,7 @@ namespace Workbench
             // ⌃ ⌄ über und unter dem Stapel – erscheinen mit den Zahlen
             if (jetzt > 0) { var auf = new TextBlock { Text = "⌃", FontSize = 11, Foreground = Farbe.B("#99FFFFFF"), Margin = new Thickness(5, 0, 0, 2), Opacity = 0, IsHitTestVisible = false }; sp.Children.Insert(0, auf); zahlen.Add(auf); }
             if (jetzt < max) { var ab = new TextBlock { Text = "⌄", FontSize = 11, Foreground = Farbe.B("#99FFFFFF"), Margin = new Thickness(5, -4, 0, 0), Opacity = 0, IsHitTestVisible = false }; sp.Children.Add(ab); zahlen.Add(ab); }
+            sp.Visibility = Visibility.Collapsed;   // die Ebenen zeigt der Regler in der Schiene – am Blatt nichts mehr
             tiefenAnzeige = sp;
             return sp;
         }
