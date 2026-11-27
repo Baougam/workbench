@@ -244,3 +244,6 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 - `Farbe.B` merkt jede Farbe (vorher bei jedem Symbol neu aus Text gelesen).
 - Typ-Marken und Ordner-Symbole sind je Größe ein eingefrorenes Vektorbild (`Marke`, `OrdnerBild`) statt 4–5 Bausteinen je Symbol.
 - Messmodus: `Workbench.exe --messen <ordner> <ausgabe>` baut Oberfläche, Tiefe 1–3, Home, Expiring je 10× (nur lesend) und schreibt `messung.txt` (min/median Aufbau+Layout). Werte schwanken stark mit der Rechnerlast – nur direkt hintereinander vergleichen. Am echten OneDrive direkt vorher/nachher: Tiefe 1 ~270 → ~90 ms, Tiefe 2 ~370 → ~115 ms, Oberfläche ~50 → ~26 ms.
+
+- **Einhändig in die Tiefe** (2026-11-27): Zwei Finger hoch/runter oder Mausrad in der dunklen Spalte zwischen Schiene und Blatt (`ImTiefenStreifen`, -28…30 px um die linke Blattkante) öffnen den Stufen-Wähler wie Umschalt+Rad; Zusammenziehen bleibt.
+- Prototyp Schnellzugriff (Strg+M) mit fünf gestoppten Aufgaben: https://claude.ai/artifact/NbXyBUTdAKhZdESjMfxFwG – noch nicht in der App.

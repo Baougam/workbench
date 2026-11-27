@@ -1380,15 +1380,24 @@ namespace Workbench
         int wischSumme, radSumme, tiefeRad;
         DateTime wischSperre, radSperre, stufenRast;
 
+        /// <summary>Maus in der dunklen Spalte zwischen Schiene und Blatt (dort stehen die Ebenen-Striche)?</summary>
+        bool ImTiefenStreifen(MouseEventArgs a)
+        {
+            if (blatt.ActualWidth < 10) return false;
+            var p = a.GetPosition(blatt);
+            return p.X > -28 && p.X < 30 && p.Y > 0 && p.Y < blatt.ActualHeight;
+        }
+
         void Rad(object s, MouseWheelEventArgs a)
         {
-            if (ImOrdner && (Keyboard.Modifiers & (ModifierKeys.Shift | ModifierKeys.Control)) != 0 && ansicht != Netzansicht)
+            bool streifen = ImOrdner && ansicht != Netzansicht && ImTiefenStreifen(a);
+            if (ImOrdner && ((Keyboard.Modifiers & (ModifierKeys.Shift | ModifierKeys.Control)) != 0 || streifen) && ansicht != Netzansicht)
             {
-                // Umschalt+Rad oder Zusammenziehen/Auseinanderziehen: in die Tiefe der Ordner
+                // Umschalt+Rad, Zusammenziehen – oder einfach zwei Finger / Mausrad in der dunklen Spalte links (einhändig): in die Tiefe
                 a.Handled = true;
                 if (!StufenOffen) StufenZeigen();
                 // Einrasten: nach jedem Schritt hält die Ebene kurz fest – das Touchpad rutscht nicht über zwei Ebenen
-                bool fein = Math.Abs(a.Delta) < 120 || (Keyboard.Modifiers & ModifierKeys.Control) != 0;
+                bool fein = Math.Abs(a.Delta) < 120 || (Keyboard.Modifiers & ModifierKeys.Control) != 0 || streifen && a.Delta % 120 != 0;
                 if (fein && DateTime.UtcNow < stufenRast) { tiefeRad = 0; }
                 else
                 {
