@@ -253,3 +253,5 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 - Tiefe: ab Symbolgröße 38 px echtes Vorschaubild (z. B. aufgeklappter Ordner), weich über die Marke geblendet. Cloud nur aus dem Windows-Vorschauspeicher (SIIGBF_INCACHEONLY, kein PDF-Rendern) – lädt nie eine Datei herunter. Kleinere Symbole: Typ-Marke. Regler: in Ruhe nur Knopf, Linie erst in der Naehe ueber die ganze Luecke.
 
 - Striche/Zahlen am Blattrand entfernt (Nutzer: haesslich). Die Ebenen zeigt nur der Regler in der Schiene; roemische Zahlen leise rechts neben den Kerben, nur in der Naehe.
+- **Ebenen-Modell neu** (2026-11-27): stark abgedunkelt, Glas-Platten mit Verlauf, gewählte Ebene Bernstein mit weichem Leuchten, „N items“ nur bei der gewählten. Ausschnitt: nur gewählte ± 1 klar, ± 2 blass, Rest unsichtbar; das Feld gleitet mit, die gewählte bleibt in der Mitte (`FeldY`). Bild: `2j-stufen.png` (`StufenFuerBild`).
+- **Lade-Schimmer** (`Schimmer` in Parts.cs): wartende Platzhalter bekommen einen feinen Lichtstreifen; ein geteilter Pinsel + eine Animation, läuft nur solange mindestens einer wartet. Danach blendet das echte Bild weich ein.
