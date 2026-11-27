@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -37,10 +37,17 @@ namespace Workbench
         public static readonly Brush Gut = B("#7FD8A8");
         public static readonly Brush Transparent = Brushes.Transparent;
 
+        static System.Collections.Concurrent.ConcurrentDictionary<string, SolidColorBrush> pinsel;   // erst beim ersten Gebrauch (die Farben oben werden vorher angelegt)
+
+        /// <summary>Farbe aus „#AARRGGBB“ – je Farbe nur einmal gelesen und eingefroren, danach geteilt (früher: bei jedem Symbol neu).</summary>
         public static SolidColorBrush B(string hex)
         {
-            var b = (SolidColorBrush)new BrushConverter().ConvertFromString(hex);
+            if (pinsel == null) System.Threading.Interlocked.CompareExchange(ref pinsel, new System.Collections.Concurrent.ConcurrentDictionary<string, SolidColorBrush>(StringComparer.OrdinalIgnoreCase), null);
+            SolidColorBrush b;
+            if (pinsel.TryGetValue(hex, out b)) return b;
+            b = (SolidColorBrush)new BrushConverter().ConvertFromString(hex);
             b.Freeze();
+            pinsel[hex] = b;
             return b;
         }
 
@@ -197,13 +204,40 @@ namespace Workbench
             };
         }
 
+        static readonly Geometry ordnerHinten = Gefroren("M2 8a4 4 0 0 1 4-4h12l5 5h23a4 4 0 0 1 4 4v25a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z");
+        static readonly Geometry ordnerVorne = Gefroren("M2 15h48v23a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z");
+        static readonly Dictionary<string, DrawingImage> ordnerBilder = new Dictionary<string, DrawingImage>();
+        static Geometry Gefroren(string s) { var g = Geometry.Parse(s); g.Freeze(); return g; }
+
+        /// <summary>Ordner-Symbol: ein fertiges, geteiltes Vektorbild je Größe (früher zwei gestreckte Pfade je Symbol).</summary>
         public static Grid OrdnerBild(double b)
         {
-            var g = new Grid { Width = b, Height = b * 0.85 };
-            var hinten = new Path { Data = Geometry.Parse("M2 8a4 4 0 0 1 4-4h12l5 5h23a4 4 0 0 1 4 4v25a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"), Fill = Farbe.B("#D9B45A"), Stretch = Stretch.Uniform };
-            var vorne = new Path { Data = Geometry.Parse("M2 15h48v23a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"), Fill = Farbe.B("#F0CF7E"), Stretch = Stretch.Uniform, VerticalAlignment = VerticalAlignment.Bottom };
-            vorne.Height = b * 0.85 * (27.0 / 38.0);
-            g.Children.Add(hinten); g.Children.Add(vorne);
+            double h = b * 0.85;
+            double s2 = h / 38, breite = 48 * s2;              // Vorderseite wie bisher: auf ihre Höhe gestreckt (etwas breiter als b)
+            double rand = (breite - b) / 2;
+            string k = b.ToString("0.#");
+            DrawingImage di;
+            lock (ordnerBilder) ordnerBilder.TryGetValue(k, out di);
+            if (di == null)
+            {
+                double s1 = b / 48;
+                var dg = new DrawingGroup();
+                using (var dc = dg.Open())
+                {
+                    dc.DrawRectangle(Brushes.Transparent, null, new Rect(-rand, 0, breite, h));
+                    dc.PushTransform(new MatrixTransform(s1, 0, 0, s1, -2 * s1, (h - 38 * s1) / 2 - 4 * s1));
+                    dc.DrawGeometry(Farbe.B("#D9B45A"), null, ordnerHinten);
+                    dc.Pop();
+                    dc.PushTransform(new MatrixTransform(s2, 0, 0, s2, (b - breite) / 2 - 2 * s2, h - 42 * s2));
+                    dc.DrawGeometry(Farbe.B("#F0CF7E"), null, ordnerVorne);
+                    dc.Pop();
+                }
+                dg.Freeze();
+                di = new DrawingImage(dg); di.Freeze();
+                lock (ordnerBilder) ordnerBilder[k] = di;
+            }
+            var g = new Grid { Width = b, Height = h };
+            g.Children.Add(new Image { Source = di, Width = breite, Height = h, Stretch = Stretch.Fill, Margin = new Thickness(-rand, 0, -rand, 0) });
             return g;
         }
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -340,15 +340,8 @@ namespace Workbench
                 Laden(pfad, (int)Math.Ceiling(b * Skala), false, bs => { if (bs != null) rahmen.Background = new ImageBrush(bs) { Stretch = Stretch.UniformToFill }; });
                 return g;
             }
-            var form = Form(b, h);
-            g.Children.Add(new System.Windows.Shapes.Path { Data = form[0], Fill = Farbe.Endung(ext) });
-            g.Children.Add(new System.Windows.Shapes.Path { Data = form[0], Fill = glanz });
-            g.Children.Add(new System.Windows.Shapes.Path { Data = form[1], Fill = ohrFarbe });
-            string e = ext.TrimStart('.').ToUpperInvariant();
-            if (e.Length > 4) e = e.Substring(0, 4);
-            if (e.Length == 0) e = "FILE";
-            g.Children.Add(new TextBlock { Text = e, FontSize = Math.Max(8, b * 0.21), FontWeight = FontWeights.Bold, Foreground = Farbe.B("#C01C1405"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, h * 0.12) });
-            return g;
+            // ein einziges fertiges Bild je Endung und Größe (früher 5 Bausteine je Symbol) – geteilt, eingefroren
+            return new Image { Source = Marke(ext, b, h), Width = b, Height = h, Stretch = Stretch.Fill };
         }
 
         // Blatt-Form je Größe nur einmal berechnen (eingefroren, von allen Symbolen geteilt) – sonst wird sie für jedes Symbol neu aus Text gelesen
@@ -370,6 +363,36 @@ namespace Workbench
             f[0].Freeze(); f[1].Freeze();
             formen[k] = f;
             return f;
+        }
+
+        static readonly Dictionary<string, DrawingImage> marken = new Dictionary<string, DrawingImage>();
+        static readonly Brush markenText = Frieren(new SolidColorBrush(Color.FromArgb(0xC0, 0x1C, 0x14, 0x05)));
+
+        /// <summary>Typ-Marke (Blatt mit Eselsohr in Typfarbe + Endung) als eingefrorenes Vektorbild – scharf in jeder Größe.</summary>
+        static DrawingImage Marke(string ext, double b, double h)
+        {
+            string k = ext + "|" + b.ToString("0.#") + "|" + h.ToString("0.#");
+            DrawingImage di;
+            lock (marken) if (marken.TryGetValue(k, out di)) return di;
+            var form = Form(b, h);
+            var dg = new DrawingGroup();
+            using (var dc = dg.Open())
+            {
+                dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, b, h));
+                dc.DrawGeometry(Farbe.Endung(ext), null, form[0]);
+                dc.DrawGeometry(glanz, null, form[0]);
+                dc.DrawGeometry(ohrFarbe, null, form[1]);
+                string e = ext.TrimStart('.').ToUpperInvariant();
+                if (e.Length > 4) e = e.Substring(0, 4);
+                if (e.Length == 0) e = "FILE";
+                var ft = new FormattedText(e, System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+                    new Typeface(UI.Schrift, FontStyles.Normal, FontWeights.Bold, FontStretches.Normal), Math.Max(8, b * 0.21), markenText, Skala);
+                dc.DrawText(ft, new Point((b - ft.Width) / 2, h - h * 0.12 - ft.Height));
+            }
+            dg.Freeze();
+            di = new DrawingImage(dg); di.Freeze();
+            lock (marken) marken[k] = di;
+            return di;
         }
 
         static Image Einfach(BitmapSource bs, double b, double h)

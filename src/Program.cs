@@ -42,6 +42,7 @@ namespace Workbench
             {
                 if (modus == "--selftest") return SelfTest.Run();
                 if (modus == "--render") return Render.Run(args.Length > 1 ? args[1] : ".");
+                if (modus == "--messen") return Render.Messen(args.Length > 1 ? args[1] : ".", args.Length > 2 ? args[2] : ".");
                 // Browser-Erweiterung (Native Messaging): eine Nachricht lesen, als Auftrag einstellen, antworten, fertig.
                 if (modus.StartsWith("chrome-extension://")) return BrowserHost();
                 if (modus == "--uninstall") { Install.Deinstallieren(args.Length > 1 && args[1] == "--still"); return 0; }

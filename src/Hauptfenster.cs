@@ -581,6 +581,8 @@ namespace Workbench
             if (ansicht == Korb) KorbLesen(); else { Neuzeichnen(); KorbLesen(); }
         }
 
+        public void NeuzeichnenTest() { Neuzeichnen(); }
+
         void Neuzeichnen()
         {
             if (ansicht < 0) return;

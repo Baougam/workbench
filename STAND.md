@@ -238,3 +238,9 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 - Daten: `TiefeLesen(akt, 3)` – gemerkt/auf Platte, im Hintergrund still nachgelesen; neue Daten → `RaumNeueDaten` baut die Platten neu. Ein einziges Zeichen-Element (OnRender), `CompositionTarget.Rendering` nur solange sich etwas bewegt.
 - Bilder: `2e-raum-schraeg.png`, `2f-raum-seite.png` (`RaumFuerBild`).
 - **Aufgeräumt nach echtem OneDrive-Test** (Nutzer: „damit kann keiner was anfangen“): Überblick zuerst – Ebene I und II immer, tiefer nur im obersten Ordner, den man ansieht (`Sichtbar`); Platten unter 40×26 px fallen weg; lose Dateien nur ganz oben; Punkte nur auf großen Platten (max. 10); Namen in einem eigenen Durchgang über allem, mit dunklem Grund, Überlappendes entfällt; Ordnerart-Marke nur Ebene I; Fläche wird eingepasst (Boden + Ebene II). Während der Raum offen ist, nimmt die Fläche darunter keine Klicks (vorher startete der Auswahlrahmen mit). Bilder: `2h-voll-raum.png`, `2i-voll-raum-fokus.png`.
+
+## Tempo: Bausteine sparen (2026-11-27)
+
+- `Farbe.B` merkt jede Farbe (vorher bei jedem Symbol neu aus Text gelesen).
+- Typ-Marken und Ordner-Symbole sind je Größe ein eingefrorenes Vektorbild (`Marke`, `OrdnerBild`) statt 4–5 Bausteinen je Symbol.
+- Messmodus: `Workbench.exe --messen <ordner> <ausgabe>` baut Oberfläche, Tiefe 1–3, Home, Expiring je 10× (nur lesend) und schreibt `messung.txt` (min/median Aufbau+Layout). Werte schwanken stark mit der Rechnerlast – nur direkt hintereinander vergleichen. Am echten OneDrive direkt vorher/nachher: Tiefe 1 ~270 → ~90 ms, Tiefe 2 ~370 → ~115 ms, Oberfläche ~50 → ~26 ms.

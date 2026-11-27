@@ -494,6 +494,48 @@ namespace Workbench
     /// <summary>Workbench.exe --render &lt;ordner&gt;: zeichnet alle Ansichten mit Beispieldaten als PNG (zum Prüfen des Aussehens).</summary>
     static class Render
     {
+        /// <summary>Tempo messen an einem echten Ordner (nur lesend): Oberfläche und Tiefe 1–3, je 4× bauen + Layout.</summary>
+        public static int Messen(string ordner, string ziel)
+        {
+            ziel = Path.GetFullPath(ziel);
+            string test = Path.Combine(ziel, "messdaten");
+            if (Directory.Exists(test)) Directory.Delete(test, true);
+            Environment.SetEnvironmentVariable("WORKBENCH_TESTROOT", test);
+            var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            UI.ThemaLaden(app.Resources);
+            Paths.OrdnerAnlegen();
+            var E = new Engine(Dispatcher.CurrentDispatcher, new Einstellungen());
+            Blaetter.D = Blaetter.Standard(false);
+            Blaetter.D.Liste.Add(new BlattDef { Art = "folder", Pfad = ordner, Name = "Mess" });
+            int vi = Blaetter.D.Liste.Count - 1;
+            var aus = new List<string>();
+            var w = new Hauptfenster(E, vi, true);
+            w.Wurzel.Measure(new Size(1280, 800)); w.Wurzel.Arrange(new Rect(0, 0, 1280, 800));
+            Action<string, Action> mess = (name, tun) =>
+            {
+                var zeiten = new List<string>(); var summen = new List<long>();
+                for (int i = 0; i < 10; i++)
+                {
+                    var uhr = System.Diagnostics.Stopwatch.StartNew();
+                    tun();
+                    long bau = uhr.ElapsedMilliseconds;
+                    w.Wurzel.Measure(new Size(1280, 800)); w.Wurzel.Arrange(new Rect(0, 0, 1280, 800)); w.Wurzel.UpdateLayout();
+                    long lay = uhr.ElapsedMilliseconds - bau;
+                    var bmp = new RenderTargetBitmap(1280, 800, 96, 96, PixelFormats.Pbgra32); bmp.Render(w.Wurzel);
+                    zeiten.Add("bau " + bau + " + layout " + lay + " + zeichnen " + (uhr.ElapsedMilliseconds - bau - lay)); summen.Add(bau + lay);
+                }
+                summen.Sort(); zeiten.Clear(); zeiten.Add("bau+layout min " + summen[0] + ", median " + summen[summen.Count / 2]);
+                aus.Add(name + ": " + string.Join(" / ", zeiten) + " ms  (" + w.SymboleTest.Count + " Symbole)");
+            };
+            mess("Oberfläche", () => w.NeuzeichnenTest());
+            for (int t = 1; t <= 3; t++) { int t2 = t; w.TiefeAendern(1); mess("Tiefe " + t2, () => w.NeuzeichnenTest()); }
+            mess("Home", () => w.Zeige(1));
+            mess("Expiring", () => w.Zeige(0));
+            File.WriteAllLines(Path.Combine(ziel, "messung.txt"), aus);
+            foreach (var z in aus) Console.WriteLine(z);
+            return 0;
+        }
+
         public static int Run(string ziel)
         {
             ziel = Path.GetFullPath(ziel);
