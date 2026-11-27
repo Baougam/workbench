@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -201,11 +201,15 @@ namespace Workbench
                 bool fenster = gesamt > platz;
                 dc.PushClip(new RectangleGeometry(new Rect(0, 0, w, h)));
                 if (fenster) dc.PushOpacityMask(new LinearGradientBrush(new GradientStopCollection { new GradientStop(Color.FromArgb(0, 0, 0, 0), 0), new GradientStop(Colors.Black, 0.16), new GradientStop(Colors.Black, 0.84), new GradientStop(Color.FromArgb(0, 0, 0, 0), 1) }, 90));
-                // Spur: in Ruhe ein feiner Strich, in der Nähe etwas breiter
-                double bw = 2 + 2 * nah;
-                dc.PushOpacity(0.15 + 0.85 * nah * 0.45);
-                dc.DrawRoundedRectangle(bahnFarbe, null, new Rect(cx - bw / 2, oben - 6, bw, gesamt + 12), bw / 2, bw / 2);
-                dc.Pop();
+                // Spur: in Ruhe unsichtbar; in der Nähe über die ganze Höhe der Lücke – so liest man sofort „Schieber“
+                if (nah > 0.01)
+                {
+                    double bw = 2 + 2 * nah, lang = (h - 8) * (0.6 + 0.4 * nah);
+                    var verlauf = new LinearGradientBrush(new GradientStopCollection { new GradientStop(Color.FromArgb(0, 255, 255, 255), 0), new GradientStop(Colors.White, 0.18), new GradientStop(Colors.White, 0.82), new GradientStop(Color.FromArgb(0, 255, 255, 255), 1) }, 90);
+                    dc.PushOpacity(0.4 * nah);
+                    dc.DrawRoundedRectangle(verlauf, null, new Rect(cx - bw / 2, (h - lang) / 2, bw, lang), bw / 2, bw / 2);
+                    dc.Pop();
+                }
                 // Kerben wachsen aus dem Nichts; die unterste blass, wenn es noch tiefer geht als gelesen
                 if (nah > 0.02)
                     for (int i = 0; i < anzahl; i++)
@@ -222,7 +226,7 @@ namespace Workbench
                 double sy = 1 + Math.Min(0.5, Math.Abs(vel) * 0.05), sx = 1 / Math.Sqrt(sy);
                 double kh0 = Math.Min(22, schritt + 4);
                 double kw = 14 * sx, kh = kh0 * sy, ky = oben + x * schritt;
-                dc.PushOpacity(0.35 + 0.65 * nah);
+                dc.PushOpacity(0.45 + 0.55 * nah);   // Knopf immer leicht sichtbar
                 dc.DrawRoundedRectangle(knopfFarbe, aktiv || zieht ? knopfRandAn : knopfRand, new Rect(cx - kw / 2, ky - kh / 2, kw, kh), kw / 2, kw / 2);
                 dc.Pop();
                 if (fenster) dc.Pop();
