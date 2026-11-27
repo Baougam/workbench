@@ -670,6 +670,9 @@ namespace Workbench
                 Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "2h-voll-raum.png"));
                 w.RaumFuerBild(0.55, -0.22, "Bilder");
                 Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "2i-voll-raum-fokus.png"));
+                w.RaumZuFuerBild();
+                w.StufenFuerBild(2);
+                Speichern(w.Wurzel, 1060, 700, Path.Combine(ziel, "2j-stufen.png"));
                 Blaetter.D = Blaetter.Standard(false);
             }
             {

@@ -79,6 +79,8 @@ namespace Workbench
             return true;
         }
 
+        public void RaumZuFuerBild() { if (raum != null) { wurzel.Children.Remove(raum); raum = null; } buehne.IsHitTestVisible = true; RaumUeberblenden(1); }
+
         /// <summary>Nur für Bilder: Raum fest gekippt zeigen (optional ein Ordner hervorgehoben).</summary>
         public void RaumFuerBild(double t, double azi, string hervor)
         {

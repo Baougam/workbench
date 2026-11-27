@@ -13,6 +13,39 @@ using System.Windows.Media.Imaging;
 
 namespace Workbench
 {
+    /// <summary>
+    /// Leiser Lade-Schimmer: ein heller Streifen wandert über wartende Platzhalter. Alle teilen sich einen Pinsel und eine Uhr;
+    /// die Animation läuft nur, solange mindestens ein Platzhalter wartet – sonst kostet er nichts.
+    /// </summary>
+    static class Schimmer
+    {
+        static LinearGradientBrush pinsel;
+        static TranslateTransform weg;
+        static int aktiv;
+
+        public static Border Neu(double b, double h)
+        {
+            if (pinsel == null)
+            {
+                weg = new TranslateTransform(-1, 0);
+                pinsel = new LinearGradientBrush { StartPoint = new Point(0, 0.3), EndPoint = new Point(1, 0.7), RelativeTransform = weg };
+                pinsel.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 255, 255), 0.3));
+                pinsel.GradientStops.Add(new GradientStop(Color.FromArgb(70, 255, 255, 255), 0.5));
+                pinsel.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 255, 255), 0.7));
+            }
+            var el = new Border { Width = b, Height = h, CornerRadius = new CornerRadius(6), Background = pinsel, IsHitTestVisible = false, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            if (aktiv++ == 0) weg.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(-1, 1, TimeSpan.FromMilliseconds(1400)) { RepeatBehavior = RepeatBehavior.Forever });
+            return el;
+        }
+
+        public static void Weg(Border el)
+        {
+            var p = el.Parent as Panel;
+            if (p != null) p.Children.Remove(el);
+            if (--aktiv <= 0) { aktiv = 0; weg.BeginAnimation(TranslateTransform.XProperty, null); }
+        }
+    }
+
     /// <summary>Lädt echte Vorschaubilder auf einem eigenen Thread, damit die Oberfläche nie hängt.</summary>
     static class Vorschau
     {
@@ -316,13 +349,16 @@ namespace Workbench
             if (AusCache(k, out fertig)) { setzen(fertig); Nachpruefen(k, pfad); return g; }
             if (Sofort) { var b0 = Native.Vorschau(pfad, px, flags); if (b0 == null && !nurCache && pfad.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) b0 = PdfVorschau.Seite(pfad, px); Merken(k, b0, pfad); setzen(b0); return g; }
             weich = true;
+            // solange es lädt: ein feiner Schimmer über der Marke (alle teilen sich einen – läuft nur, solange etwas lädt)
+            var schimmer = Schimmer.Neu(Math.Round(groesse * 0.78), groesse * 0.94);
+            g.Children.Add(schimmer);
             Auftrag(() =>
             {
                 BitmapSource b = null;
                 try { b = Native.Vorschau(pfad, px, flags); } catch { }
                 if (b == null && !nurCache && pfad.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) b = PdfVorschau.Seite(pfad, px);
                 Merken(k, b, pfad);
-                if (b != null) Fertig(() => setzen(b));
+                Fertig(() => { Schimmer.Weg(schimmer); if (b != null) setzen(b); });
             });
             return g;
         }

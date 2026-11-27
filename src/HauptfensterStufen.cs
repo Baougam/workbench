@@ -26,15 +26,49 @@ namespace Workbench
         DispatcherTimer stufenTimer;
 
         public bool StufenOffen { get { return stufenOffen; } }
+        bool stufenBild;
+
+        /// <summary>Nur für Bilder: Wähler offen auf Ebene ziel, alle Bewegungen sofort am Ende.</summary>
+        public void StufenFuerBild(int ziel)
+        {
+            stufenBild = true;
+            StufenZeigen();
+            stufenZiel = Math.Min(stufenMax, ziel);
+            StufenFaerben();
+            Action<DependencyObject> fertig = null;
+            fertig = d =>
+            {
+                var el = d as UIElement;
+                if (el != null)
+                {
+                    double o = el.Opacity; el.BeginAnimation(UIElement.OpacityProperty, null); el.Opacity = o;
+                    var tt = el.RenderTransform as TranslateTransform; if (tt != null) { tt.BeginAnimation(TranslateTransform.YProperty, null); }
+                }
+                for (int i = 0; i < VisualTreeHelper.GetChildrenCount(d); i++) fertig(VisualTreeHelper.GetChild(d, i));
+            };
+            stufen.Opacity = 1; stufen.RenderTransform = null;
+            // Zielwerte setzen (die Animationen laufen im Bild nicht)
+            for (int i = 0; i < platten.Count; i++)
+            {
+                int dd = Math.Abs(i - stufenZiel); double deck = dd == 0 ? 1 : dd == 1 ? 0.7 : dd == 2 ? 0.25 : 0;
+                platten[i].BeginAnimation(UIElement.OpacityProperty, null); platten[i].Opacity = deck;
+                stufenText[i].BeginAnimation(UIElement.OpacityProperty, null); stufenText[i].Opacity = deck;
+                stufenGlanz[i].BeginAnimation(UIElement.OpacityProperty, null); stufenGlanz[i].Opacity = i == stufenZiel ? 1 : 0;
+                stufenAnzahl[i].BeginAnimation(UIElement.OpacityProperty, null); stufenAnzahl[i].Opacity = i == stufenZiel ? 1 : 0;
+                var tt = platten[i].RenderTransform as TranslateTransform; if (tt != null) { tt.BeginAnimation(TranslateTransform.YProperty, null); tt.Y = i == stufenZiel ? -5 : 0; }
+                var tl = stufenText[i].RenderTransform as TranslateTransform; if (tl != null) { tl.BeginAnimation(TranslateTransform.YProperty, null); tl.Y = i == stufenZiel ? -5 : 0; }
+            }
+            var feld = (TranslateTransform)stufenFeld.RenderTransform; feld.BeginAnimation(TranslateTransform.YProperty, null); feld.Y = FeldY(stufenZiel);
+        }
 
         public void StufenZeigen()
         {
             var b = Akt;
-            if (b == null || !ImOrdner || bild) return;
+            if (b == null || !ImOrdner || (bild && !stufenBild)) return;
             if (stufenOffen) return;
             int max;
             if (!tiefeMax.TryGetValue(b.Id, out max)) max = 1;
-            stufenMax = Math.Max(1, Math.Min(7, Math.Max(max, Tiefe(b))));
+            stufenMax = Math.Max(1, Math.Min(8, Math.Max(max, Tiefe(b))));
             stufenZiel = Tiefe(b);
             stufenOffen = true;
             RilleAktiv(true);
@@ -44,32 +78,29 @@ namespace Workbench
             stufen.Margin = new Thickness(pos.X, pos.Y, 0, 0);
             stufen.Width = buehne.ActualWidth; stufen.Height = buehne.ActualHeight;
             stufen.HorizontalAlignment = HorizontalAlignment.Left; stufen.VerticalAlignment = VerticalAlignment.Top;
-            // Blatt leicht abdunkeln, damit das Modell trägt
-            stufen.Children.Add(new Border { CornerRadius = new CornerRadius(18), Background = Farbe.B("#8C0B0D11") });
-            var c = new Canvas { Width = 300, Height = 60 + stufenMax * 34 + 40, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-            platten.Clear(); stufenText.Clear();
+            // Blatt kräftig abdunkeln, damit das Modell ruhig steht
+            stufen.Children.Add(new Border { CornerRadius = new CornerRadius(18), Background = new RadialGradientBrush(Color.FromArgb(0xE6, 0x0B, 0x0D, 0x11), Color.FromArgb(0xB3, 0x0B, 0x0D, 0x11)) });
+            // Ausschnitt: nur die Ebenen um die gewählte herum; die Fläche gleitet mit, die gewählte bleibt in der Mitte
+            var c = new Canvas { Width = 320, Height = 5 * Abst + 64, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, ClipToBounds = false };
+            stufenFeld = c;
+            c.RenderTransform = new TranslateTransform(0, FeldY(stufenZiel));
+            platten.Clear(); stufenText.Clear(); stufenGlanz.Clear(); stufenAnzahl.Clear();
             for (int i = 0; i <= stufenMax; i++)
             {
-                double y = 20 + i * 34;
-                // isometrische Platte: Raute
-                var p = new Polygon
-                {
-                    Points = new PointCollection { new Point(150, y), new Point(260, y + 26), new Point(150, y + 52), new Point(40, y + 26) },
-                    StrokeThickness = 1, StrokeLineJoin = PenLineJoin.Round
-                };
-                c.Children.Insert(0, p);   // obere Ebenen liegen vorn
-                platten.Add(p);
+                double y = 22 + i * Abst;
+                var pts = new PointCollection { new Point(170, y), new Point(270, y + 22), new Point(170, y + 44), new Point(70, y + 22) };
+                // weiches Leuchten unter der gewählten Platte
+                var glanz = new Polygon { Points = pts, StrokeThickness = 7, Stroke = Farbe.B("#2EF4B860"), StrokeLineJoin = PenLineJoin.Round, Opacity = 0, IsHitTestVisible = false };
+                var p = new Polygon { Points = pts, StrokeThickness = 1, StrokeLineJoin = PenLineJoin.Round };
+                c.Children.Insert(0, p); c.Children.Insert(0, glanz);   // obere Ebenen liegen vorn
+                platten.Add(p); stufenGlanz.Add(glanz);
+                var t = new TextBlock { Text = Griechisch(i), FontSize = 15, FontFamily = new FontFamily("Cambria, Georgia, Segoe UI"), TextAlignment = TextAlignment.Right, Width = 44 };
+                Canvas.SetLeft(t, 14); Canvas.SetTop(t, y + 12);
+                c.Children.Add(t); stufenText.Add(t);
                 int n = AnzahlAufEbene(b, i);
-                var t = new TextBlock { Text = Griechisch(i), FontSize = 20, Foreground = Farbe.B("#99FFFFFF"), FontFamily = new FontFamily("Cambria, Georgia, Segoe UI") };
-                Canvas.SetLeft(t, 10); Canvas.SetTop(t, y + 12);
-                c.Children.Add(t);
-                stufenText.Add(t);
-                if (n > 0)
-                {
-                    var z = new TextBlock { Text = n.ToString(), FontSize = 11, Foreground = Farbe.B("#66FFFFFF"), FontFamily = UI.Schrift };
-                    Canvas.SetLeft(z, 272); Canvas.SetTop(z, y + 19);
-                    c.Children.Add(z);
-                }
+                var z = new TextBlock { Text = n > 0 ? n + " items" : "", FontSize = 11, Foreground = Farbe.B("#B3F4B860"), FontFamily = UI.Schrift, Opacity = 0 };
+                Canvas.SetLeft(z, 282); Canvas.SetTop(z, y + 15);
+                c.Children.Add(z); stufenAnzahl.Add(z);
             }
             stufen.Children.Add(c);
             wurzel.Children.Add(stufen);
@@ -98,22 +129,39 @@ namespace Workbench
             return n + k.Mehr;
         }
 
+        const double Abst = 30;
+        Canvas stufenFeld;
+        readonly List<Shape> stufenGlanz = new List<Shape>();
+        readonly List<TextBlock> stufenAnzahl = new List<TextBlock>();
+        double FeldY(int ziel) { return (5 * Abst + 64) / 2 - (22 + ziel * Abst + 22); }
+
         void StufenFaerben()
         {
             int jetzt = Tiefe(Akt);
+            var ez = new CubicEase { EasingMode = EasingMode.EaseOut };
+            var feld = stufenFeld != null ? stufenFeld.RenderTransform as TranslateTransform : null;
+            if (feld != null) feld.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(FeldY(stufenZiel), TimeSpan.FromMilliseconds(200)) { EasingFunction = ez });
             for (int i = 0; i < platten.Count; i++)
             {
                 bool ziel = i == stufenZiel, hier = i == jetzt;
+                int d = Math.Abs(i - stufenZiel);
+                double deck = d == 0 ? 1 : d == 1 ? 0.7 : d == 2 ? 0.25 : 0;      // nur die Nachbarn klar, eine weitere blass, Rest weg
+                foreach (UIElement el in new UIElement[] { platten[i], stufenText[i] })
+                    el.BeginAnimation(OpacityProperty, new DoubleAnimation(deck, TimeSpan.FromMilliseconds(180)));
                 var tt = platten[i].RenderTransform as TranslateTransform;
-                if (tt == null) { tt = new TranslateTransform(); platten[i].RenderTransform = tt; }
-                tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(ziel ? -6 : 0, TimeSpan.FromMilliseconds(160)) { EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.4 } });
+                if (tt == null) { tt = new TranslateTransform(); platten[i].RenderTransform = tt; stufenGlanz[i].RenderTransform = tt; }
+                tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(ziel ? -5 : 0, TimeSpan.FromMilliseconds(180)) { EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.35 } });
                 var tl = stufenText[i].RenderTransform as TranslateTransform;
-                if (tl == null) { tl = new TranslateTransform(); stufenText[i].RenderTransform = tl; }
-                tl.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(ziel ? -6 : 0, TimeSpan.FromMilliseconds(160)));
-                platten[i].Fill = ziel ? (Brush)new LinearGradientBrush(Color.FromArgb(150, 244, 184, 96), Color.FromArgb(40, 244, 184, 96), 90) : Farbe.B(hier ? "#26FFFFFF" : "#0FFFFFFF");
-                platten[i].Stroke = Farbe.B(ziel ? "#FFF4B860" : hier ? "#80FFFFFF" : "#40FFFFFF");
-                platten[i].StrokeThickness = ziel ? 1.6 : 1;
-                stufenText[i].Foreground = Farbe.B(ziel ? "#FFF4B860" : hier ? "#CCFFFFFF" : "#73FFFFFF");
+                if (tl == null) { tl = new TranslateTransform(); stufenText[i].RenderTransform = tl; stufenAnzahl[i].RenderTransform = tl; }
+                tl.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(ziel ? -5 : 0, TimeSpan.FromMilliseconds(180)));
+                // Glas: oben heller, unten fast durchsichtig; die gewählte in warmem Bernstein
+                platten[i].Fill = ziel ? new LinearGradientBrush(Color.FromArgb(150, 244, 184, 96), Color.FromArgb(36, 244, 184, 96), 90)
+                                       : new LinearGradientBrush(Color.FromArgb((byte)(hier ? 46 : 26), 255, 255, 255), Color.FromArgb(4, 255, 255, 255), 90);
+                platten[i].Stroke = Farbe.B(ziel ? "#E6F4B860" : hier ? "#66FFFFFF" : "#38FFFFFF");
+                platten[i].StrokeThickness = ziel ? 1.4 : 1;
+                stufenGlanz[i].BeginAnimation(OpacityProperty, new DoubleAnimation(ziel ? 1 : 0, TimeSpan.FromMilliseconds(200)));
+                stufenAnzahl[i].BeginAnimation(OpacityProperty, new DoubleAnimation(ziel ? 1 : 0, TimeSpan.FromMilliseconds(180)));
+                stufenText[i].Foreground = Farbe.B(ziel ? "#FFF4B860" : hier ? "#D9FFFFFF" : "#99FFFFFF");
                 stufenText[i].FontWeight = ziel ? FontWeights.SemiBold : FontWeights.Normal;
             }
         }
