@@ -247,3 +247,4 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 
 - **Einhändig in die Tiefe** (2026-11-27): Zwei Finger hoch/runter oder Mausrad in der dunklen Spalte zwischen Schiene und Blatt (`ImTiefenStreifen`, -28…30 px um die linke Blattkante) öffnen den Stufen-Wähler wie Umschalt+Rad; Zusammenziehen bleibt.
 - Prototyp Schnellzugriff (Strg+M) mit fünf gestoppten Aufgaben: https://claude.ai/artifact/NbXyBUTdAKhZdESjMfxFwG – noch nicht in der App.
+- **Rille** (2026-11-27): 2 px Linie links neben dem Blatt (10 %), nur wenn es Ebenen gibt. Zone daneben: Zeiger ↕, Rille heller, Zahlen + ⌃⌄ an den Strichen. Im Stufen-Wähler Bernstein. Beim allerersten Mal atmet sie zweimal mit „↕ Scroll“ (`Einstellungen.TiefeHinweis`). Diagnose-Log entfernt.
