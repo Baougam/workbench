@@ -257,3 +257,5 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 - **Lade-Schimmer** (`Schimmer` in Parts.cs): wartende Platzhalter bekommen einen feinen Lichtstreifen; ein geteilter Pinsel + eine Animation, läuft nur solange mindestens einer wartet. Danach blendet das echte Bild weich ein.
 
 - Cloud-Vorschaubilder wie im Explorer: normale Abfrage (SIIGBF_THUMBNAILONLY), OneDrive liefert das Bild ohne die Datei zu laden (geprueft: reine Online-Dateien bleiben online). INCACHEONLY lieferte nur das Programm-Symbol. PDF-Rendern nie fuer reine Cloud-Dateien (`NurInCloud`).
+
+- Blattkanten oben (hinterBlatt) ausgeblendet – wirkten altmodisch; die Schiene zeigt, wo man ist.

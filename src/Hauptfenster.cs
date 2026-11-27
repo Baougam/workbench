@@ -93,7 +93,7 @@ namespace Workbench
             for (int i = 0; i < 2; i++)
             {
                 // nur die Oberkante eines Blattes – schaut über dem vorderen hervor, scheint nicht hindurch
-                hinterBlatt[i] = new Border { CornerRadius = new CornerRadius(16, 16, 0, 0), Background = Farbe.B(i == 0 ? "#0DFFFFFF" : "#07FFFFFF"), BorderBrush = Farbe.B(i == 0 ? "#1FFFFFFF" : "#14FFFFFF"), BorderThickness = new Thickness(1, 1, 1, 0), Height = 8, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(18 + i * 18, 6 - i * 6, 18 + i * 18, 0), IsHitTestVisible = false };
+                hinterBlatt[i] = new Border { CornerRadius = new CornerRadius(16, 16, 0, 0), Background = Farbe.B(i == 0 ? "#0DFFFFFF" : "#07FFFFFF"), BorderBrush = Farbe.B(i == 0 ? "#1FFFFFFF" : "#14FFFFFF"), BorderThickness = new Thickness(1, 1, 1, 0), Height = 8, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(18 + i * 18, 6 - i * 6, 18 + i * 18, 0), IsHitTestVisible = false, Visibility = Visibility.Collapsed };   // Blattkanten aus (wirkten altmodisch) – wo man ist, zeigt die Schiene
                 stapel.Children.Insert(0, hinterBlatt[i]);
             }
             blatt.CornerRadius = new CornerRadius(18);
