@@ -144,6 +144,25 @@ namespace Workbench
 
         public class Ziel { public string Name, Exe, Seite; }
 
+        /// <summary>Name des Standard-Browsers (aus der Windows-Zuordnung für Links), oder null.</summary>
+        public static string Standard()
+        {
+            try
+            {
+                using (var k = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice"))
+                {
+                    string id = k != null ? (k.GetValue("ProgId") as string ?? "") : "";
+                    id = id.ToLowerInvariant();
+                    if (id.Contains("brave")) return "Brave";
+                    if (id.Contains("msedge")) return "Edge";
+                    if (id.Contains("vivaldi")) return "Vivaldi";
+                    if (id.Contains("chrome")) return "Chrome";
+                }
+            }
+            catch { }
+            return null;
+        }
+
         /// <summary>Alle installierten Browser, die Chrome-Erweiterungen können.</summary>
         public static List<Ziel> Finden()
         {

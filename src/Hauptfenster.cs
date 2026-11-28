@@ -1269,12 +1269,21 @@ namespace Workbench
         /// <summary>„Download with Workbench“ im Browser-Rechtsklick: einrichten bzw. verbunden.</summary>
         FrameworkElement BrowserKnopf()
         {
+            // ein Knopf für den Standard-Browser – andere installierte nur klein daneben
             var reihe = new StackPanel { Orientation = Orientation.Horizontal };
-            foreach (var z in Browser.Finden())
+            string std = Browser.Standard();
+            var alle = Browser.Finden().OrderBy(z => z.Name == std ? 0 : 1).ToList();
+            for (int i = 0; i < alle.Count; i++)
             {
-                var z2 = z;
-                bool da = Browser.IstVerbunden(E.Cfg, z.Name);
-                var t = new ToggleButton { Style = (Style)Application.Current.FindResource("Chip"), Content = z.Name, IsChecked = da, Margin = new Thickness(4, 0, 0, 0), Height = 28, Padding = new Thickness(9, 0, 9, 0), FontSize = 12, ToolTip = da ? "Connected — click to set up again" : "Right-click a link › Download with Workbench" };
+                var z2 = alle[i];
+                bool da = Browser.IstVerbunden(E.Cfg, z2.Name), haupt = i == 0;
+                var t = new ToggleButton
+                {
+                    Style = (Style)Application.Current.FindResource("Chip"), IsChecked = da, Margin = new Thickness(4, 0, 0, 0), Height = 28,
+                    Padding = new Thickness(haupt ? 11 : 7, 0, haupt ? 11 : 7, 0), FontSize = haupt ? 12.5 : 11, Opacity = haupt ? 1 : 0.55,
+                    Content = haupt ? (da ? "✓ " + z2.Name : "Add to " + z2.Name) : z2.Name,
+                    ToolTip = da ? "Connected — click to set up again" : "Right-click a link › Download with Workbench"
+                };
                 t.Click += delegate { t.IsChecked = da; if (!bild) Browser.Einrichten(E.Cfg, z2); };
                 reihe.Children.Add(t);
             }
