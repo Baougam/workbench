@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -1189,7 +1189,8 @@ namespace Workbench
         {
             if (hinweis == null)
             {
-                hinweis = new Border { Background = Farbe.B("#F5191C23"), BorderBrush = Farbe.B("#26FFFFFF"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(18), Padding = new Thickness(14, 8, 16, 8), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(60, 0, 0, 34), Opacity = 0, Cursor = Cursors.Hand };
+                hinweis = new Border { Background = Farbe.B("#E6161920"), BorderBrush = Farbe.B("#1CFFFFFF"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(22), Padding = new Thickness(14, 7, 16, 7),   // Glas-Pille wie alle Pop-ups
+                     HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(60, 0, 0, 34), Opacity = 0, Cursor = Cursors.Hand };
                 wurzel.Children.Add(hinweis);
                 hinweisZu = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
                 hinweisZu.Tick += delegate { hinweisZu.Stop(); hinweis.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(300))); hinweis.IsHitTestVisible = false; };

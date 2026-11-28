@@ -325,26 +325,33 @@ namespace Workbench
         }
     }
 
-    /// <summary>Kleine Karte unten rechts, solange man im Browser klickt: drei Schritte, der aktuelle leuchtet.</summary>
+    /// <summary>
+    /// Glas-Pille unten mittig, solange man im Browser klickt: nur der aktuelle Schritt in Worten, daneben vier Punkte als Fortschritt.
+    /// Kein Titel, keine Liste. Die Erklärung steht nur als Tooltip.
+    /// </summary>
     class BrowserKarte : Window
     {
-        readonly List<Border> punkte = new List<Border>();
-        readonly List<TextBlock> texte = new List<TextBlock>();
         readonly DispatcherTimer suche;
         readonly HashSet<IntPtr> gesehen = new HashSet<IntPtr>();
-        readonly TextBlock kopf;
         readonly Grid huelle;
-        readonly TranslateTransform schiebe = new TranslateTransform(0, 24);
+        readonly TranslateTransform schiebe = new TranslateTransform(0, 18);
         readonly DateTime seit = DateTime.UtcNow;
+        readonly TextBlock text;
+        readonly StackPanel punkte = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 4, 0) };
+        readonly Border pille;
         bool zu;
+        int jetzt = -1;
 
         public readonly string BrowserName;
         readonly string prozess;
+        static readonly string[] schritte = { "Opening the extensions page …", "Turn on Developer mode", "Click Load unpacked", "Selecting the folder …", "Connected" };
+        readonly string[] hilfe;
 
         public BrowserKarte(Browser.Ziel ziel)
         {
             BrowserName = ziel.Name;
             prozess = Path.GetFileNameWithoutExtension(ziel.Exe).ToLowerInvariant();
+            hilfe = new[] { "If nothing opens: paste " + ziel.Seite + " into the address bar (it's on your clipboard)", "The switch at the top right of the extensions page", "Appears once Developer mode is on", "Workbench picks the folder for you", "Right-click a link › Download with Workbench" };
             WindowStyle = WindowStyle.None;
             AllowsTransparency = true;
             Background = Brushes.Transparent;
@@ -352,50 +359,19 @@ namespace Workbench
             Topmost = true;
             ShowActivated = false;
             ResizeMode = ResizeMode.NoResize;
-            SizeToContent = SizeToContent.Height;
-            Width = 330;
+            SizeToContent = SizeToContent.WidthAndHeight;
             FontFamily = UI.Schrift;
             Title = "Workbench";
 
-            var sp = new StackPanel();
-            var k = new Grid { Margin = new Thickness(0, 0, 0, 10) };
-            var titel = new StackPanel { Orientation = Orientation.Horizontal };
-            titel.Children.Add(UI.Logo(18));
-            kopf = new TextBlock { Text = "Add to " + ziel.Name, FontSize = 14, FontWeight = FontWeights.SemiBold, Foreground = Farbe.Text, Margin = new Thickness(9, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-            titel.Children.Add(kopf);
-            k.Children.Add(titel);
-            var x = UI.IconKnopf("M6 6l12 12M18 6L6 18", "Close", Farbe.Text3);
-            x.HorizontalAlignment = HorizontalAlignment.Right;
-            x.Click += delegate { Schliessen(); };
-            k.Children.Add(x);
-            sp.Children.Add(k);
-
-            string[] schritte = { "Opening the extensions page …", "Turn on Developer mode", "Click Load unpacked", "Workbench picks the folder" };
-            string[] hilfe = { "If nothing happens: paste " + ziel.Seite + " into the address bar (it's on your clipboard)", "The switch at the top right of the page", "Appears once Developer mode is on", "Nothing to do – Workbench selects it for you" };
-            for (int i = 0; i < schritte.Length; i++)
-            {
-                var z = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(2, 3, 0, 3), ToolTip = hilfe[i], Background = Brushes.Transparent };
-                var p = new Border { Width = 18, Height = 18, CornerRadius = new CornerRadius(9), BorderThickness = new Thickness(1.5), VerticalAlignment = VerticalAlignment.Center };
-                p.Child = new TextBlock { Text = (i + 1).ToString(), FontSize = 10.5, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-                var t = new TextBlock { Text = schritte[i], FontSize = 13, Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-                z.Children.Add(p); z.Children.Add(t);
-                punkte.Add(p); texte.Add(t);
-                sp.Children.Add(z);
-            }
-            var pfad = new TextBlock { Text = ziel.Seite, FontSize = 11, Foreground = Farbe.Text3, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(30, 2, 0, 0), Cursor = System.Windows.Input.Cursors.Hand, ToolTip = "Copy" };
-            pfad.MouseLeftButtonUp += delegate { try { Clipboard.SetText(ziel.Seite); } catch { } };
-            sp.Children.Add(pfad);
-
-            var karte = new Border
-            {
-                Background = Farbe.B("#F5191C23"), BorderBrush = Farbe.B("#1FFFFFFF"), BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(18), Padding = new Thickness(16, 14, 12, 14), Margin = new Thickness(0, 10, 0, 0),
-                Effect = new DropShadowEffect { BlurRadius = 30, ShadowDepth = 8, Opacity = 0.5, Direction = 270 }, Child = sp
-            };
-            huelle = new Grid { Margin = new Thickness(20), RenderTransform = schiebe, Opacity = 0 };
-            huelle.Children.Add(new Border { Height = 10, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(36, 0, 36, 0), CornerRadius = new CornerRadius(14, 14, 0, 0), Background = Farbe.B("#C02A2E38"), BorderBrush = Farbe.B("#24FFFFFF"), BorderThickness = new Thickness(1, 1, 1, 0) });
-            huelle.Children.Add(new Border { Height = 10, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(18, 5, 18, 0), CornerRadius = new CornerRadius(16, 16, 0, 0), Background = Farbe.B("#E0242833"), BorderBrush = Farbe.B("#2EFFFFFF"), BorderThickness = new Thickness(1, 1, 1, 0) });
-            huelle.Children.Add(karte);
+            var sp = new StackPanel { Orientation = Orientation.Horizontal };
+            sp.Children.Add(new System.Windows.Shapes.Ellipse { Width = 8, Height = 8, Fill = Farbe.B("#FF8FB4FF"), VerticalAlignment = VerticalAlignment.Center, ToolTip = ziel.Name });
+            text = new TextBlock { FontSize = 12.5, Foreground = Farbe.Text, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
+            sp.Children.Add(text);
+            sp.Children.Add(punkte);
+            sp.Children.Add(Pille.Symbol(Ikon.X, "Close", Farbe.Text3, Schliessen));
+            pille = Pille.Neu(sp);
+            huelle = new Grid { Margin = new Thickness(24, 12, 24, 18), RenderTransform = schiebe, Opacity = 0 };
+            huelle.Children.Add(pille);
             Content = huelle;
             Schritt(0);
 
@@ -404,11 +380,11 @@ namespace Workbench
             Loaded += delegate
             {
                 Platzieren();
-                huelle.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(200)) { EasingFunction = UI.Weich });
-                schiebe.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(24, 0, TimeSpan.FromMilliseconds(280)) { EasingFunction = UI.Weich });
+                huelle.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180)) { EasingFunction = UI.Weich });
+                schiebe.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(18, 0, TimeSpan.FromMilliseconds(260)) { EasingFunction = UI.Weich });
             };
 
-            // Sobald der Browser sein Ordner-Fenster öffnet: Pfad eintragen, Schritt 3 leuchtet
+            // Sobald der Browser sein Ordner-Fenster öffnet: Pfad eintragen und bestätigen
             suche = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(350) };
             suche.Tick += delegate
             {
@@ -417,21 +393,24 @@ namespace Workbench
             };
             suche.Start();
             Action getippt = null;
-            getippt = () => Dispatcher.BeginInvoke(new Action(() => { Browser.AdresseGetippt -= getippt; if (!zu) Schritt(1); }));
+            getippt = () => Dispatcher.BeginInvoke(new Action(() => { Browser.AdresseGetippt -= getippt; if (!zu && jetzt < 1) Schritt(1); }));
             Browser.AdresseGetippt += getippt;
         }
 
+        /// <summary>Text wechselt weich; Punkte: erledigt grün, aktuell als kleine Bernstein-Pille.</summary>
         void Schritt(int aktiv)
         {
-            for (int i = 0; i < punkte.Count; i++)
+            if (aktiv == jetzt) return;
+            jetzt = aktiv;
+            text.Text = schritte[Math.Min(aktiv, schritte.Length - 1)];
+            text.ToolTip = hilfe[Math.Min(aktiv, hilfe.Length - 1)];
+            if (!Vorschau.Sofort) text.BeginAnimation(OpacityProperty, new DoubleAnimation(0.2, 1, TimeSpan.FromMilliseconds(200)));
+            punkte.Children.Clear();
+            for (int i = 0; i < 4; i++)
             {
-                bool fertig = i < aktiv, jetzt = i == aktiv;
-                punkte[i].BorderBrush = fertig ? Farbe.Gut : jetzt ? Farbe.Akzent : Farbe.B("#40FFFFFF");
-                punkte[i].Background = fertig ? Farbe.B("#227FD8A8") : jetzt ? Farbe.AkzentWeich : Brushes.Transparent;
-                var t = (TextBlock)punkte[i].Child;
-                t.Text = fertig ? "✓" : (i + 1).ToString();
-                t.Foreground = fertig ? Farbe.Gut : jetzt ? Farbe.Akzent : Farbe.Text3;
-                texte[i].Foreground = jetzt ? Farbe.Text : fertig ? Farbe.Text2 : Farbe.Text3;
+                bool fertig = i < aktiv, an = i == aktiv;
+                punkte.Children.Add(new Border { Width = an ? 14 : 5, Height = 5, CornerRadius = new CornerRadius(2.5), Margin = new Thickness(2, 0, 2, 0),
+                    Background = fertig ? Farbe.Gut : an ? Farbe.Akzent : Farbe.B("#33FFFFFF") });
             }
         }
 
@@ -449,9 +428,8 @@ namespace Workbench
         public void Fertig()
         {
             Schritt(4);
-            kopf.Text = "Connected";
             suche.Stop();
-            var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
+            var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.2) };
             t.Tick += delegate { t.Stop(); Schliessen(); };
             t.Start();
         }
@@ -464,6 +442,7 @@ namespace Workbench
             var a = new DoubleAnimation(0, TimeSpan.FromMilliseconds(160));
             a.Completed += delegate { Close(); };
             huelle.BeginAnimation(OpacityProperty, a);
+            schiebe.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, 12, TimeSpan.FromMilliseconds(180)));
         }
 
         void Platzieren()
@@ -471,10 +450,10 @@ namespace Workbench
             var src = PresentationSource.FromVisual(this);
             var wa = System.Windows.Forms.Screen.PrimaryScreen.WorkingArea;
             Matrix m = src != null && src.CompositionTarget != null ? src.CompositionTarget.TransformFromDevice : Matrix.Identity;
-            var unten = m.Transform(new Point(wa.Right, wa.Bottom));
-            var oben = m.Transform(new Point(wa.Left, wa.Top));
-            Left = Math.Max(oben.X, unten.X - Width + 6);
-            Top = Math.Max(oben.Y, unten.Y - ActualHeight + 6);
+            var u = m.Transform(new Point(wa.Right, wa.Bottom));
+            var o = m.Transform(new Point(wa.Left, wa.Top));
+            Left = o.X + (u.X - o.X - ActualWidth) / 2;
+            Top = Math.Max(o.Y, u.Y - ActualHeight);
         }
     }
 }

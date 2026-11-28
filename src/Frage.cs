@@ -3,18 +3,55 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
-using System.Windows.Shapes;
 
 namespace Workbench
 {
     /// <summary>
-    /// Die kleine Karte unten rechts: Datei, Dauern, ein dünner Zeitbalken. Kein Erklärtext – nimmt nie den Fokus,
-    /// ein Klick genügt, und läuft der Balken ab, gilt still der Vorschlag.
+    /// Einheitlicher Pop-up-Stil „Glas-Pille“: dunkel, leicht durchscheinend, feiner Rand, eine Zeile, ganz rund.
+    /// Kein Titel, kein Logo, keine gestapelten Kanten.
+    /// </summary>
+    static class Pille
+    {
+        public static Border Neu(UIElement inhalt)
+        {
+            return new Border
+            {
+                Background = Farbe.B("#E6161920"), BorderBrush = Farbe.B("#1CFFFFFF"), BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(22), Padding = new Thickness(14, 7, 8, 7), Child = inhalt,
+                Effect = new DropShadowEffect { BlurRadius = 18, ShadowDepth = 4, Opacity = 0.35, Direction = 270 }
+            };
+        }
+
+        /// <summary>Kleines Wort als Knopf in der Pille (z. B. „1d“); aktiv = Bernstein.</summary>
+        public static Border Wort(string text, bool an, string tip, Action klick)
+        {
+            var t = new TextBlock { Text = text, FontSize = 12, FontWeight = FontWeights.Medium, Foreground = an ? Farbe.Akzent : Farbe.Text2, VerticalAlignment = VerticalAlignment.Center };
+            var b = new Border { Child = t, Padding = new Thickness(8, 4, 8, 4), CornerRadius = new CornerRadius(9), Background = an ? Farbe.B("#2EF4B860") : Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = tip, VerticalAlignment = VerticalAlignment.Center };
+            b.MouseEnter += delegate { if (!an) { b.Background = Farbe.B("#14FFFFFF"); t.Foreground = Farbe.Text; } };
+            b.MouseLeave += delegate { if (!an) { b.Background = Brushes.Transparent; t.Foreground = Farbe.Text2; } };
+            b.MouseLeftButtonUp += (s, a) => { a.Handled = true; klick(); };
+            return b;
+        }
+
+        public static Border Symbol(string icon, string tip, Brush farbe, Action klick)
+        {
+            var b = new Border { Width = 28, Height = 28, CornerRadius = new CornerRadius(14), Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = tip, VerticalAlignment = VerticalAlignment.Center, Child = UI.Icon(icon, 14, farbe, 1.8) };
+            ((FrameworkElement)b.Child).HorizontalAlignment = HorizontalAlignment.Center; ((FrameworkElement)b.Child).VerticalAlignment = VerticalAlignment.Center;
+            b.MouseEnter += delegate { b.Background = Farbe.B("#14FFFFFF"); };
+            b.MouseLeave += delegate { b.Background = Brushes.Transparent; };
+            b.MouseLeftButtonUp += (s, a) => { a.Handled = true; klick(); };
+            return b;
+        }
+    }
+
+    /// <summary>
+    /// Nach einem Download: eine Glas-Pille unten mittig – Datei, Dauern (1h · 1d · 1w · 1m · ∞), Kalender, Cloud.
+    /// Nimmt nie den Fokus; ein Klick genügt; läuft die feine Linie ab, gilt still der Vorschlag.
     /// </summary>
     class Frage : Window
     {
@@ -24,16 +61,19 @@ namespace Workbench
         string vorschlag;
         bool fertig;
 
-        readonly Border karte;
+        readonly StackPanel stapel = new StackPanel();
         readonly Grid huelle;
-        readonly TranslateTransform schiebe = new TranslateTransform(0, 24);
-        readonly ContentControl inhalt = new ContentControl();
+        readonly TranslateTransform schiebe = new TranslateTransform(0, 18);
+        readonly ContentControl zeile = new ContentControl();
+        readonly ContentControl oben = new ContentControl();
         readonly ScaleTransform balken = new ScaleTransform(1, 1);
         readonly Border bahn;
         AnimationClock uhr;
 
         public bool Offen { get { return !fertig; } }
         public bool IstInfo { get { return info; } }
+
+        static readonly string[][] stationen = { new[] { "1h", "1 hour" }, new[] { "1d", "1 day" }, new[] { "1w", "1 week" }, new[] { "1m", "1 month" }, new[] { "∞", Dauer.Immer } };
 
         public Frage(Engine e, List<Eintrag> neu, bool infoModus)
         {
@@ -49,153 +89,82 @@ namespace Workbench
             Topmost = true;
             ShowActivated = false;
             ResizeMode = ResizeMode.NoResize;
-            SizeToContent = SizeToContent.Height;
-            Width = 410;
+            SizeToContent = SizeToContent.WidthAndHeight;
             FontFamily = UI.Schrift;
             Title = "Workbench";
 
-            // Ablauf: feine Bernstein-Linie an der Unterkante
-            bahn = new Border { Height = 2, CornerRadius = new CornerRadius(1), Background = Farbe.B("#0AFFFFFF"), Margin = new Thickness(4, 12, 4, -4) };
-            bahn.Child = new Border { CornerRadius = new CornerRadius(1), Background = Farbe.B("#B3F4B860"), RenderTransform = balken, RenderTransformOrigin = new Point(0, 0.5) };
-
-            karte = new Border
-            {
-                Background = Farbe.B("#F5191C23"),
-                BorderBrush = Farbe.B("#1FFFFFFF"),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(18),
-                Padding = new Thickness(16, 16, 16, 12),
-                Margin = new Thickness(0, 10, 0, 0),
-                Effect = new DropShadowEffect { BlurRadius = 30, ShadowDepth = 8, Opacity = 0.5, Direction = 270 }
-            };
-            var sp = new StackPanel();
-            sp.Children.Add(inhalt);
-            sp.Children.Add(bahn);
-            karte.Child = sp;
-            // Blattstapel wie im Hauptfenster: zwei Kanten schauen über der Karte hervor
-            huelle = new Grid { Margin = new Thickness(20), RenderTransform = schiebe, Opacity = 0 };
-            huelle.Children.Add(new Border { Height = 10, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(36, 0, 36, 0), CornerRadius = new CornerRadius(14, 14, 0, 0), Background = Farbe.B("#C02A2E38"), BorderBrush = Farbe.B("#24FFFFFF"), BorderThickness = new Thickness(1, 1, 1, 0) });
-            huelle.Children.Add(new Border { Height = 10, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(18, 5, 18, 0), CornerRadius = new CornerRadius(16, 16, 0, 0), Background = Farbe.B("#E0242833"), BorderBrush = Farbe.B("#2EFFFFFF"), BorderThickness = new Thickness(1, 1, 1, 0) });
-            huelle.Children.Add(karte);
+            // Ablauf: feine Bernstein-Linie innen an der Unterkante der Pille
+            bahn = new Border { Height = 2, CornerRadius = new CornerRadius(1), VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(18, 0, 18, 1), IsHitTestVisible = false,
+                Background = Farbe.B("#B3F4B860"), RenderTransform = balken, RenderTransformOrigin = new Point(0, 0.5) };
+            var pg = new Grid();
+            pg.Children.Add(Pille.Neu(zeile));
+            pg.Children.Add(bahn);
+            stapel.Children.Add(oben);
+            stapel.Children.Add(pg);
+            huelle = new Grid { Margin = new Thickness(24, 12, 24, 18), RenderTransform = schiebe, Opacity = 0 };
+            huelle.Children.Add(stapel);
             Content = huelle;
 
-            karte.MouseEnter += delegate { if (uhr != null && !fertig) uhr.Controller.Pause(); };
-            karte.MouseLeave += delegate { if (uhr != null && !fertig && inhalt.Tag as string != "kalender") uhr.Controller.Resume(); };
+            pg.MouseEnter += delegate { if (uhr != null && !fertig) uhr.Controller.Pause(); };
+            pg.MouseLeave += delegate { if (uhr != null && !fertig && oben.Content == null) uhr.Controller.Resume(); };
             SourceInitialized += delegate { Native.NichtAktivieren(new WindowInteropHelper(this).Handle); };
             SizeChanged += delegate { Platzieren(); };
             Loaded += delegate
             {
                 Platzieren();
-                huelle.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(200)) { EasingFunction = UI.Weich });
-                schiebe.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(24, 0, TimeSpan.FromMilliseconds(280)) { EasingFunction = UI.Weich });
+                huelle.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180)) { EasingFunction = UI.Weich });
+                schiebe.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(18, 0, TimeSpan.FromMilliseconds(260)) { EasingFunction = UI.Weich });
             };
 
             Wahl();
         }
 
-        /// <summary>Unten rechts auf dem Bildschirm mit der Maus – in echten Pixeln gerechnet, damit jede Skalierung stimmt.</summary>
+        /// <summary>Unten mittig auf dem Bildschirm mit der Maus – in echten Pixeln gerechnet, damit jede Skalierung stimmt.</summary>
         void Platzieren()
         {
             var src = PresentationSource.FromVisual(this);
             var wa = System.Windows.Forms.Screen.FromPoint(System.Windows.Forms.Cursor.Position).WorkingArea;
             Matrix m = src != null && src.CompositionTarget != null ? src.CompositionTarget.TransformFromDevice : Matrix.Identity;
-            var unten = m.Transform(new Point(wa.Right, wa.Bottom));
-            var oben = m.Transform(new Point(wa.Left, wa.Top));
-            Left = Math.Max(oben.X, unten.X - Width + 6);
-            Top = Math.Max(oben.Y, unten.Y - ActualHeight + 6);
-        }
-
-        FrameworkElement Kopf(bool zurueck)
-        {
-            var g = new Grid();
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            g.ColumnDefinitions.Add(new ColumnDefinition());
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            FrameworkElement links;
-            if (zurueck)
-            {
-                var b = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 32, Height = 32, Content = UI.Icon(Ikon.Links, 15, Farbe.Text2, 2), ToolTip = "Back", Margin = new Thickness(-6, 0, 6, 0) };
-                b.Click += delegate { Wahl(); if (uhr != null && !IsMouseOver) uhr.Controller.Resume(); };
-                links = b;
-            }
-            else
-            {
-                // eigenes Workbench-Zeichen; mehrere Dateien als kleiner Stapel
-                var bilder = new Grid { Width = 46, Height = 50, Margin = new Thickness(0, 0, 14, 0) };
-                int n = Math.Min(3, dateien.Count);
-                for (int i = n - 1; i >= 0; i--)
-                {
-                    var b = Vorschau.Glyphe(dateien[i].Pfad, 38, 46);
-                    b.HorizontalAlignment = HorizontalAlignment.Left;
-                    b.VerticalAlignment = VerticalAlignment.Bottom;
-                    b.Margin = new Thickness(i * 4, 0, 0, i * 3);
-                    if (i > 0) b.Opacity = 0.45;
-                    bilder.Children.Add(b);
-                }
-                links = bilder;
-            }
-            g.Children.Add(links);
-            var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-            var name = new StackPanel { Orientation = Orientation.Horizontal };
-            var t = UI.T(dateien[0].Name, 14, Farbe.Text, FontWeights.SemiBold);
-            t.MaxWidth = dateien.Count > 1 ? 210 : 250;
-            name.Children.Add(t);
-            if (dateien.Count > 1)
-                name.Children.Add(new Border { CornerRadius = new CornerRadius(9), Background = Farbe.B("#1FFFFFFF"), Padding = new Thickness(6, 1, 6, 1), Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, Child = UI.T("+" + (dateien.Count - 1), 11, Farbe.Text2, FontWeights.SemiBold) });
-            text.Children.Add(name);
-            if (!zurueck)
-            {
-                string ext = System.IO.Path.GetExtension(dateien[0].Pfad).TrimStart('.').ToUpperInvariant();
-                long groesse = 0;
-                foreach (var d in dateien) try { if (System.IO.File.Exists(d.Pfad)) groesse += new System.IO.FileInfo(d.Pfad).Length; } catch { }
-                string meta = (dateien.Count > 1 ? dateien.Count + " files" : (ext.Length > 0 ? ext : "File")) + (groesse > 0 ? " · " + Dauer.Groesse(groesse) : "");
-                var m = UI.T(meta, 12, Farbe.Text3);
-                m.Margin = new Thickness(0, 3, 0, 0);
-                text.Children.Add(m);
-            }
-            Grid.SetColumn(text, 1);
-            g.Children.Add(text);
-            var x = new Button { Style = (Style)Application.Current.FindResource("Rund"), Width = 30, Height = 30, Content = UI.Icon(Ikon.X, 12, Farbe.Text3, 2), Margin = new Thickness(0, -4, -6, -4), VerticalAlignment = VerticalAlignment.Top };
-            System.Windows.Automation.AutomationProperties.SetName(x, "Close");
-            x.Click += delegate { if (info) Schliessen(); else Anwenden(vorschlag, null, false); };
-            Grid.SetColumn(x, 2);
-            g.Children.Add(x);
-            return g;
+            var u = m.Transform(new Point(wa.Right, wa.Bottom));
+            var o = m.Transform(new Point(wa.Left, wa.Top));
+            Left = o.X + (u.X - o.X - ActualWidth) / 2;
+            Top = Math.Max(o.Y, u.Y - ActualHeight);
         }
 
         void Wahl()
         {
-            var sp = new StackPanel();
-            sp.Children.Add(Kopf(false));
-            sp.Children.Add(Zeitleiste());
-            inhalt.Tag = "wahl";
-            inhalt.Content = sp;
+            var sp = new StackPanel { Orientation = Orientation.Horizontal };
+            // Datei: kleine Typ-Marke, Name, bei mehreren „+2“
+            var marke = Vorschau.Glyphe(dateien[0].Pfad, 15, 18, true);
+            marke.VerticalAlignment = VerticalAlignment.Center;
+            sp.Children.Add(marke);
+            var name = new TextBlock { Text = dateien[0].Name, FontSize = 12.5, Foreground = Farbe.Text, MaxWidth = 170, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(9, 0, 0, 0), ToolTip = string.Join("\n", dateien.Select(d => d.Name)) };
+            sp.Children.Add(name);
+            if (dateien.Count > 1) sp.Children.Add(new TextBlock { Text = "+" + (dateien.Count - 1), FontSize = 11.5, Foreground = Farbe.Text3, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) });
+            sp.Children.Add(new Border { Width = 1, Height = 16, Background = Farbe.B("#1FFFFFFF"), Margin = new Thickness(12, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center });
+            foreach (var st in stationen)
+            {
+                string wahl = st[1];
+                sp.Children.Add(Pille.Wort(st[0], wahl == vorschlag, wahl == Dauer.Immer ? "Keep" : wahl, () => Anwenden(wahl, null, true)));
+            }
+            sp.Children.Add(Pille.Symbol(Ikon.Kalender, "Until a date", Farbe.Text2, Kalender));
+            var w = Cloud.Aktuell(E.Cfg);
+            if (w != null) sp.Children.Add(Pille.Symbol(Ikon.Wolke, "Move to " + w.Name, Farbe.Text2, () => InWolke(w)));
+            sp.Children.Add(Pille.Symbol(Ikon.X, "Close", Farbe.Text3, () => { if (info) Schliessen(); else Anwenden(vorschlag, null, false); }));
+            zeile.Content = sp;
+            oben.Content = null;
             if (uhr == null) Balken(info ? 6 : E.Cfg.Sekunden);
         }
 
-        /// <summary>
-        /// Der Zeit-Schieber – dasselbe Motiv wie der Ebenen-Schieber im Fenster: eine Linie, fünf Stationen
-        /// (1 Std · 1 Tag · 1 Woche · 1 Monat · ∞), der Vorschlag sitzt als Knopf darauf. Ein Klick auf eine Station genügt.
-        /// Rechts daneben: Kalender und Cloud als Symbole.
-        /// </summary>
-        FrameworkElement Zeitleiste()
-        {
-            var z = ZeitUI.Schieber(vorschlag, n => Anwenden(n, null, true), Kalender, Cloud.Aktuell(E.Cfg), InWolke);
-            ((FrameworkElement)z).Margin = new Thickness(0, 14, 0, 0);
-            return z;
-        }
-
+        /// <summary>Kalender als kleines Glas-Feld über der Pille.</summary>
         void Kalender()
         {
             if (uhr != null) uhr.Controller.Pause();
-            var sp = new StackPanel();
-            sp.Children.Add(Kopf(true));
-            var k = new Kalender { Margin = new Thickness(0, 10, 0, 0) };
+            var k = new Kalender();
             k.Gewaehlt += tag => Anwenden(Dauer.Bis, Dauer.BisTag(tag), true);
-            sp.Children.Add(k);
-            inhalt.Tag = "kalender";
-            inhalt.Content = sp;
-            UI.Einblenden(sp, 6, 160);
+            var feld = new Border { Background = Farbe.B("#EB161920"), BorderBrush = Farbe.B("#1CFFFFFF"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(16), Padding = new Thickness(12), Margin = new Thickness(0, 0, 0, 8), HorizontalAlignment = HorizontalAlignment.Center, Child = k };
+            oben.Content = feld;
+            UI.Einblenden(feld, 6, 160);
         }
 
         void Balken(int sekunden)
@@ -208,12 +177,12 @@ namespace Workbench
             if (IsMouseOver) c.Controller.Pause();
         }
 
-        /// <summary>Weitere Downloads, während die Karte offen ist: die Wahl gilt dann für alle.</summary>
+        /// <summary>Weitere Downloads, während die Pille offen ist: die Wahl gilt dann für alle.</summary>
         public void Hinzufuegen(List<Eintrag> neu)
         {
             if (fertig || info) return;
             dateien.AddRange(neu);
-            if (inhalt.Tag as string == "wahl") Wahl();
+            if (oben.Content == null) Wahl();
             if (uhr != null) { uhr.Controller.Begin(); if (IsMouseOver) uhr.Controller.Pause(); }
         }
 
@@ -232,8 +201,7 @@ namespace Workbench
                 E.FristSetzen(e, ablauf, wahl == Dauer.Bis ? "until " + bis.Value.ToLocalTime().ToString("d MMM", Dauer.En) : wahl);
             }
             if (aktiv) E.S.Speichern();
-            string text = ablauf == null ? "Kept forever" : "Stays until " + Dauer.Wann(ablauf.Value);
-            Bestaetigen(ablauf == null ? Ikon.Unendlich : Ikon.Haken, text, aktiv);
+            Bestaetigen(ablauf == null ? Ikon.Unendlich : Ikon.Haken, ablauf == null ? "Kept" : "Stays until " + Dauer.Wann(ablauf.Value), aktiv);
         }
 
         void InWolke(CloudOrt w)
@@ -246,26 +214,21 @@ namespace Workbench
                 var e = E.S.Finde(d.Pfad);
                 if (e != null) E.Verschieben(e, w.Pfad);
             }
-            Bestaetigen(Ikon.Wolke, w.Name, true);
+            Bestaetigen(Ikon.Wolke, "Moved to " + w.Name, true);
         }
 
+        /// <summary>Die Pille wird kurz zur Bestätigung (eine Zeile) und gleitet dann weg.</summary>
         void Bestaetigen(string icon, string text, bool aktiv)
         {
-            var sp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 2) };
-            sp.Children.Add(new Border { Width = 30, Height = 30, CornerRadius = new CornerRadius(15), Background = Farbe.AkzentWeich, Child = UI.Icon(icon, 16, Farbe.Akzent, 2.2) });
-            var t = UI.T(text, 14, Farbe.Text, FontWeights.SemiBold);
-            t.VerticalAlignment = VerticalAlignment.Center;
-            t.Margin = new Thickness(10, 0, 0, 0);
-            sp.Children.Add(t);
-            var name = UI.T(dateien[0].Name + (dateien.Count > 1 ? " +" + (dateien.Count - 1) : ""), 12.5, Farbe.Text3);
-            name.VerticalAlignment = VerticalAlignment.Center;
-            name.Margin = new Thickness(10, 0, 0, 0);
-            name.MaxWidth = 200;
-            sp.Children.Add(name);
-            inhalt.Content = sp;
+            var sp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 3, 6, 3) };
+            sp.Children.Add(UI.Icon(icon, 14, Farbe.Akzent, 2));
+            sp.Children.Add(new TextBlock { Text = text, FontSize = 12.5, Foreground = Farbe.Text, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) });
+            sp.Children.Add(new TextBlock { Text = dateien[0].Name + (dateien.Count > 1 ? " +" + (dateien.Count - 1) : ""), FontSize = 12, Foreground = Farbe.Text3, MaxWidth = 180, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) });
+            oben.Content = null;
+            zeile.Content = sp;
             bahn.Visibility = Visibility.Collapsed;
-            UI.Einblenden(sp, 4, 160);
-            var warte = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(aktiv ? 1000 : 600) };
+            UI.Einblenden(sp, 3, 160);
+            var warte = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(aktiv ? 1100 : 700) };
             warte.Tick += delegate { warte.Stop(); Wegfahren(); };
             warte.Start();
         }
@@ -278,10 +241,10 @@ namespace Workbench
 
         void Wegfahren()
         {
-            var a = new DoubleAnimation(huelle.Opacity, 0, TimeSpan.FromMilliseconds(200));
+            var a = new DoubleAnimation(huelle.Opacity, 0, TimeSpan.FromMilliseconds(180));
             a.Completed += delegate { Close(); };
             huelle.BeginAnimation(OpacityProperty, a);
-            schiebe.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, 16, TimeSpan.FromMilliseconds(220)) { EasingFunction = UI.Weich });
+            schiebe.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, 12, TimeSpan.FromMilliseconds(200)) { EasingFunction = UI.Weich });
         }
 
         /// <summary>Nur für Bilder im Render-Modus.</summary>

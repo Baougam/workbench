@@ -266,3 +266,5 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 
 Veroeffentlicht, um das Update per Klick erstmals echt zu testen (installierte 0.2.0 -> 0.3.0).
 - **Browser-Einrichtung, 2 Klicks** (2026-11-28, noch nicht veröffentlicht – kommt mit 0.3.1): Workbench öffnet ein neues Browserfenster und tippt die Erweiterungs-Adresse selbst (Strg+L, Adresse, Enter per SendInput) – nur wenn genau das neue Fenster vorn ist (`AdresseTippen`), sonst bleibt die Adresse in der Zwischenablage. Nutzer: Entwicklermodus an, „Entpackte Erweiterung laden“. Workbench trägt den Ordner ein und bestätigt (IDOK, falls nötig zweimal). Live noch nicht getestet.
+
+- **Pop-ups als Glas-Pille** (2026-11-28, Nutzer waehlte Stil A aus popups-entwuerfe.png): `Pille` in Frage.cs (Neu/Wort/Symbol). Download-Frage unten mittig, eine Zeile: Marke, Name, 1h 1d 1w 1m unendlich, Kalender (als Glasfeld darueber), Cloud, schliessen; feine Zeitlinie in der Pille; Bestaetigung in derselben Zeile. Browser-Einrichtung: Pille mit aktuellem Schritt + 4 Punkten, Erklaerung nur als Tooltip. Hinweis in der App im selben Stil. Kommt mit 0.3.1.
