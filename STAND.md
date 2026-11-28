@@ -265,3 +265,4 @@ Papierkorb, echtes Google Drive). Das passiert beim ersten Doppelklick auf `bin\
 ## Version 0.3.0 (2026-11-27)
 
 Veroeffentlicht, um das Update per Klick erstmals echt zu testen (installierte 0.2.0 -> 0.3.0).
+- **Browser-Einrichtung, 2 Klicks** (2026-11-28, noch nicht veröffentlicht – kommt mit 0.3.1): Workbench öffnet ein neues Browserfenster und tippt die Erweiterungs-Adresse selbst (Strg+L, Adresse, Enter per SendInput) – nur wenn genau das neue Fenster vorn ist (`AdresseTippen`), sonst bleibt die Adresse in der Zwischenablage. Nutzer: Entwicklermodus an, „Entpackte Erweiterung laden“. Workbench trägt den Ordner ein und bestätigt (IDOK, falls nötig zweimal). Live noch nicht getestet.

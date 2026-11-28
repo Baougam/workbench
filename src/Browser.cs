@@ -184,7 +184,10 @@ namespace Workbench
             cfg.Speichern();
             Anmelden();
             try { Clipboard.SetText(z.Seite); } catch { }
+            string proz = Path.GetFileNameWithoutExtension(z.Exe).ToLowerInvariant();
+            var vorher = Fenster(proz);
             try { Process.Start(new ProcessStartInfo(z.Exe, "--new-window") { UseShellExecute = false }); } catch (Exception ex) { Log.Fehler("Browser öffnen", ex); }
+            AdresseTippen(proz, vorher, z.Seite);
             if (karte != null) karte.Schliessen();
             karte = new BrowserKarte(z);
             karte.Show();
@@ -203,6 +206,60 @@ namespace Workbench
             }
             if (karte != null && karte.BrowserName == name) { karte.Fertig(); karte = null; }
         }
+
+        // ---------- Erweiterungsseite selbst öffnen: die Adresse ins neue Fenster tippen ----------
+
+        [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll", SetLastError = true)] static extern uint SendInput(uint n, INPUT[] inputs, int size);
+        [DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, int msg, IntPtr w, IntPtr l);
+        [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
+        [StructLayout(LayoutKind.Sequential)] struct INPUT { public uint type; public KEYBDINPUT ki; public long pad1; }
+        [StructLayout(LayoutKind.Sequential)] struct KEYBDINPUT { public ushort wVk; public ushort wScan; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
+        const uint KEYUP = 0x2, UNICODE = 0x4;
+
+        /// <summary>Sichtbare Hauptfenster eines Browsers.</summary>
+        static HashSet<IntPtr> Fenster(string prozessName)
+        {
+            var l = new HashSet<IntPtr>();
+            EnumWindows((h, x) =>
+            {
+                if (!IsWindowVisible(h)) return true;
+                uint pid; GetWindowThreadProcessId(h, out pid);
+                try { using (var p = Process.GetProcessById((int)pid)) if (p.ProcessName.ToLowerInvariant() == prozessName && Klasse(h).StartsWith("Chrome_WidgetWin")) l.Add(h); } catch { }
+                return true;
+            }, IntPtr.Zero);
+            return l;
+        }
+
+        /// <summary>
+        /// Browser öffnen „…://extensions“ nicht auf Zuruf. Darum: warten, bis das neu geöffnete Fenster vorn ist, dann
+        /// Strg+L, Adresse, Enter tippen. Nur in dieses neue Fenster – ist etwas anderes vorn, wird nichts getippt (Zwischenablage bleibt).
+        /// </summary>
+        static void AdresseTippen(string prozessName, HashSet<IntPtr> vorher, string adresse)
+        {
+            var t = new System.Threading.Thread(() =>
+            {
+                for (int i = 0; i < 40; i++)
+                {
+                    System.Threading.Thread.Sleep(150);
+                    var vorn = GetForegroundWindow();
+                    if (vorn == IntPtr.Zero || vorher.Contains(vorn) || !Fenster(prozessName).Contains(vorn)) continue;
+                    System.Threading.Thread.Sleep(350);   // Fenster fertig aufgebaut, Adressleiste bereit
+                    if (GetForegroundWindow() != vorn) return;
+                    var tasten = new List<INPUT>();
+                    Action<ushort, bool> vk = (k, hoch) => tasten.Add(new INPUT { type = 1, ki = new KEYBDINPUT { wVk = k, dwFlags = hoch ? KEYUP : 0 } });
+                    vk(0x11, false); vk(0x4C, false); vk(0x4C, true); vk(0x11, true);           // Strg+L
+                    foreach (char c in adresse) { tasten.Add(new INPUT { type = 1, ki = new KEYBDINPUT { wScan = c, dwFlags = UNICODE } }); tasten.Add(new INPUT { type = 1, ki = new KEYBDINPUT { wScan = c, dwFlags = UNICODE | KEYUP } }); }
+                    vk(0x0D, false); vk(0x0D, true);                                             // Enter
+                    SendInput((uint)tasten.Count, tasten.ToArray(), Marshal.SizeOf(typeof(INPUT)));
+                    if (AdresseGetippt != null) AdresseGetippt();
+                    return;
+                }
+            }) { IsBackground = true };
+            t.Start();
+        }
+
+        public static event Action AdresseGetippt;
 
         // ---------- Pfad ins Ordner-Fenster des Browsers eintragen ----------
 
@@ -233,6 +290,12 @@ namespace Workbench
                 if (feld == IntPtr.Zero || Klasse(feld) != "Edit" || !IsWindowVisible(feld)) return true;
                 schon.Add(h);
                 SendMessage(feld, WM_SETTEXT, IntPtr.Zero, Ordner);
+                // gleich bestätigen („Ordner auswählen“); falls das Fenster dabei nur hineinspringt, ein zweites Mal
+                var dlg = h;
+                PostMessage(dlg, 0x0111, new IntPtr(1), IntPtr.Zero);
+                var nach = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
+                nach.Tick += delegate { nach.Stop(); if (IsWindow(dlg) && IsWindowVisible(dlg)) PostMessage(dlg, 0x0111, new IntPtr(1), IntPtr.Zero); };
+                nach.Start();
                 ok = true;
                 return false;
             }, IntPtr.Zero);
@@ -285,8 +348,8 @@ namespace Workbench
             k.Children.Add(x);
             sp.Children.Add(k);
 
-            string[] schritte = { "Paste into the address bar", "Turn on Developer mode", "Click Load unpacked", "Click Select Folder" };
-            string[] hilfe = { ziel.Seite + " is on your clipboard", "A switch on the extensions page", "Appears once Developer mode is on", "Workbench fills in the folder for you" };
+            string[] schritte = { "Opening the extensions page …", "Turn on Developer mode", "Click Load unpacked", "Workbench picks the folder" };
+            string[] hilfe = { "If nothing happens: paste " + ziel.Seite + " into the address bar (it's on your clipboard)", "The switch at the top right of the page", "Appears once Developer mode is on", "Nothing to do – Workbench selects it for you" };
             for (int i = 0; i < schritte.Length; i++)
             {
                 var z = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(2, 3, 0, 3), ToolTip = hilfe[i], Background = Brushes.Transparent };
@@ -331,6 +394,9 @@ namespace Workbench
                 if (Browser.PfadEintragen(gesehen, prozess)) Schritt(3);
             };
             suche.Start();
+            Action getippt = null;
+            getippt = () => Dispatcher.BeginInvoke(new Action(() => { Browser.AdresseGetippt -= getippt; if (!zu) Schritt(1); }));
+            Browser.AdresseGetippt += getippt;
         }
 
         void Schritt(int aktiv)
