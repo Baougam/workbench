@@ -1272,7 +1272,8 @@ namespace Workbench
             // ein Knopf für den Standard-Browser – andere installierte nur klein daneben
             var reihe = new StackPanel { Orientation = Orientation.Horizontal };
             string std = Browser.Standard();
-            var alle = Browser.Finden().OrderBy(z => z.Name == std ? 0 : 1).ToList();
+            // zuerst der Browser, der gerade läuft (den man wirklich benutzt), dann der Windows-Standard
+            var alle = Browser.Finden().OrderBy(z => Browser.Laeuft(z) ? 0 : z.Name == std ? 1 : 2).ToList();
             for (int i = 0; i < alle.Count; i++)
             {
                 var z2 = alle[i];

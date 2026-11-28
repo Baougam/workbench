@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -143,6 +143,9 @@ namespace Workbench
         // ---------- Einrichten ----------
 
         public class Ziel { public string Name, Exe, Seite; }
+
+        /// <summary>Läuft dieser Browser gerade?</summary>
+        public static bool Laeuft(Ziel z) { try { return Process.GetProcessesByName(Path.GetFileNameWithoutExtension(z.Exe)).Length > 0; } catch { return false; } }
 
         /// <summary>Name des Standard-Browsers (aus der Windows-Zuordnung für Links), oder null.</summary>
         public static string Standard()
